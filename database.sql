@@ -526,3 +526,99 @@ CREATE TABLE IF NOT EXISTS cart_items (
     UNIQUE(cart_id, product_id)
 );
 
+
+-- Calls Table (Voice & Video)
+CREATE TABLE IF NOT EXISTS calls (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    caller_id UUID NOT NULL,
+    receiver_id UUID NOT NULL,
+    type VARCHAR(50) NOT NULL, -- VOICE, VIDEO
+    status VARCHAR(50) NOT NULL, -- INITIATED, RINGING, ACTIVE, COMPLETED, MISSED, REJECTED, BUSY
+    room_id VARCHAR(255), -- For WebRTC/Agora/Zego
+    started_at TIMESTAMP,
+    ended_at TIMESTAMP,
+    duration_seconds INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (caller_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_calls_users ON calls(caller_id, receiver_id);
+
+-- Live Streams Table
+CREATE TABLE IF NOT EXISTS live_streams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id UUID NOT NULL,
+    title VARCHAR(255),
+    description TEXT,
+    cover_image VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'LIVE', -- LIVE, ENDED, SCHEDULED
+    room_id VARCHAR(255) UNIQUE,
+    viewer_count INTEGER DEFAULT 0,
+    likes_count INTEGER DEFAULT 0,
+    gift_value DECIMAL(12, 2) DEFAULT 0.00,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (host_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_live_streams_host ON live_streams(host_id);
+
+-- User Wallet
+CREATE TABLE IF NOT EXISTS user_wallets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE,
+    coin_balance INTEGER DEFAULT 0,
+    cash_balance DECIMAL(12, 2) DEFAULT 0.00,
+    total_coins_purchased INTEGER DEFAULT 0,
+    total_coins_spent INTEGER DEFAULT 0,
+    total_gifts_received INTEGER DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Virtual Gifts Table
+CREATE TABLE IF NOT EXISTS virtual_gifts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    icon_url VARCHAR(255) NOT NULL,
+    animation_url VARCHAR(255),
+    price DECIMAL(12, 2) NOT NULL, -- TZS Price
+    coin_value INTEGER NOT NULL, -- Value in coins
+    is_premium BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Gift Transactions
+CREATE TABLE IF NOT EXISTS gift_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id UUID NOT NULL,
+    receiver_id UUID NOT NULL,
+    gift_id UUID NOT NULL,
+    live_stream_id UUID,
+    quantity INTEGER DEFAULT 1,
+    total_value DECIMAL(12, 2) NOT NULL,
+    message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (gift_id) REFERENCES virtual_gifts(id) ON DELETE CASCADE,
+    FOREIGN KEY (live_stream_id) REFERENCES live_streams(id) ON DELETE SET NULL
+);
+
+-- Coin Packages
+CREATE TABLE IF NOT EXISTS coin_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    coin_amount INTEGER NOT NULL,
+    bonus_coins INTEGER DEFAULT 0,
+    price DECIMAL(12, 2) NOT NULL,
+    icon_url VARCHAR(255),
+    is_popular BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

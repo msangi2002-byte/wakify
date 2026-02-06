@@ -2144,3 +2144,153 @@ output: {
     }
 }
 ----------------------
+
+# 📞 Voice & Video Calls API
+
+route: /api/v1/calls/initiate
+method: POST
+auth: Bearer Token (Required)
+description: Initiate a voice or video call
+example: {
+    "receiverId": "uuid",
+    "type": "VIDEO"
+}
+output: {
+    "success": true,
+    "data": { "id": "uuid", "roomId": "wakify_123...", "type": "VIDEO", "status": "INITIATED" }
+}
+----------------------
+
+route: /api/v1/calls/{callId}/accept
+method: POST
+auth: Bearer Token (Required)
+description: Accept an incoming call
+example: {}
+output: { "success": true, "message": "Call accepted" }
+----------------------
+
+route: /api/v1/calls/{callId}/reject
+method: POST
+auth: Bearer Token (Required)
+description: Reject an incoming call
+example: {}
+output: { "success": true, "message": "Call rejected" }
+----------------------
+
+route: /api/v1/calls/{callId}/end
+method: POST
+auth: Bearer Token (Required)
+description: End an ongoing call
+example: {}
+output: { "success": true, "message": "Call ended" }
+----------------------
+
+# 🎥 Live Streaming API
+
+route: /api/v1/live/start
+method: POST
+auth: Bearer Token (Required)
+description: Start a live stream
+example: {
+    "title": "My Awesome Live",
+    "description": "Talking about tech",
+    "coverImage": "url_to_image"
+}
+output: {
+    "success": true,
+    "data": { "id": "uuid", "roomId": "stream_123...", "title": "My Awesome Live" }
+}
+----------------------
+
+route: /api/v1/live/{liveId}/end
+method: POST
+auth: Bearer Token (Required)
+description: End a live stream
+example: {}
+output: { "success": true, "message": "Stream ended" }
+----------------------
+
+route: /api/v1/live/active
+method: GET
+auth: None (Public)
+description: Get list of active live streams
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/live/{liveId}/join
+method: POST
+auth: Bearer Token (Required)
+description: Join a live stream (increments viewer count)
+example: {}
+output: { "success": true, "data": { "id": "uuid", "viewers": 150 } }
+----------------------
+
+# 💎 Virtual Gifts & Coins API
+
+route: /api/v1/coins/packages
+method: GET
+auth: None (Public)
+description: Get available coin packages for purchase
+output: { "success": true, "data": [...] }
+----------------------
+
+route: /api/v1/coins/purchase
+method: POST
+auth: Bearer Token (Required)
+description: Initiate a coin package purchase
+example: {
+    "packageId": "uuid",
+    "phone": "0712345678"
+}
+output: { "success": true, "data": { "transactionId": "HP123..." } }
+----------------------
+
+route: /api/v1/gifts
+method: GET
+auth: None (Public)
+description: Get list of available virtual gifts
+output: { "success": true, "data": [...] }
+----------------------
+
+route: /api/v1/gifts/send
+method: POST
+auth: Bearer Token (Required)
+description: Send a gift to a user (optionally during a live stream)
+example: {
+    "receiverId": "uuid",
+    "giftId": "uuid",
+    "liveStreamId": "uuid",
+    "quantity": 1,
+    "message": "Cool stream!"
+}
+output: { "success": true, "message": "Gift sent successfully" }
+----------------------
+
+route: /api/v1/wallet
+method: GET
+auth: Bearer Token (Required)
+description: Get my wallet balances (Coins and Cash)
+output: {
+    "success": true,
+    "data": { "coinBalance": 500, "cashBalance": 12000.00 }
+}
+----------------------
+
+# 📱 Reels & Stories (Status) API
+
+route: /api/v1/posts/reels
+method: GET
+auth: None (Optional)
+description: Get feed of short videos (Reels)
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/posts/status
+method: GET
+auth: Bearer Token (Required)
+description: Get active stories from friends and self (Last 24h)
+alias: /api/v1/posts/stories
+output: { "success": true, "data": [...] }
+----------------------

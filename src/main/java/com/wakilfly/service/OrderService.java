@@ -206,6 +206,9 @@ public class OrderService {
             case CONFIRMED:
                 order.setConfirmedAt(LocalDateTime.now());
                 break;
+            case PROCESSING:
+                // Order is being prepared
+                break;
             case SHIPPED:
                 order.setShippedAt(LocalDateTime.now());
                 if (request.getTrackingNumber() != null) {
@@ -213,6 +216,7 @@ public class OrderService {
                 }
                 break;
             case DELIVERED:
+            case COMPLETED:
                 order.setDeliveredAt(LocalDateTime.now());
                 break;
             case CANCELLED:
@@ -223,6 +227,9 @@ public class OrderService {
                 break;
             case REFUNDED:
                 // Handle refund logic
+                break;
+            case PENDING:
+                // Initial state, no action needed
                 break;
         }
 
@@ -276,14 +283,17 @@ public class OrderService {
 
     private void validateStatusTransition(OrderStatus from, OrderStatus to) {
         // Define valid transitions
-        Map<OrderStatus, Set<OrderStatus>> validTransitions = Map.of(
-                OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
-                OrderStatus.CONFIRMED, Set.of(OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.CANCELLED),
-                OrderStatus.PROCESSING, Set.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED),
-                OrderStatus.SHIPPED, Set.of(OrderStatus.DELIVERED, OrderStatus.CANCELLED),
-                OrderStatus.DELIVERED, Set.of(OrderStatus.REFUNDED),
-                OrderStatus.CANCELLED, Set.of(),
-                OrderStatus.REFUNDED, Set.of());
+        Map<OrderStatus, Set<OrderStatus>> validTransitions = new HashMap<>();
+        validTransitions.put(OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED));
+        validTransitions.put(OrderStatus.CONFIRMED,
+                Set.of(OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.CANCELLED));
+        validTransitions.put(OrderStatus.PROCESSING, Set.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED));
+        validTransitions.put(OrderStatus.SHIPPED,
+                Set.of(OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELLED));
+        validTransitions.put(OrderStatus.DELIVERED, Set.of(OrderStatus.COMPLETED, OrderStatus.REFUNDED));
+        validTransitions.put(OrderStatus.COMPLETED, Set.of(OrderStatus.REFUNDED));
+        validTransitions.put(OrderStatus.CANCELLED, Set.of());
+        validTransitions.put(OrderStatus.REFUNDED, Set.of());
 
         if (!validTransitions.getOrDefault(from, Set.of()).contains(to)) {
             throw new BadRequestException("Invalid status transition from " + from + " to " + to);

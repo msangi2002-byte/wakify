@@ -328,3 +328,65 @@ CREATE TABLE IF NOT EXISTS commissions (
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
 );
+
+-- Reports Table (Content Moderation)
+CREATE TABLE IF NOT EXISTS reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL,
+    target_type VARCHAR(50) NOT NULL, -- POST, USER, BUSINESS, PRODUCT, COMMENT
+    target_id UUID NOT NULL,
+    reason VARCHAR(50) NOT NULL, -- SPAM, HARASSMENT, FALSE_INFO, INAPPROPRIATE, SCAM, OTHER
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'PENDING', -- PENDING, RESOLVED, DISMISSED
+    resolved_by UUID,
+    resolution_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Audit Logs Table (Admin Actions)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL,
+    action VARCHAR(100) NOT NULL, -- USER_STATUS_CHANGE, BUSINESS_VERIFIED, AGENT_APPROVED, etc.
+    target_type VARCHAR(50), -- USER, BUSINESS, AGENT, WITHDRAWAL, REPORT
+    target_id UUID,
+    old_value TEXT,
+    new_value TEXT,
+    details TEXT,
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Withdrawals Table
+CREATE TABLE IF NOT EXISTS withdrawals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    method VARCHAR(50) DEFAULT 'MPESA', -- MPESA, TIGOPESA, AIRTELMONEY, HALOPESA, BANK
+    status VARCHAR(50) DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED, COMPLETED, FAILED
+    transaction_id VARCHAR(255),
+    notes TEXT,
+    processed_by UUID,
+    processed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Indexes for Performance
+CREATE INDEX idx_payments_user_id ON payments(user_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
+CREATE INDEX idx_reports_status ON reports(status);
+CREATE INDEX idx_reports_target ON reports(target_type, target_id);
+CREATE INDEX idx_audit_logs_admin ON audit_logs(admin_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_withdrawals_agent ON withdrawals(agent_id);
+CREATE INDEX idx_withdrawals_status ON withdrawals(status);
+

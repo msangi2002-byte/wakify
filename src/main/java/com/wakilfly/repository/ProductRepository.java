@@ -34,4 +34,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     @Query("SELECT COUNT(p) FROM Product p WHERE p.business.id = :businessId")
     long countByBusinessId(@Param("businessId") UUID businessId);
+
+    long countByIsActiveTrue();
 }

@@ -46,4 +46,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT COALESCE(SUM(o.total), 0) FROM Order o WHERE o.business.id = :businessId AND o.status = 'DELIVERED' AND o.deliveredAt >= :startDate")
     BigDecimal sumSalesByBusinessIdSince(@Param("businessId") UUID businessId,
             @Param("startDate") LocalDateTime startDate);
+
+    long countByStatus(OrderStatus status);
 }

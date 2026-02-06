@@ -38,4 +38,6 @@ public interface BusinessRepository extends JpaRepository<Business, UUID> {
 
     @Query("SELECT COUNT(b) FROM Business b WHERE b.agent.id = :agentId AND b.status = 'ACTIVE'")
     long countActiveByAgentId(@Param("agentId") UUID agentId);
+
+    long countByStatus(BusinessStatus status);
 }

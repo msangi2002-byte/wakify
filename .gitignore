@@ -1,2 +1,39 @@
+
 # Gradle
-.gradle/
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+
+# Java
+*.class
+*.log
+*.ctxt
+.mtj.tmp/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDEs
+.idea
+*.iml
+.vscode
+.classpath
+.project
+.settings/
+bin/
+
+# System
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Temp
+uploads/

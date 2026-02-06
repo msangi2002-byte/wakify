@@ -1310,6 +1310,485 @@ output: {
 }
 ----------------------
 
+# 📱 Payment Routes (HarakaPay Integration)
+
+route: /api/v1/payments/initiate
+method: POST
+auth: Bearer Token (Required)
+description: Anza malipo kupitia HarakaPay - USSD push itatumwa kwa simu
+example: {
+    "amount": 10000,
+    "type": "AGENT_REGISTRATION",
+    "phone": "0712345678",
+    "description": "Agent registration fee"
+}
+output: {
+    "success": true,
+    "message": "Ombi la malipo limetumwa",
+    "data": {
+        "orderId": "HP1706123456789",
+        "message": "USSD push imetumwa kwa simu yako. Fuata maelekezo kukamilisha malipo.",
+        "amount": 10000
+    }
+}
+notes: |
+    Payment Types:
+    - AGENT_REGISTRATION: Ada ya kusajili agent (TZS 10,000)
+    - BUSINESS_ACTIVATION: Ada ya kuanzisha biashara (TZS 20,000)
+    - SUBSCRIPTION: Ada ya subscription (kulingana na plan)
+    - PROMOTION: Ada ya kutangaza/boost
+    - ORDER: Malipo ya order
+    
+    Baada ya malipo kukamilika, mfumo unaaktivisha agent/business/subscription automatically
+----------------------
+
+route: /api/v1/payments/status/{orderId}
+method: GET
+auth: Bearer Token (Required)
+description: Angalia hali ya malipo
+example: {}
+output: {
+    "success": true,
+    "message": "Malipo yamekamilika!",
+    "data": {
+        "orderId": "HP1706123456789",
+        "status": "SUCCESS",
+        "amount": 10000,
+        "type": "AGENT_REGISTRATION",
+        "paidAt": "2026-02-06T14:35:00",
+        "createdAt": "2026-02-06T14:30:00"
+    }
+}
+notes: |
+    Payment Status:
+    - PENDING: Malipo yanasubiri kukamilishwa
+    - PROCESSING: Malipo yanashughulikiwa
+    - SUCCESS: Malipo yamekamilika
+    - FAILED: Malipo yameshindikana
+    - CANCELLED: Malipo yameghairiwa
+    - REFUNDED: Malipo yamerudishwa
+----------------------
+
+route: /api/v1/payments/balance
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Angalia salio la HarakaPay wallet
+example: {}
+output: {
+    "success": true,
+    "message": "Salio limepatikana",
+    "data": {
+        "success": true,
+        "wallet_balance": 94000,
+        "float_balance": 50000
+    }
+}
+----------------------
+
+route: /api/v1/payments/{paymentId}
+method: GET
+auth: Bearer Token (Required)
+description: Pata malipo kwa ID yake
+example: {}
+output: {
+    "success": true,
+    "message": "Malipo yamepatikana",
+    "data": {
+        "orderId": "HP1706123456789",
+        "status": "SUCCESS",
+        "amount": 10000,
+        "type": "AGENT_REGISTRATION",
+        "paidAt": "2026-02-06T14:35:00",
+        "createdAt": "2026-02-06T14:30:00"
+    }
+}
+----------------------
+
+# 🔔 Webhook Routes
+
+route: /api/v1/webhooks/harakapay
+method: POST
+auth: None (Public endpoint for HarakaPay callbacks)
+description: HarakaPay callback endpoint - inapokea arifa za malipo
+example: {
+    "order_id": "HP1706123456789",
+    "status": "completed",
+    "amount": 10000
+}
+output: {
+    "success": true,
+    "message": "Callback received"
+}
+----------------------
+
+route: /api/v1/webhooks/payment/status/{orderId}
+method: GET
+auth: None (Public)
+description: Angalia hali ya malipo (public endpoint kwa mobile apps)
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "orderId": "HP1706123456789",
+        "status": "SUCCESS",
+        "amount": 10000,
+        "type": "AGENT_REGISTRATION",
+        "paidAt": "2026-02-06T14:35:00",
+        "createdAt": "2026-02-06T14:30:00"
+    }
+}
+----------------------
+
+route: /api/v1/webhooks/payment/refresh/{orderId}
+method: POST
+auth: None (Public)
+description: Refresh hali ya malipo kutoka HarakaPay
+example: {}
+output: {
+    "success": true,
+    "message": "Malipo yamekamilika!",
+    "data": {
+        "orderId": "HP1706123456789",
+        "status": "SUCCESS",
+        "amount": 10000,
+        "type": "AGENT_REGISTRATION",
+        "paidAt": "2026-02-06T14:35:00"
+    }
+}
+----------------------
+
+# 🔐 Admin Routes
+
+route: /api/v1/admin/dashboard
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Pata statistiki za dashboard ya admin
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "totalUsers": 1500,
+        "activeUsers": 1200,
+        "newUsersToday": 25,
+        "totalBusinesses": 450,
+        "activeBusinesses": 380,
+        "totalAgents": 120,
+        "activeAgents": 95,
+        "pendingAgents": 15,
+        "totalOrders": 3500,
+        "completedOrders": 3200,
+        "pendingOrders": 150,
+        "totalRevenue": 5000000.00,
+        "revenueToday": 150000.00,
+        "totalPosts": 12000,
+        "totalProducts": 8500,
+        "pendingReports": 12,
+        "pendingWithdrawals": 5,
+        "activeSubscriptions": 380,
+        "expiringSubscriptions": 25
+    }
+}
+----------------------
+
+route: /api/v1/admin/users
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya watumiaji wote
+params: page=0, size=20, role=USER, search=john
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "name": "John Doe",
+                "email": "john@example.com",
+                "phone": "+255712345678",
+                "role": "USER",
+                "isActive": true,
+                "isVerified": true,
+                "createdAt": "2026-01-15T10:00:00"
+            }
+        ],
+        "page": 0,
+        "size": 20,
+        "totalElements": 1500,
+        "totalPages": 75
+    }
+}
+----------------------
+
+route: /api/v1/admin/users/{userId}/status
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha hali ya mtumiaji (activate/deactivate)
+example: {
+    "isActive": false
+}
+output: {
+    "success": true,
+    "message": "User status updated successfully"
+}
+----------------------
+
+route: /api/v1/admin/users/{userId}/role
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha role ya mtumiaji
+example: {
+    "role": "ADMIN"
+}
+output: {
+    "success": true,
+    "message": "User role updated successfully"
+}
+----------------------
+
+route: /api/v1/admin/businesses
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya biashara zote
+params: page=0, size=20, status=ACTIVE, search=store
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "name": "Tech Store",
+                "status": "ACTIVE",
+                "isVerified": true,
+                "owner": { "id": "uuid", "name": "John Doe" },
+                "createdAt": "2026-01-15T10:00:00"
+            }
+        ],
+        "totalElements": 450,
+        "totalPages": 23
+    }
+}
+----------------------
+
+route: /api/v1/admin/businesses/{businessId}/status
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha hali ya biashara
+example: {
+    "status": "SUSPENDED"
+}
+output: {
+    "success": true,
+    "message": "Business status updated successfully"
+}
+----------------------
+
+route: /api/v1/admin/businesses/{businessId}/verify
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Thibitisha biashara (verification badge)
+example: {}
+output: {
+    "success": true,
+    "message": "Business verified successfully"
+}
+----------------------
+
+route: /api/v1/admin/agents
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya agents wote
+params: page=0, size=20, status=PENDING, search=agent
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "agentCode": "AGENT001",
+                "user": { "id": "uuid", "name": "Agent Name" },
+                "status": "ACTIVE",
+                "isVerified": true,
+                "totalEarnings": 500000.00,
+                "businessesActivated": 25,
+                "createdAt": "2026-01-15T10:00:00"
+            }
+        ],
+        "totalElements": 120,
+        "totalPages": 6
+    }
+}
+----------------------
+
+route: /api/v1/admin/agents/{agentId}/status
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha hali ya agent
+example: {
+    "status": "SUSPENDED"
+}
+output: {
+    "success": true,
+    "message": "Agent status updated successfully"
+}
+----------------------
+
+route: /api/v1/admin/agents/{agentId}/verify
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Thibitisha agent
+example: {}
+output: {
+    "success": true,
+    "message": "Agent verified successfully"
+}
+----------------------
+
+route: /api/v1/admin/withdrawals
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya withdrawal requests
+params: page=0, size=20, status=PENDING
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "agent": { "id": "uuid", "name": "Agent Name" },
+                "amount": 100000.00,
+                "status": "PENDING",
+                "phone": "+255712345678",
+                "createdAt": "2026-02-06T10:00:00"
+            }
+        ],
+        "totalElements": 5,
+        "totalPages": 1
+    }
+}
+----------------------
+
+route: /api/v1/admin/withdrawals/{withdrawalId}/process
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Process withdrawal request (approve/reject)
+example: {
+    "action": "APPROVE",
+    "notes": "Processed via M-Pesa"
+}
+output: {
+    "success": true,
+    "message": "Withdrawal approved successfully"
+}
+----------------------
+
+route: /api/v1/admin/reports
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya reports zilizotumwa
+params: page=0, size=20, status=PENDING
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "reporter": { "id": "uuid", "name": "Reporter Name" },
+                "targetType": "POST",
+                "targetId": "uuid",
+                "reason": "SPAM",
+                "description": "This is spam content",
+                "status": "PENDING",
+                "createdAt": "2026-02-06T10:00:00"
+            }
+        ],
+        "totalElements": 12,
+        "totalPages": 1
+    }
+}
+----------------------
+
+route: /api/v1/admin/reports/{reportId}/resolve
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Resolve report (take action)
+example: {
+    "action": "DELETE_CONTENT",
+    "notes": "Content violated community guidelines"
+}
+output: {
+    "success": true,
+    "message": "Report resolved successfully"
+}
+----------------------
+
+route: /api/v1/admin/reports/{reportId}/dismiss
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Dismiss report (reject)
+example: {
+    "notes": "Report is not valid"
+}
+output: {
+    "success": true,
+    "message": "Report dismissed"
+}
+----------------------
+
+route: /api/v1/admin/audit-logs
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Pata audit logs za actions zilizofanywa
+params: page=0, size=50, action=USER_STATUS_CHANGE
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "adminId": "uuid",
+                "action": "USER_STATUS_CHANGE",
+                "targetType": "USER",
+                "targetId": "uuid",
+                "details": "User deactivated for TOS violation",
+                "createdAt": "2026-02-06T10:00:00"
+            }
+        ],
+        "totalElements": 500,
+        "totalPages": 10
+    }
+}
+----------------------
+
+# 📢 Report Routes
+
+route: /api/v1/reports
+method: POST
+auth: Bearer Token (Required)
+description: Tuma report ya content/user
+example: {
+    "targetType": "POST",
+    "targetId": "uuid-of-post",
+    "reason": "SPAM",
+    "description": "This post contains spam links"
+}
+output: {
+    "success": true,
+    "message": "Report submitted successfully",
+    "data": {
+        "id": "uuid",
+        "status": "PENDING"
+    }
+}
+notes: |
+    Target Types: POST, USER, BUSINESS, PRODUCT, COMMENT
+    Reason Types: SPAM, HARASSMENT, FALSE_INFO, INAPPROPRIATE, SCAM, OTHER
+----------------------
+
 # Health Routes
 route: /
 method: GET

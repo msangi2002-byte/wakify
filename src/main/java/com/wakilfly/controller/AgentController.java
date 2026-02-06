@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.AgentRegistrationRequest;
 import com.wakilfly.dto.request.BusinessActivationRequest;
+import com.wakilfly.dto.request.WithdrawalRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AgentService;
@@ -118,6 +119,52 @@ public class AgentController {
             @RequestParam(defaultValue = "20") int size) {
         PagedResponse<AgentResponse> agents = agentService.searchAgents(q, page, size);
         return ResponseEntity.ok(ApiResponse.success(agents));
+    }
+
+    // ==================== WITHDRAWAL ENDPOINTS ====================
+
+    /**
+     * Request a withdrawal
+     * POST /api/v1/agent/withdrawals
+     */
+    @PostMapping("/withdrawals")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<WithdrawalResponse>> requestWithdrawal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody WithdrawalRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        WithdrawalResponse withdrawal = agentService.requestWithdrawal(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Withdrawal request submitted", withdrawal));
+    }
+
+    /**
+     * Get my withdrawal history
+     * GET /api/v1/agent/withdrawals
+     */
+    @GetMapping("/withdrawals")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<PagedResponse<WithdrawalResponse>>> getWithdrawalHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<WithdrawalResponse> withdrawals = agentService.getWithdrawalHistory(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(withdrawals));
+    }
+
+    /**
+     * Cancel a pending withdrawal
+     * DELETE /api/v1/agent/withdrawals/{id}
+     */
+    @DeleteMapping("/withdrawals/{id}")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<Void>> cancelWithdrawal(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        agentService.cancelWithdrawal(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Withdrawal cancelled"));
     }
 
     /**

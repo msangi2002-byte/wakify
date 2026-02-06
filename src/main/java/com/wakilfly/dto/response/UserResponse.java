@@ -24,6 +24,7 @@ public class UserResponse {
     private String coverPic;
     private Role role;
     private Boolean isVerified;
+    private Boolean isActive;
     private Integer followersCount;
     private Integer followingCount;
     private Integer postsCount;

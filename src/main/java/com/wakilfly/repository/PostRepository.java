@@ -43,4 +43,14 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 
     // Count user posts
     long countByAuthorIdAndIsDeletedFalse(UUID authorId);
+
+    // Posts with product tags (social commerce discovery)
+    @Query("SELECT DISTINCT p FROM Post p JOIN p.productTags pt WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' ORDER BY p.createdAt DESC")
+    Page<Post> findPostsWithProductTags(Pageable pageable);
+
+    // Posts tagging a specific product
+    @Query("SELECT p FROM Post p JOIN p.productTags pt WHERE pt.id = :productId AND p.isDeleted = false ORDER BY p.createdAt DESC")
+    Page<Post> findByProductId(@Param("productId") UUID productId, Pageable pageable);
+
+    long countByIsDeletedFalse();
 }

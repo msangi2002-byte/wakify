@@ -162,4 +162,51 @@ public class PostController {
         postService.deleteComment(commentId, userId);
         return ResponseEntity.ok(ApiResponse.success("Comment deleted successfully"));
     }
+
+    // ==================== PRODUCT TAGS ====================
+
+    /**
+     * Get posts with product tags (social commerce discovery)
+     * GET /api/v1/posts/with-products
+     */
+    @GetMapping("/with-products")
+    public ResponseEntity<ApiResponse<PagedResponse<PostResponse>>> getPostsWithProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = null;
+        if (userDetails != null) {
+            currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        }
+        PagedResponse<PostResponse> posts = postService.getPostsWithProductTags(page, size, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(posts));
+    }
+
+    /**
+     * Tag a product in a post
+     * POST /api/v1/posts/{postId}/tags/{productId}
+     */
+    @PostMapping("/{postId}/tags/{productId}")
+    public ResponseEntity<ApiResponse<PostResponse>> tagProduct(
+            @PathVariable UUID postId,
+            @PathVariable UUID productId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PostResponse post = postService.tagProduct(postId, productId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Product tagged successfully", post));
+    }
+
+    /**
+     * Remove product tag from post
+     * DELETE /api/v1/posts/{postId}/tags/{productId}
+     */
+    @DeleteMapping("/{postId}/tags/{productId}")
+    public ResponseEntity<ApiResponse<PostResponse>> untagProduct(
+            @PathVariable UUID postId,
+            @PathVariable UUID productId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PostResponse post = postService.untagProduct(postId, productId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Product untagged successfully", post));
+    }
 }

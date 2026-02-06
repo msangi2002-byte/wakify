@@ -1,0 +1,29 @@
+package com.wakilfly.dto.response;
+
+import com.wakilfly.entity.NotificationType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class NotificationResponse {
+
+    private UUID id;
+    private NotificationType type;
+    private String title;
+    private String message;
+    private UUID referenceId;
+    private String referenceType;
+    private UUID actorId;
+    private String actorName;
+    private String actorPic;
+    private Boolean isRead;
+    private LocalDateTime createdAt;
+}

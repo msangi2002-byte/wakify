@@ -1,0 +1,181 @@
+package com.wakilfly.service;
+
+import com.wakilfly.dto.request.*;
+import com.wakilfly.dto.response.AuthResponse;
+import com.wakilfly.dto.response.UserResponse;
+import com.wakilfly.entity.Role;
+import com.wakilfly.entity.User;
+import com.wakilfly.exception.BadRequestException;
+import com.wakilfly.exception.ResourceNotFoundException;
+import com.wakilfly.repository.UserRepository;
+import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.security.JwtTokenProvider;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Random;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider tokenProvider;
+    private final AuthenticationManager authenticationManager;
+    private final CustomUserDetailsService userDetailsService;
+
+    @Transactional
+    public UserResponse register(RegisterRequest request) {
+        // Check if phone already exists
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new BadRequestException("Phone number already registered");
+        }
+
+        // Check if email already exists (if provided)
+        if (request.getEmail() != null && !request.getEmail().isEmpty() &&
+                userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("Email already registered");
+        }
+
+        // Generate OTP
+        String otp = generateOtp();
+
+        // Create user
+        User user = User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.USER)
+                .isVerified(false)
+                .isActive(true)
+                .otpCode(otp)
+                .otpExpiresAt(LocalDateTime.now().plusMinutes(10))
+                .build();
+
+        user = userRepository.save(user);
+
+        // TODO: Send OTP via SMS
+        log.info("OTP for {}: {}", request.getPhone(), otp);
+
+        return mapToUserResponse(user);
+    }
+
+    @Transactional
+    public boolean verifyOtp(VerifyOtpRequest request) {
+        User user = userRepository.findByPhone(request.getPhone())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getOtpCode() == null || !user.getOtpCode().equals(request.getOtp())) {
+            throw new BadRequestException("Invalid OTP");
+        }
+
+        if (user.getOtpExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("OTP has expired");
+        }
+
+        user.setIsVerified(true);
+        user.setOtpCode(null);
+        user.setOtpExpiresAt(null);
+        userRepository.save(user);
+
+        return true;
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmailOrPhone(), request.getPassword()));
+
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        User user = userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
+
+        String accessToken = tokenProvider.generateAccessToken(userDetails);
+        String refreshToken = tokenProvider.generateRefreshToken(userDetails);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(mapToUserResponse(user))
+                .build();
+    }
+
+    public String refreshToken(String refreshToken) {
+        if (!tokenProvider.validateToken(refreshToken)) {
+            throw new BadRequestException("Invalid refresh token");
+        }
+
+        String username = tokenProvider.getUsernameFromToken(refreshToken);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+        return tokenProvider.generateAccessToken(userDetails);
+    }
+
+    @Transactional
+    public void forgotPassword(String phone) {
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String otp = generateOtp();
+        user.setOtpCode(otp);
+        user.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+
+        // TODO: Send OTP via SMS
+        log.info("Password reset OTP for {}: {}", phone, otp);
+    }
+
+    @Transactional
+    public boolean resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByPhone(request.getPhone())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getOtpCode() == null || !user.getOtpCode().equals(request.getOtp())) {
+            throw new BadRequestException("Invalid OTP");
+        }
+
+        if (user.getOtpExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("OTP has expired");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setOtpCode(null);
+        user.setOtpExpiresAt(null);
+        userRepository.save(user);
+
+        return true;
+    }
+
+    private String generateOtp() {
+        Random random = new Random();
+        int otp = 100000 + random.nextInt(900000);
+        return String.valueOf(otp);
+    }
+
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .bio(user.getBio())
+                .profilePic(user.getProfilePic())
+                .coverPic(user.getCoverPic())
+                .role(user.getRole())
+                .isVerified(user.getIsVerified())
+                .followersCount(user.getFollowersCount())
+                .followingCount(user.getFollowingCount())
+                .postsCount(user.getPostsCount())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+}

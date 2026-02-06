@@ -622,3 +622,83 @@ CREATE TABLE IF NOT EXISTS coin_packages (
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Promotions Table
+CREATE TABLE IF NOT EXISTS promotions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    business_id UUID,
+    type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    target_id UUID,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    budget DECIMAL(12, 2) NOT NULL,
+    spent_amount DECIMAL(12, 2) DEFAULT 0.00,
+    daily_budget DECIMAL(12, 2),
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    target_regions VARCHAR(255),
+    target_age_min INTEGER,
+    target_age_max INTEGER,
+    target_gender VARCHAR(50),
+    impressions BIGINT DEFAULT 0,
+    clicks BIGINT DEFAULT 0,
+    conversions BIGINT DEFAULT 0,
+    reach BIGINT DEFAULT 0,
+    payment_id UUID,
+    is_paid BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_promotions_user ON promotions(user_id);
+CREATE INDEX idx_promotions_status ON promotions(status);
+
+-- Promotion Packages Table
+CREATE TABLE IF NOT EXISTS promotion_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(12, 2) NOT NULL,
+    duration_days INTEGER NOT NULL,
+    daily_reach BIGINT,
+    total_impressions BIGINT,
+    promotion_type VARCHAR(50),
+    includes_targeting BOOLEAN DEFAULT FALSE,
+    includes_analytics BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Ads Table
+CREATE TABLE IF NOT EXISTS ads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    business_id UUID NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    image_url VARCHAR(255),
+    video_url VARCHAR(255),
+    target_url VARCHAR(255),
+    type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    daily_budget DECIMAL(15, 2),
+    total_budget DECIMAL(15, 2),
+    cost_per_click DECIMAL(10, 2),
+    cost_per_view DECIMAL(10, 2),
+    target_regions VARCHAR(255),
+    target_categories VARCHAR(255),
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    impressions INTEGER DEFAULT 0,
+    clicks INTEGER DEFAULT 0,
+    amount_spent DECIMAL(15, 2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_ads_business ON ads(business_id);
+CREATE INDEX idx_ads_status ON ads(status);
+

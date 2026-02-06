@@ -1,7 +1,7 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Agent;
-import com.wakilfly.entity.AgentStatus;
+import com.wakilfly.model.Agent;
+import com.wakilfly.model.AgentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

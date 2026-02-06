@@ -1,6 +1,6 @@
 package com.wakilfly.dto.request;
 
-import com.wakilfly.entity.SubscriptionPlan;
+import com.wakilfly.model.SubscriptionPlan;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,6 +1,6 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.NotificationType;
+import com.wakilfly.model.NotificationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

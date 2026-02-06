@@ -1,7 +1,7 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.PostType;
-import com.wakilfly.entity.Visibility;
+import com.wakilfly.model.PostType;
+import com.wakilfly.model.Visibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

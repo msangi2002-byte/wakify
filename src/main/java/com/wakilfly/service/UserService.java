@@ -3,7 +3,7 @@ package com.wakilfly.service;
 import com.wakilfly.dto.request.UpdateProfileRequest;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.UserResponse;
-import com.wakilfly.entity.User;
+import com.wakilfly.model.User;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;

@@ -1,6 +1,6 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.MessageType;
+import com.wakilfly.model.MessageType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

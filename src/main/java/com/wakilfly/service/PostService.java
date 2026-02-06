@@ -5,7 +5,7 @@ import com.wakilfly.dto.request.CreatePostRequest;
 import com.wakilfly.dto.response.CommentResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PostResponse;
-import com.wakilfly.entity.*;
+import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;

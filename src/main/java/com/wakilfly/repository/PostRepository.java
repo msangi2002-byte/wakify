@@ -1,8 +1,8 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Post;
-import com.wakilfly.entity.PostType;
-import com.wakilfly.entity.Visibility;
+import com.wakilfly.model.Post;
+import com.wakilfly.model.PostType;
+import com.wakilfly.model.Visibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

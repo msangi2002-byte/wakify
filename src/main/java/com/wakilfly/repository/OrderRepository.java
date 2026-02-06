@@ -1,7 +1,7 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Order;
-import com.wakilfly.entity.OrderStatus;
+import com.wakilfly.model.Order;
+import com.wakilfly.model.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

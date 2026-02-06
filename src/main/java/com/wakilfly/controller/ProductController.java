@@ -4,7 +4,7 @@ import com.wakilfly.dto.request.CreateProductRequest;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.ProductResponse;
-import com.wakilfly.entity.Business;
+import com.wakilfly.model.Business;
 import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.ProductService;

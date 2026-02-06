@@ -1,7 +1,7 @@
 package com.wakilfly.dto.request;
 
-import com.wakilfly.entity.PostType;
-import com.wakilfly.entity.Visibility;
+import com.wakilfly.model.PostType;
+import com.wakilfly.model.Visibility;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

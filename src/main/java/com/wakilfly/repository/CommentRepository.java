@@ -1,6 +1,6 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Comment;
+import com.wakilfly.model.Comment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

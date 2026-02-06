@@ -1,6 +1,6 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.AgentStatus;
+import com.wakilfly.model.AgentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

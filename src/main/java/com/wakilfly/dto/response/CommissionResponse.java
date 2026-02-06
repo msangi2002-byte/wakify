@@ -1,7 +1,7 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.CommissionStatus;
-import com.wakilfly.entity.CommissionType;
+import com.wakilfly.model.CommissionStatus;
+import com.wakilfly.model.CommissionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -1,6 +1,6 @@
 package com.wakilfly.security;
 
-import com.wakilfly.entity.User;
+import com.wakilfly.model.User;
 import lombok.Getter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

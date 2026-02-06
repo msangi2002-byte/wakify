@@ -3,7 +3,7 @@ package com.wakilfly.service;
 import com.wakilfly.dto.request.AgentRegistrationRequest;
 import com.wakilfly.dto.request.BusinessActivationRequest;
 import com.wakilfly.dto.response.*;
-import com.wakilfly.entity.*;
+import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;

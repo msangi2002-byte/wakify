@@ -1,7 +1,7 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Subscription;
-import com.wakilfly.entity.SubscriptionStatus;
+import com.wakilfly.model.Subscription;
+import com.wakilfly.model.SubscriptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

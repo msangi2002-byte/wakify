@@ -1,6 +1,6 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.OrderItem;
+import com.wakilfly.model.OrderItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

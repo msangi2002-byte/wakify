@@ -1,7 +1,7 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Business;
-import com.wakilfly.entity.BusinessStatus;
+import com.wakilfly.model.Business;
+import com.wakilfly.model.BusinessStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

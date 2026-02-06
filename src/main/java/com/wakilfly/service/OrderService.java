@@ -4,7 +4,7 @@ import com.wakilfly.dto.request.CreateOrderRequest;
 import com.wakilfly.dto.request.UpdateOrderStatusRequest;
 import com.wakilfly.dto.response.OrderResponse;
 import com.wakilfly.dto.response.PagedResponse;
-import com.wakilfly.entity.*;
+import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;

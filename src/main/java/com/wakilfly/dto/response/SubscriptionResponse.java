@@ -1,7 +1,7 @@
 package com.wakilfly.dto.response;
 
-import com.wakilfly.entity.SubscriptionPlan;
-import com.wakilfly.entity.SubscriptionStatus;
+import com.wakilfly.model.SubscriptionPlan;
+import com.wakilfly.model.SubscriptionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

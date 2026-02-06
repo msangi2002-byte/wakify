@@ -1,6 +1,6 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.ProductImage;
+import com.wakilfly.model.ProductImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

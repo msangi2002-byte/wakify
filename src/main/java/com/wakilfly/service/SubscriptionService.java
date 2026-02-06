@@ -3,7 +3,7 @@ package com.wakilfly.service;
 import com.wakilfly.dto.request.CreateSubscriptionRequest;
 import com.wakilfly.dto.response.SubscriptionPlansResponse;
 import com.wakilfly.dto.response.SubscriptionResponse;
-import com.wakilfly.entity.*;
+import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.BusinessRepository;

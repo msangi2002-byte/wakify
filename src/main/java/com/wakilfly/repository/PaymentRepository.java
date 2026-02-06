@@ -1,8 +1,8 @@
 package com.wakilfly.repository;
 
-import com.wakilfly.entity.Payment;
-import com.wakilfly.entity.PaymentStatus;
-import com.wakilfly.entity.PaymentType;
+import com.wakilfly.model.Payment;
+import com.wakilfly.model.PaymentStatus;
+import com.wakilfly.model.PaymentType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

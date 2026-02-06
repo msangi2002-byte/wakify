@@ -43,12 +43,16 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
+                        .requestMatchers("/").permitAll()
+                        .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/posts/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/posts/trending").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/businesses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/subscriptions/plans").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/code/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/search").permitAll()

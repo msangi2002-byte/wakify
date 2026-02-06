@@ -64,6 +64,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/business/**").hasAnyRole("BUSINESS", "ADMIN")
                         // Admin endpoints
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Public Reviews
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/product/**").permitAll()
                         // All other endpoints require authentication
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())

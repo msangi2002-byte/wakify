@@ -20,9 +20,15 @@ public class CreatePostRequest {
     @Size(max = 2000, message = "Caption cannot exceed 2000 characters")
     private String caption;
 
+    @Builder.Default
     private Visibility visibility = Visibility.PUBLIC;
 
+    @Builder.Default
     private PostType postType = PostType.POST;
 
     private List<UUID> productTags;
+
+    private UUID originalPostId; // For sharing/reposting
+
+    private UUID communityId; // For posting in groups/channels
 }

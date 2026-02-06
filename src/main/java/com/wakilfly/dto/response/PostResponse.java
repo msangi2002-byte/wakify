@@ -24,11 +24,12 @@ public class PostResponse {
     private PostType postType;
     private List<MediaResponse> media;
     private List<ProductSummary> productTags;
-    private Integer likesCount;
+    private Integer reactionsCount;
     private Integer commentsCount;
     private Integer sharesCount;
     private Integer viewsCount;
-    private Boolean isLiked;
+    private String userReaction; // Type of reaction by current user (or null)
+    private PostResponse originalPost; // For shared posts
     private LocalDateTime createdAt;
 
     @Data

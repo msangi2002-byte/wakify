@@ -1,6 +1,7 @@
 package com.wakilfly.repository;
 
 import com.wakilfly.model.Notification;
+import com.wakilfly.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,11 +15,11 @@ import java.util.UUID;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    Page<Notification> findByRecipientOrderByCreatedAtDesc(User recipient, Pageable pageable);
 
-    long countByUserIdAndIsReadFalse(UUID userId);
+    long countByRecipientAndIsReadFalse(User recipient);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
+    @Query("UPDATE Notification n SET n.isRead = true WHERE n.recipient.id = :userId")
     void markAllAsRead(@Param("userId") UUID userId);
 }

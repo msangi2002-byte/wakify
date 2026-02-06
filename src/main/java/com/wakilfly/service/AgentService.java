@@ -558,4 +558,30 @@ public class AgentService {
                                                 .build())
                                 .build();
         }
+
+        /**
+         * Get Agent Dashboard Summary
+         * Provides key stats for agent's wallet and performance
+         */
+        @Transactional(readOnly = true)
+        public AgentDashboardResponse getAgentDashboard(UUID agentUserId) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new RuntimeException("Agent not found"));
+
+                // Get today's start time for today's earnings calculation
+                LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
+
+                BigDecimal todayEarnings = commissionRepository.sumEarningsAfter(agent.getId(), startOfToday);
+                BigDecimal pendingWithdrawals = withdrawalRepository.sumAmountByAgentIdAndStatus(
+                                agent.getId(), WithdrawalStatus.PENDING);
+
+                return AgentDashboardResponse.builder()
+                                .currentBalance(agent.getAvailableBalance())
+                                .totalEarnings(agent.getTotalEarnings())
+                                .todayEarnings(todayEarnings != null ? todayEarnings : BigDecimal.ZERO)
+                                .pendingWithdrawals(pendingWithdrawals != null ? pendingWithdrawals : BigDecimal.ZERO)
+                                .totalBusinessesActivated(agent.getBusinessesActivated())
+                                .totalReferrals(agent.getTotalReferrals())
+                                .build();
+        }
 }

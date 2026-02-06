@@ -1310,6 +1310,140 @@ output: {
 }
 ----------------------
 
+route: /api/v1/posts/{postId}/react
+method: POST
+params: type=LOVE (LIKE, LOVE, HAHA, WOW, SAD, ANGRY)
+auth: Bearer Token (Required)
+description: React to a post with specific emotion
+example: {}
+output: {
+    "success": true,
+    "message": "Reaction added",
+    "data": {
+        "reactionsCount": 15
+    }
+}
+----------------------
+
+route: /api/v1/posts/{postId}/react
+method: DELETE
+auth: Bearer Token (Required)
+description: Remove reaction from a post
+example: {}
+output: {
+    "success": true,
+    "message": "Reaction removed",
+    "data": {
+        "reactionsCount": 14
+    }
+}
+----------------------
+
+
+# Friend Routes (Facebook Style)
+route: /api/v1/friends/request/{userId}
+method: POST
+auth: Bearer Token (Required)
+description: Send a friend request
+example: {}
+output: {
+    "success": true,
+    "message": "Friend request sent",
+    "data": { "status": "PENDING" }
+}
+----------------------
+
+route: /api/v1/friends/requests
+method: GET
+auth: Bearer Token (Required)
+description: Get pending friend requests (Incoming)
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+route: /api/v1/friends/accept/{requestId}
+method: POST
+auth: Bearer Token (Required)
+description: Accept a friend request (Also auto-follows)
+example: {}
+output: {
+    "success": true,
+    "message": "Friend request accepted"
+}
+----------------------
+
+route: /api/v1/friends
+method: GET
+auth: Bearer Token (Required)
+description: Get all friends
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+----------------------
+
+# 👥 Community Routes (Groups & Channels)
+route: /api/v1/communities
+method: POST
+auth: Bearer Token (Required)
+description: Create a new community (Group or Channel)
+example: { "name": "Developers", "type": "GROUP", "privacy": "PUBLIC" } (Multipart for coverImage)
+output: {
+    "success": true,
+    "data": { "id": "uuid", "name": "Developers", "type": "GROUP", "membersCount": 1 }
+}
+----------------------
+
+route: /api/v1/communities/{id}/join
+method: POST
+auth: Bearer Token (Required)
+description: Join a community
+example: {}
+output: {
+    "success": true,
+    "message": "Joined community successfully"
+}
+----------------------
+
+route: /api/v1/communities/{id}/leave
+method: POST
+auth: Bearer Token (Required)
+description: Leave a community
+example: {}
+output: {
+    "success": true,
+    "message": "Left community successfully"
+}
+----------------------
+
+route: /api/v1/communities
+method: GET
+auth: Bearer Token (Required)
+description: List all communities
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+route: /api/v1/communities/me
+method: GET
+auth: Bearer Token (Required)
+description: List my joined communities
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
 # 📱 Payment Routes (HarakaPay Integration)
 
 route: /api/v1/payments/initiate
@@ -1826,5 +1960,187 @@ output: {
 | 400 | Bad Request - Invalid input |
 | 401 | Unauthorized - Token invalid/missing |
 | 403 | Forbidden - No permission |
-| 404 | Not Found - Resource not found |
-| 500 | Server Error |
+
+# 🔔 Notification API
+
+route: /api/v1/notifications
+method: GET
+auth: Bearer Token (Required)
+description: Get user notifications
+params: page=0, size=20
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+route: /api/v1/notifications/unread-count
+method: GET
+auth: Bearer Token (Required)
+description: Get unread notification count
+example: {}
+output: {
+    "success": true,
+    "data": 5
+}
+----------------------
+
+route: /api/v1/notifications/{id}/read
+method: POST
+auth: Bearer Token (Required)
+description: Mark a specific notification as read
+example: {}
+output: {
+    "success": true,
+    "data": null
+}
+----------------------
+
+route: /api/v1/notifications/read-all
+method: POST
+auth: Bearer Token (Required)
+description: Mark all notifications as read
+example: {}
+output: {
+    "success": true,
+    "data": null
+}
+----------------------
+
+# 💬 Chat / Messaging API
+
+route: /api/v1/messages
+method: POST
+auth: Bearer Token (Required)
+description: Send a private message
+example: {
+    "recipientId": "uuid",
+    "content": "Hello there!"
+}
+output: {
+    "success": true,
+    "data": { "id": "...", "content": "...", "senderId": "...", "createdAt": "..." }
+}
+----------------------
+
+route: /api/v1/messages/{otherUserId}
+method: GET
+auth: Bearer Token (Required)
+description: Get conversation history with a user
+params: page=0, size=20
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+route: /api/v1/messages/unread-count
+method: GET
+auth: Bearer Token (Required)
+description: Get total count of unread messages
+example: {}
+output: {
+    "success": true,
+    "data": 3
+}
+----------------------
+
+# 🛒 Shopping Cart API
+
+route: /api/v1/cart
+method: GET
+auth: Bearer Token (Required)
+description: Get user's current shopping cart
+example: {}
+output: {
+    "success": true,
+    "data": { "items": [...], "summaryTotal": 50000, "itemCount": 2 }
+}
+----------------------
+
+route: /api/v1/cart/add
+method: POST
+auth: Bearer Token (Required)
+description: Add item to cart
+example: {
+    "productId": "uuid",
+    "quantity": 1
+}
+output: {
+    "success": true,
+    "data": { ... }
+}
+----------------------
+
+route: /api/v1/cart/remove/{productId}
+method: DELETE
+auth: Bearer Token (Required)
+description: Remove item from cart
+example: {}
+output: {
+    "success": true,
+    "data": { ... }
+}
+----------------------
+
+route: /api/v1/cart/clear
+method: DELETE
+auth: Bearer Token (Required)
+description: Clear entire cart
+example: {}
+output: {
+    "success": true,
+    "message": "Cart cleared"
+}
+----------------------
+
+# ⭐ Reviews API
+
+route: /api/v1/reviews
+method: POST
+auth: Bearer Token (Required)
+description: Add a product review
+example: {
+    "productId": "uuid",
+    "rating": 5,
+    "comment": "Amazing product!"
+}
+output: {
+    "success": true,
+    "data": { ... }
+}
+----------------------
+
+route: /api/v1/reviews/product/{productId}
+method: GET
+auth: None (Public)
+description: Get reviews for a product
+params: page=0, size=10
+example: {}
+output: {
+    "success": true,
+    "data": { "content": [...] }
+}
+----------------------
+
+# 📊 Agent Dashboard API
+
+route: /api/v1/agent/dashboard
+method: GET
+auth: Bearer Token (Required, Agent Role)
+description: Get agent's dashboard summary with wallet balance and performance stats
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "currentBalance": 150000.00,
+        "totalEarnings": 500000.00,
+        "todayEarnings": 25000.00,
+        "pendingWithdrawals": 50000.00,
+        "totalBusinessesActivated": 15,
+        "totalReferrals": 8
+    }
+}
+----------------------

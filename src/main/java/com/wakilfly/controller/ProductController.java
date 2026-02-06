@@ -184,9 +184,9 @@ public class ProductController {
 
     /**
      * Get my products (business owner)
-     * GET /api/v1/business/products
+     * GET /api/v1/products/my
      */
-    @GetMapping("/business/products")
+    @GetMapping("/products/my")
     @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getMyProducts(
             @AuthenticationPrincipal UserDetails userDetails,

@@ -61,12 +61,17 @@ public class AuthService {
                 .isActive(true)
                 .otpCode(otp)
                 .otpExpiresAt(LocalDateTime.now().plusMinutes(10))
+                .referredByAgentCode(request.getReferralCode()) // Track referral
                 .build();
 
         user = userRepository.save(user);
 
         // TODO: Send OTP via SMS
         log.info("OTP for {}: {}", request.getPhone(), otp);
+
+        if (request.getReferralCode() != null && !request.getReferralCode().isEmpty()) {
+            log.info("User {} registered with referral code: {}", request.getPhone(), request.getReferralCode());
+        }
 
         return mapToUserResponse(user);
     }

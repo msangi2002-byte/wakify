@@ -54,6 +54,19 @@ public class AgentController {
     }
 
     /**
+     * Get agent dashboard summary (wallet, earnings, stats)
+     * GET /api/v1/agent/dashboard
+     */
+    @GetMapping("/dashboard")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<AgentDashboardResponse>> getAgentDashboard(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        AgentDashboardResponse dashboard = agentService.getAgentDashboard(userId);
+        return ResponseEntity.ok(ApiResponse.success(dashboard));
+    }
+
+    /**
      * Get agent by code (public)
      * GET /api/v1/agent/code/{agentCode}
      */

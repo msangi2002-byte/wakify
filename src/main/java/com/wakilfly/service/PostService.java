@@ -18,10 +18,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import com.wakilfly.model.Community;
+import com.wakilfly.repository.CommunityRepository;
+import com.wakilfly.repository.CommunityMemberRepository;
+import com.wakilfly.model.NotificationType;
 
 @Service
 @RequiredArgsConstructor
@@ -34,20 +39,57 @@ public class PostService {
         private final PostMediaRepository postMediaRepository;
         private final ProductRepository productRepository;
         private final FileStorageService fileStorageService;
+        private final PostReactionRepository postReactionRepository;
+        private final CommunityRepository communityRepository;
+        private final CommunityMemberRepository communityMemberRepository;
+        private final NotificationService notificationService;
 
         @Transactional
         public PostResponse createPost(UUID userId, CreatePostRequest request, List<MultipartFile> files) {
                 User author = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-                Post post = Post.builder()
+                // Check for Community Post
+                Community community = null;
+                if (request.getCommunityId() != null) {
+                        community = communityRepository.findById(request.getCommunityId())
+                                        .orElseThrow(() -> new ResourceNotFoundException("Community", "id",
+                                                        request.getCommunityId()));
+
+                        // Validate membership
+                        if (!communityMemberRepository.existsByCommunityIdAndUserId(community.getId(),
+                                        author.getId())) {
+                                throw new BadRequestException("You are not a member of this community");
+                        }
+                }
+
+                Post.PostBuilder postBuilder = Post.builder()
                                 .caption(request.getCaption())
                                 .author(author)
+                                .community(community) // Set community
                                 .visibility(request.getVisibility() != null ? request.getVisibility()
                                                 : Visibility.PUBLIC)
-                                .postType(request.getPostType() != null ? request.getPostType() : PostType.POST)
-                                .build();
+                                .postType(request.getPostType() != null ? request.getPostType() : PostType.POST);
 
+                // Handle Shared Post (Repost - Facebook Repost feature)
+                if (request.getOriginalPostId() != null) {
+                        Post originalPost = postRepository.findById(request.getOriginalPostId())
+                                        .orElseThrow(() -> new ResourceNotFoundException("Post", "id",
+                                                        request.getOriginalPostId()));
+
+                        // If reposting a repost, link to the absolute original to avoid chain
+                        if (originalPost.getOriginalPost() != null) {
+                                originalPost = originalPost.getOriginalPost();
+                        }
+
+                        postBuilder.originalPost(originalPost);
+
+                        // Increment share count on original post
+                        originalPost.setSharesCount(originalPost.getSharesCount() + 1);
+                        postRepository.save(originalPost);
+                }
+
+                Post post = postBuilder.build();
                 post = postRepository.save(post);
 
                 // Add product tags
@@ -78,6 +120,17 @@ public class PostService {
                                                 .displayOrder(order++)
                                                 .build();
                                 postMediaRepository.save(media);
+                        }
+
+                        // Validation for REEL: Must have at least one video
+                        if (post.getPostType() == PostType.REEL) {
+                                boolean hasVideo = post.getMedia().stream()
+                                                .anyMatch(m -> m.getType() == MediaType.VIDEO);
+                                if (!hasVideo) {
+                                        // We can either throw exception or log warning. Let's throw for strictness.
+                                        // Actually, let's just log for now to avoid breaking existing flows if any.
+                                        log.warn("Post of type REEL created without video for user {}", userId);
+                                }
                         }
                 }
 
@@ -169,6 +222,14 @@ public class PostService {
                                 .build();
         }
 
+        public List<PostResponse> getActiveStories(UUID userId) {
+                LocalDateTime since = LocalDateTime.now().minusHours(24);
+                List<Post> stories = postRepository.findActiveStories(userId, since);
+                return stories.stream()
+                                .map(post -> mapToPostResponse(post, userId))
+                                .collect(Collectors.toList());
+        }
+
         public PostResponse getPostById(UUID postId, UUID currentUserId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
@@ -193,37 +254,61 @@ public class PostService {
                 postRepository.save(post);
         }
 
+        // Facebook Style Reactions (Replaces simple Like)
         @Transactional
-        public int likePost(UUID postId, UUID userId) {
+        public int reactToPost(UUID postId, UUID userId, ReactionType type) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-                if (post.isLikedBy(user)) {
-                        throw new BadRequestException("You already liked this post");
+                // Check if already reacted
+                Optional<PostReaction> existingReaction = postReactionRepository.findByPostAndUser(post, user);
+
+                if (existingReaction.isPresent()) {
+                        // Update reaction type if different
+                        PostReaction reaction = existingReaction.get();
+                        if (reaction.getType() != type) {
+                                reaction.setType(type);
+                                postReactionRepository.save(reaction);
+                        }
+                } else {
+                        // Create new reaction
+                        PostReaction reaction = PostReaction.builder()
+                                        .post(post)
+                                        .user(user)
+                                        .type(type)
+                                        .build();
+                        postReactionRepository.save(reaction);
+
+                        // Note: No need to manually add to list if cascade works, but good for local
+                        // consistency
+                        // post.getReactions().add(reaction);
+                        // postRepository.save(post);
+
+                        // Notification Logic
+                        log.info("User {} reacted with {} on post {}", userId, type, postId);
+                        notificationService.sendNotification(post.getAuthor(), user, NotificationType.LIKE,
+                                        post.getId(), user.getName() + " liked your post");
                 }
 
-                post.addLike(user);
-                postRepository.save(post);
-
-                // TODO: Create notification
-                log.info("User {} liked post {}", userId, postId);
-
-                return post.getLikesCount();
+                return post.getReactionsCount();
         }
 
         @Transactional
-        public int unlikePost(UUID postId, UUID userId) {
+        public int unreactToPost(UUID postId, UUID userId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-                post.removeLike(user);
-                postRepository.save(post);
+                Optional<PostReaction> reaction = postReactionRepository.findByPostAndUser(post, user);
 
-                return post.getLikesCount();
+                if (reaction.isPresent()) {
+                        postReactionRepository.delete(reaction.get());
+                }
+
+                return (int) postReactionRepository.countByPost(post);
         }
 
         @Transactional
@@ -249,8 +334,10 @@ public class PostService {
 
                 comment = commentRepository.save(comment);
 
-                // TODO: Create notification
+                // Create notification
                 log.info("User {} commented on post {}", userId, postId);
+                notificationService.sendNotification(post.getAuthor(), author, NotificationType.COMMENT, post.getId(),
+                                author.getName() + " commented on your post");
 
                 return mapToCommentResponse(comment);
         }
@@ -287,15 +374,30 @@ public class PostService {
         }
 
         private PostResponse mapToPostResponse(Post post, UUID currentUserId) {
-                boolean isLiked = false;
+                String userReaction = null;
+
+                // Get reaction count directly from DB or size (DB is safer for lazy loading
+                // issues)
+                int reactionsCount = post.getReactions() != null ? post.getReactions().size() : 0;
+
                 if (currentUserId != null) {
-                        User currentUser = userRepository.findById(currentUserId).orElse(null);
-                        if (currentUser != null) {
-                                isLiked = post.isLikedBy(currentUser);
+                        User currentUser = userRepository.getReferenceById(currentUserId); // Light reference
+                        // Check if user reacted (This might N+1 without optimization, but functional
+                        // for now)
+                        Optional<PostReaction> reaction = postReactionRepository.findByPostAndUser(post, currentUser);
+                        if (reaction.isPresent()) {
+                                userReaction = reaction.get().getType().name();
                         }
                 }
 
                 List<PostMedia> mediaList = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId());
+
+                // Recursively map original post if exists (1 level deep to avoid cycles/heavy
+                // load)
+                PostResponse originalPostResponse = null;
+                if (post.getOriginalPost() != null) {
+                        originalPostResponse = mapToPostResponseInternal(post.getOriginalPost(), currentUserId, true);
+                }
 
                 return PostResponse.builder()
                                 .id(post.getId())
@@ -323,11 +425,40 @@ public class PostService {
                                                                 .thumbnail(p.getThumbnail())
                                                                 .build())
                                                 .collect(Collectors.toList()))
-                                .likesCount(post.getLikesCount())
+                                .reactionsCount(reactionsCount)
                                 .commentsCount(post.getCommentsCount())
                                 .sharesCount(post.getSharesCount())
                                 .viewsCount(post.getViewsCount())
-                                .isLiked(isLiked)
+                                .userReaction(userReaction)
+                                .originalPost(originalPostResponse)
+                                .createdAt(post.getCreatedAt())
+                                .build();
+        }
+
+        // Helper to avoid infinite recursion when mapping shared post of a shared post
+        // (though we flat it at creation)
+        private PostResponse mapToPostResponseInternal(Post post, UUID currentUserId, boolean isShared) {
+                // Simplified mapping for nested posts (no comments, no nested shares to avoid
+                // loops)
+                List<PostMedia> mediaList = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId());
+
+                return PostResponse.builder()
+                                .id(post.getId())
+                                .caption(post.getCaption())
+                                .author(PostResponse.UserSummary.builder()
+                                                .id(post.getAuthor().getId())
+                                                .name(post.getAuthor().getName())
+                                                .profilePic(post.getAuthor().getProfilePic())
+                                                .build())
+                                .postType(post.getPostType())
+                                .media(mediaList.stream()
+                                                .map(m -> PostResponse.MediaResponse.builder()
+                                                                .id(m.getId())
+                                                                .url(m.getUrl())
+                                                                .type(m.getType().name())
+                                                                .thumbnailUrl(m.getThumbnailUrl())
+                                                                .build())
+                                                .collect(Collectors.toList()))
                                 .createdAt(post.getCreatedAt())
                                 .build();
         }

@@ -82,6 +82,18 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.success(reels));
     }
 
+    /**
+     * Get active stories (Status) from following people and self
+     * Stories expire after 24 hours
+     */
+    @GetMapping({ "/stories", "/status" })
+    public ResponseEntity<ApiResponse<List<PostResponse>>> getStories(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        List<PostResponse> stories = postService.getActiveStories(userId);
+        return ResponseEntity.ok(ApiResponse.success(stories));
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<PagedResponse<PostResponse>>> getUserPosts(
             @PathVariable UUID userId,
@@ -117,13 +129,33 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.success("Post deleted successfully"));
     }
 
+    @PostMapping("/{postId}/react")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> reactToPost(
+            @PathVariable UUID postId,
+            @RequestParam com.wakilfly.model.ReactionType type,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        int reactionsCount = postService.reactToPost(postId, userId, type);
+        return ResponseEntity.ok(ApiResponse.success("Reaction added", Map.of("reactionsCount", reactionsCount)));
+    }
+
+    @DeleteMapping("/{postId}/react")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> removeReaction(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        int reactionsCount = postService.unreactToPost(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Reaction removed", Map.of("reactionsCount", reactionsCount)));
+    }
+
+    // Backward compatibility for old "Like" button (Requests LIKE reaction)
     @PostMapping("/{postId}/like")
     public ResponseEntity<ApiResponse<Map<String, Integer>>> likePost(
             @PathVariable UUID postId,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        int likesCount = postService.likePost(postId, userId);
-        return ResponseEntity.ok(ApiResponse.success("Post liked", Map.of("likesCount", likesCount)));
+        int reactionsCount = postService.reactToPost(postId, userId, com.wakilfly.model.ReactionType.LIKE);
+        return ResponseEntity.ok(ApiResponse.success("Post liked", Map.of("reactionsCount", reactionsCount)));
     }
 
     @DeleteMapping("/{postId}/like")
@@ -131,8 +163,8 @@ public class PostController {
             @PathVariable UUID postId,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        int likesCount = postService.unlikePost(postId, userId);
-        return ResponseEntity.ok(ApiResponse.success("Post unliked", Map.of("likesCount", likesCount)));
+        int reactionsCount = postService.unreactToPost(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Post unliked", Map.of("reactionsCount", reactionsCount)));
     }
 
     @PostMapping("/{postId}/comments")

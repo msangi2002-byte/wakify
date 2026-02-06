@@ -7,6 +7,8 @@ import com.wakilfly.model.User;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;
+import com.wakilfly.model.NotificationType;
+import com.wakilfly.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public UserResponse getUserById(UUID userId) {
         User user = userRepository.findById(userId)
@@ -64,6 +67,24 @@ public class UserService {
             user.setCoverPic(request.getCoverPic());
         }
 
+        // Extended Details
+        if (request.getWork() != null)
+            user.setWork(request.getWork());
+        if (request.getEducation() != null)
+            user.setEducation(request.getEducation());
+        if (request.getCurrentCity() != null)
+            user.setCurrentCity(request.getCurrentCity());
+        if (request.getHometown() != null)
+            user.setHometown(request.getHometown());
+        if (request.getRelationshipStatus() != null)
+            user.setRelationshipStatus(request.getRelationshipStatus());
+        if (request.getGender() != null)
+            user.setGender(request.getGender());
+        if (request.getDateOfBirth() != null)
+            user.setDateOfBirth(request.getDateOfBirth());
+        if (request.getWebsite() != null)
+            user.setWebsite(request.getWebsite());
+
         user = userRepository.save(user);
         return mapToUserResponse(user, null);
     }
@@ -103,8 +124,10 @@ public class UserService {
         targetUser.addFollower(currentUser);
         userRepository.save(targetUser);
 
-        // TODO: Create notification for targetUser
+        // Create notification for targetUser
         log.info("User {} followed user {}", userId, targetUserId);
+        notificationService.sendNotification(targetUser, currentUser, NotificationType.FOLLOW, currentUser.getId(),
+                currentUser.getName() + " started following you");
     }
 
     @Transactional
@@ -181,6 +204,14 @@ public class UserService {
                 .followingCount(user.getFollowingCount())
                 .postsCount(user.getPostsCount())
                 .isFollowing(isFollowing)
+                .work(user.getWork())
+                .education(user.getEducation())
+                .currentCity(user.getCurrentCity())
+                .hometown(user.getHometown())
+                .relationshipStatus(user.getRelationshipStatus())
+                .gender(user.getGender())
+                .dateOfBirth(user.getDateOfBirth())
+                .website(user.getWebsite())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

@@ -31,5 +31,16 @@ public class UserResponse {
     private Boolean isFollowing; // For profile views
     private Boolean isBusiness;
     private UUID businessId;
+
+    // Extended Details
+    private String work;
+    private String education;
+    private String currentCity;
+    private String hometown;
+    private String relationshipStatus;
+    private String gender;
+    private java.time.LocalDate dateOfBirth;
+    private String website;
+
     private LocalDateTime createdAt;
 }

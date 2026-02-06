@@ -6,7 +6,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,6 +65,33 @@ public class User {
     @Column(name = "otp_expires_at")
     private LocalDateTime otpExpiresAt;
 
+    // --- Extended Social Profile Details ---
+
+    private String work; // e.g. "Software Engineer at Google"
+
+    private String education; // e.g. "Studied at UDSM"
+
+    @Column(name = "current_city")
+    private String currentCity; // e.g. "Dar es Salaam"
+
+    private String hometown; // e.g. "Arusha"
+
+    @Column(name = "relationship_status")
+    private String relationshipStatus; // e.g. "Single", "Married"
+
+    private String gender; // "Male", "Female", "Other"
+
+    @Column(name = "date_of_birth")
+    private java.time.LocalDate dateOfBirth;
+
+    private String website;
+
+    // Referral tracking
+    @Column(name = "referred_by_agent_code")
+    private String referredByAgentCode; // Agent code who referred this user
+
+    // ---------------------------------------
+
     // Followers: users who follow this user
     @ManyToMany
     @JoinTable(name = "follows", joinColumns = @JoinColumn(name = "following_id"), inverseJoinColumns = @JoinColumn(name = "follower_id"))
@@ -77,7 +106,10 @@ public class User {
     // Posts by this user
     @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
-    private Set<Post> posts = new HashSet<>();
+    private List<Post> posts = new ArrayList<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private UserWallet wallet;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

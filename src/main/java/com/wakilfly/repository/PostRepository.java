@@ -16,8 +16,17 @@ import java.util.UUID;
 public interface PostRepository extends JpaRepository<Post, UUID> {
 
     // Feed for a user (posts from people they follow + their own)
+    // Feed for a user (posts from people they follow + their own) with Visibility
+    // Checks
     @Query("SELECT p FROM Post p WHERE p.isDeleted = false AND " +
-            "(p.author.id = :userId OR p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId)) " +
+            "(p.author.id = :userId OR " +
+            "(p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId) AND " +
+            "(p.visibility = 'PUBLIC' OR " +
+            "(p.visibility = 'FRIENDS' AND EXISTS (" +
+            "SELECT fs FROM Friendship fs WHERE fs.status = 'ACCEPTED' AND " +
+            "((fs.requester.id = :userId AND fs.addressee = p.author) OR (fs.addressee.id = :userId AND fs.requester = p.author))"
+            +
+            "))))) " +
             "ORDER BY p.createdAt DESC")
     Page<Post> findFeedForUser(@Param("userId") UUID userId, Pageable pageable);
 
@@ -33,8 +42,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     @Query("SELECT p FROM Post p WHERE p.postType = :postType AND p.isDeleted = false AND p.visibility = 'PUBLIC' ORDER BY p.createdAt DESC")
     Page<Post> findByPostType(@Param("postType") PostType postType, Pageable pageable);
 
-    // Trending posts (by likes + comments)
-    @Query("SELECT p FROM Post p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' ORDER BY SIZE(p.likes) DESC, SIZE(p.comments) DESC")
+    // Trending posts (by reactions + comments)
+    @Query("SELECT p FROM Post p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' ORDER BY SIZE(p.reactions) DESC, SIZE(p.comments) DESC")
     Page<Post> findTrending(Pageable pageable);
 
     // Search posts by caption
@@ -53,4 +62,12 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     Page<Post> findByProductId(@Param("productId") UUID productId, Pageable pageable);
 
     long countByIsDeletedFalse();
+
+    // Stories (Status) - Active in last 24 hours
+    @Query("SELECT p FROM Post p WHERE p.postType = 'STORY' AND p.isDeleted = false AND p.createdAt >= :since AND " +
+            "(p.author.id = :userId OR " +
+            "(p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId) AND " +
+            "(p.visibility = 'PUBLIC' OR p.visibility = 'FRIENDS'))) " +
+            "ORDER BY p.createdAt DESC")
+    java.util.List<Post> findActiveStories(@Param("userId") UUID userId, @Param("since") java.time.LocalDateTime since);
 }

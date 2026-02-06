@@ -101,10 +101,10 @@ public class OrderController {
     // ============================================
 
     /**
-     * Get business orders (seller)
-     * GET /api/v1/business/orders
+     * Get business orders (seller) - with status filter
+     * GET /api/v1/orders/incoming
      */
-    @GetMapping("/business/orders")
+    @GetMapping("/orders/incoming")
     @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PagedResponse<OrderResponse>>> getBusinessOrders(
             @AuthenticationPrincipal UserDetails userDetails,

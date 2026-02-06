@@ -45,11 +45,15 @@ public class Post {
     @Builder.Default
     private List<PostMedia> media = new ArrayList<>();
 
-    // Likes
-    @ManyToMany
-    @JoinTable(name = "post_likes", joinColumns = @JoinColumn(name = "post_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    // Reactions (Replacing old Likes)
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Set<User> likes = new HashSet<>();
+    private List<PostReaction> reactions = new ArrayList<>();
+
+    // Shared Post Logic (Repost)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_post_id")
+    private Post originalPost;
 
     // Comments
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -61,6 +65,11 @@ public class Post {
     @JoinTable(name = "post_product_tags", joinColumns = @JoinColumn(name = "post_id"), inverseJoinColumns = @JoinColumn(name = "product_id"))
     @Builder.Default
     private Set<Product> productTags = new HashSet<>();
+
+    // Community (Group/Channel) link. Null if personal post.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    private Community community;
 
     @Column(name = "shares_count")
     @Builder.Default
@@ -83,24 +92,22 @@ public class Post {
     private LocalDateTime updatedAt;
 
     // Helper methods
-    public int getLikesCount() {
-        return likes != null ? likes.size() : 0;
+    public int getReactionsCount() {
+        return reactions != null ? reactions.size() : 0;
     }
 
     public int getCommentsCount() {
         return comments != null ? comments.size() : 0;
     }
 
-    public void addLike(User user) {
-        this.likes.add(user);
+    public void addReaction(PostReaction reaction) {
+        reactions.add(reaction);
+        reaction.setPost(this);
     }
 
-    public void removeLike(User user) {
-        this.likes.remove(user);
-    }
-
-    public boolean isLikedBy(User user) {
-        return this.likes.contains(user);
+    public void removeReaction(PostReaction reaction) {
+        reactions.remove(reaction);
+        reaction.setPost(null);
     }
 
     public void addMedia(PostMedia postMedia) {

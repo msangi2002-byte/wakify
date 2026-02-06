@@ -232,6 +232,27 @@ public class AdminService {
     }
 
     /**
+     * Verify user (Blue Tick)
+     */
+    @Transactional
+    public Map<String, Object> verifyUser(UUID userId, UUID adminId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        user.setIsVerified(true);
+        user = userRepository.save(user);
+
+        auditLogService.log(adminId, "USER_VERIFIED", "User", userId,
+                "User verified (Blue Tick) by admin", null, null, null);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", user.getId());
+        response.put("name", user.getName());
+        response.put("isVerified", user.getIsVerified());
+        return response;
+    }
+
+    /**
      * Get pending withdrawals
      */
     public PagedResponse<WithdrawalResponse> getPendingWithdrawals(int page, int size) {

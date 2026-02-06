@@ -21,19 +21,15 @@ public class Message {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "conversation_id", nullable = false)
-    private Conversation conversation;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
-    @Column(columnDefinition = "TEXT")
-    private String content;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recipient_id", nullable = false)
+    private User recipient;
 
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private MessageType type = MessageType.TEXT;
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String content;
 
     @Column(name = "media_url")
     private String mediaUrl;
@@ -41,13 +37,6 @@ public class Message {
     @Column(name = "is_read")
     @Builder.Default
     private Boolean isRead = false;
-
-    @Column(name = "read_at")
-    private LocalDateTime readAt;
-
-    @Column(name = "is_deleted")
-    @Builder.Default
-    private Boolean isDeleted = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

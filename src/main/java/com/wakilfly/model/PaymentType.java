@@ -6,5 +6,6 @@ public enum PaymentType {
     BUSINESS_ACTIVATION, // Business activation fee
     PROMOTION, // Ad/boost payment
     ORDER, // Order payment
-    WITHDRAWAL // Agent withdrawal
+    WITHDRAWAL, // Agent withdrawal
+    COIN_PURCHASE // Virtual coins purchase
 }

@@ -32,6 +32,8 @@ public class PaymentService {
     private final BusinessRepository businessRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final PromotionRepository promotionRepository;
+    private final CommissionRepository commissionRepository;
+    private final GiftService giftService;
     private final AuditLogService auditLogService;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -48,6 +50,12 @@ public class PaymentService {
      */
     @Transactional
     public String initiatePayment(UUID userId, BigDecimal amount, PaymentType type, String phone, String description) {
+        return initiatePayment(userId, amount, type, phone, description, null);
+    }
+
+    @Transactional
+    public String initiatePayment(UUID userId, BigDecimal amount, PaymentType type, String phone, String description,
+            UUID relatedEntityId) {
         User user = userRepository.findById(userId).orElseThrow();
 
         // Create payment record
@@ -59,6 +67,7 @@ public class PaymentService {
                 .method(detectPaymentMethod(phone))
                 .paymentPhone(phone)
                 .description(description)
+                .relatedEntityId(relatedEntityId)
                 .build();
 
         payment = paymentRepository.save(payment);
@@ -269,7 +278,21 @@ public class PaymentService {
             case SUBSCRIPTION -> activateSubscription(payment);
             case PROMOTION -> activatePromotion(payment);
             case ORDER -> processOrderPayment(payment);
+            case COIN_PURCHASE -> processCoinPurchase(payment);
             default -> log.info("Payment type {} does not require additional processing", payment.getType());
+        }
+    }
+
+    private void processCoinPurchase(Payment payment) {
+        if (payment.getRelatedEntityId() != null) {
+            try {
+                giftService.purchaseCoins(payment.getUser().getId(), payment.getRelatedEntityId());
+                log.info("Coin purchase processed for user {} with package {}",
+                        payment.getUser().getId(), payment.getRelatedEntityId());
+            } catch (Exception e) {
+                log.error("Failed to process coin purchase for user {}: {}",
+                        payment.getUser().getId(), e.getMessage());
+            }
         }
     }
 
@@ -289,15 +312,59 @@ public class PaymentService {
             business.setStatus(BusinessStatus.ACTIVE);
             businessRepository.save(business);
 
-            // Create commission for agent
+            // Create commission for agent who activated the business
             if (business.getAgent() != null) {
                 Agent agent = business.getAgent();
-                BigDecimal commission = new BigDecimal("5000.00");
-                agent.addEarnings(commission);
+                BigDecimal commissionAmount = new BigDecimal("5000.00");
+
+                // Create Commission record for history tracking
+                Commission commission = Commission.builder()
+                        .agent(agent)
+                        .business(business)
+                        .amount(commissionAmount)
+                        .type(CommissionType.BUSINESS_ACTIVATION)
+                        .description("Commission for activating business: " + business.getName())
+                        .status(CommissionStatus.PAID)
+                        .paidAt(LocalDateTime.now())
+                        .build();
+                commissionRepository.save(commission);
+
+                // Update agent's earnings
+                agent.addEarnings(commissionAmount);
                 agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
                 agentRepository.save(agent);
+
                 log.info("Agent {} earned {} TZS commission for business {}",
-                        agent.getAgentCode(), commission, business.getName());
+                        agent.getAgentCode(), commissionAmount, business.getName());
+            }
+
+            // Pay referral commission if user was referred by an agent
+            User owner = payment.getUser();
+            if (owner.getReferredByAgentCode() != null && !owner.getReferredByAgentCode().isEmpty()) {
+                Agent referringAgent = agentRepository.findByAgentCode(owner.getReferredByAgentCode()).orElse(null);
+
+                if (referringAgent != null && !referringAgent.equals(business.getAgent())) {
+                    BigDecimal referralBonus = new BigDecimal("2000.00");
+
+                    Commission referralCommission = Commission.builder()
+                            .agent(referringAgent)
+                            .business(business)
+                            .amount(referralBonus)
+                            .type(CommissionType.REFERRAL)
+                            .description("Referral bonus for user " + owner.getPhone() + " starting business: "
+                                    + business.getName())
+                            .status(CommissionStatus.PAID)
+                            .paidAt(LocalDateTime.now())
+                            .build();
+                    commissionRepository.save(referralCommission);
+
+                    referringAgent.addEarnings(referralBonus);
+                    referringAgent.setTotalReferrals(referringAgent.getTotalReferrals() + 1);
+                    agentRepository.save(referringAgent);
+
+                    log.info("Agent {} earned {} TZS referral bonus for user {} who started business {}",
+                            referringAgent.getAgentCode(), referralBonus, owner.getPhone(), business.getName());
+                }
             }
 
             log.info("Business {} activated after payment {}", business.getName(), payment.getTransactionId());

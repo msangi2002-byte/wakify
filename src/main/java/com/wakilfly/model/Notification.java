@@ -21,41 +21,26 @@ public class Notification {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "recipient_id", nullable = false)
+    private User recipient;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_id")
+    private User actor; // Who triggered the notification (can be null for system)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationType type;
 
+    @Column(name = "entity_id")
+    private UUID entityId; // Post ID, Comment ID, etc.
+
     @Column(nullable = false)
-    private String title;
-
-    @Column(columnDefinition = "TEXT")
     private String message;
-
-    // Reference to related entity
-    @Column(name = "reference_id")
-    private UUID referenceId;
-
-    @Column(name = "reference_type")
-    private String referenceType; // POST, COMMENT, ORDER, etc.
-
-    @Column(name = "actor_id")
-    private UUID actorId; // User who triggered the notification
-
-    @Column(name = "actor_name")
-    private String actorName;
-
-    @Column(name = "actor_pic")
-    private String actorPic;
 
     @Column(name = "is_read")
     @Builder.Default
     private Boolean isRead = false;
-
-    @Column(name = "read_at")
-    private LocalDateTime readAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

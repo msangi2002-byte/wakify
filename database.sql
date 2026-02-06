@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN DEFAULT TRUE,
     otp_code VARCHAR(255),
     otp_expires_at TIMESTAMP,
+    work VARCHAR(255),
+    education VARCHAR(255),
+    current_city VARCHAR(255),
+    hometown VARCHAR(255),
+    relationship_status VARCHAR(50),
+    gender VARCHAR(50),
+    date_of_birth DATE,
+    website VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
 );
@@ -27,6 +35,48 @@ CREATE TABLE IF NOT EXISTS follows (
     PRIMARY KEY (follower_id, following_id),
     FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Friendships Table (Facebook Style)
+CREATE TABLE IF NOT EXISTS friendships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    requester_id UUID NOT NULL,
+    addressee_id UUID NOT NULL,
+    status VARCHAR(50) NOT NULL, -- PENDING, ACCEPTED, DECLINED, BLOCKED
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (addressee_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(requester_id, addressee_id)
+);
+
+-- Communities Table (Groups & Channels)
+CREATE TABLE IF NOT EXISTS communities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL DEFAULT 'GROUP', -- GROUP, CHANNEL
+    privacy VARCHAR(50) DEFAULT 'PUBLIC', -- PUBLIC, PRIVATE
+    cover_image VARCHAR(255),
+    creator_id UUID NOT NULL,
+    members_count INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Community Members
+CREATE TABLE IF NOT EXISTS community_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    community_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    role VARCHAR(50) DEFAULT 'MEMBER', -- ADMIN, MODERATOR, MEMBER
+    is_banned BOOLEAN DEFAULT FALSE,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(community_id, user_id)
 );
 
 -- Agents Table
@@ -192,10 +242,12 @@ CREATE TABLE IF NOT EXISTS posts (
     post_type VARCHAR(50) DEFAULT 'POST',
     shares_count INTEGER DEFAULT 0,
     views_count INTEGER DEFAULT 0,
+    original_post_id UUID,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
-    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (original_post_id) REFERENCES posts(id) ON DELETE SET NULL
 );
 
 -- Post Media Table
@@ -227,14 +279,27 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
 );
 
--- Post Likes Join Table
-CREATE TABLE IF NOT EXISTS post_likes (
+
+-- Post Reactions Table (Replaces Post Likes)
+CREATE TABLE IF NOT EXISTS post_reactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID NOT NULL,
     user_id UUID NOT NULL,
-    PRIMARY KEY (post_id, user_id),
+    type VARCHAR(50) NOT NULL, -- LIKE, LOVE, HAHA, WOW, SAD, ANGRY
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(post_id, user_id)
 );
+
+-- Post Likes Join Table (Deprecated - Use post_reactions)
+-- CREATE TABLE IF NOT EXISTS post_likes (
+--     post_id UUID NOT NULL,
+--     user_id UUID NOT NULL,
+--     PRIMARY KEY (post_id, user_id),
+--     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+--     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+-- );
 
 -- Post Product Tags Join Table
 CREATE TABLE IF NOT EXISTS post_product_tags (
@@ -389,4 +454,75 @@ CREATE INDEX idx_audit_logs_admin ON audit_logs(admin_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_withdrawals_agent ON withdrawals(agent_id);
 CREATE INDEX idx_withdrawals_status ON withdrawals(status);
+
+
+-- Update Posts to support communities
+ALTER TABLE posts ADD COLUMN community_id UUID;
+ALTER TABLE posts ADD CONSTRAINT fk_posts_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE;
+
+
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipient_id UUID NOT NULL,
+    actor_id UUID,
+    type VARCHAR(50) NOT NULL,
+    entity_id UUID,
+    message VARCHAR(255) NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_notifications_recipient ON notifications(recipient_id);
+
+
+-- Messages Table
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id UUID NOT NULL,
+    recipient_id UUID NOT NULL,
+    content TEXT NOT NULL,
+    media_url VARCHAR(255),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_messages_sender ON messages(sender_id);
+CREATE INDEX idx_messages_recipient ON messages(recipient_id);
+
+
+-- Product Reviews Table
+CREATE TABLE IF NOT EXISTS product_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_reviews_product ON product_reviews(product_id);
+
+
+-- Shopping Cart Tables
+CREATE TABLE IF NOT EXISTS carts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS cart_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL,
+    product_id UUID NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE(cart_id, product_id)
+);
 

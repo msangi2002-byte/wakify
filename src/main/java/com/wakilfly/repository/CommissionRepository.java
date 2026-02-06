@@ -27,4 +27,7 @@ public interface CommissionRepository extends JpaRepository<Commission, UUID> {
 
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Commission c WHERE c.agent.id = :agentId AND c.status = 'PAID'")
     BigDecimal sumPaidByAgentId(@Param("agentId") UUID agentId);
+
+    @Query("SELECT COALESCE(SUM(c.amount), 0) FROM Commission c WHERE c.agent.id = :agentId AND c.createdAt >= :startTime")
+    BigDecimal sumEarningsAfter(@Param("agentId") UUID agentId, @Param("startTime") java.time.LocalDateTime startTime);
 }

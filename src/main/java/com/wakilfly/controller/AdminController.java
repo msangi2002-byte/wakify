@@ -136,6 +136,19 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("Business verified", business));
     }
 
+    /**
+     * Verify user (Blue Tick)
+     * POST /api/v1/admin/users/{id}/verify
+     */
+    @PostMapping("/users/{id}/verify")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyUser(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        Map<String, Object> result = adminService.verifyUser(id, adminId);
+        return ResponseEntity.ok(ApiResponse.success("User verified (Blue Tick)", result));
+    }
+
     // ==================== AGENT MANAGEMENT ====================
 
     /**

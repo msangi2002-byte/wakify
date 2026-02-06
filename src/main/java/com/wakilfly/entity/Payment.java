@@ -25,11 +25,11 @@ public class Payment {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "reference", unique = true, nullable = false)
-    private String reference; // Internal reference
+    @Column(name = "transaction_id", unique = true)
+    private String transactionId;
 
     @Column(name = "external_reference")
-    private String externalReference; // Payment provider reference
+    private String externalReference;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
@@ -43,23 +43,25 @@ public class Payment {
     private PaymentStatus status = PaymentStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private PaymentMethod method;
 
-    @Column(name = "phone")
-    private String phone; // For mobile money
+    @Column(name = "payment_phone")
+    private String paymentPhone;
+
+    @Column(name = "description")
+    private String description;
 
     @Column(name = "provider_response", columnDefinition = "TEXT")
     private String providerResponse;
 
     @Column(name = "related_entity_type")
-    private String relatedEntityType; // SUBSCRIPTION, AGENT_REGISTRATION, PROMOTION
+    private String relatedEntityType;
 
     @Column(name = "related_entity_id")
     private UUID relatedEntityId;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

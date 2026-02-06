@@ -27,8 +27,8 @@ public class Business {
     @JoinColumn(name = "owner_id", nullable = false, unique = true)
     private User owner;
 
-    @Column(name = "business_name", nullable = false)
-    private String businessName;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -42,8 +42,24 @@ public class Business {
     @Column(name = "cover_image")
     private String coverImage;
 
-    @Column(name = "location")
-    private String location;
+    // Location details
+    @Column(name = "region")
+    private String region;
+
+    @Column(name = "district")
+    private String district;
+
+    @Column(name = "ward")
+    private String ward;
+
+    @Column(name = "street")
+    private String street;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 
     @Column(name = "phone")
     private String phone;

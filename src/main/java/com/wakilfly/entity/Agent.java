@@ -28,25 +28,35 @@ public class Agent {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(name = "agent_code", unique = true)
+    private String agentCode;
+
+    @Column(name = "national_id")
+    private String nationalId;
+
     @Column(name = "license_number")
     private String licenseNumber;
-
-    @Column(name = "id_number")
-    private String idNumber;
 
     @Column(name = "id_document_url")
     private String idDocumentUrl;
 
-    @Column(name = "agent_code", unique = true)
-    private String agentCode; // Referral code
+    // Location
+    @Column(name = "region")
+    private String region;
 
-    @Column(name = "registration_fee_paid", precision = 12, scale = 2)
-    @Builder.Default
-    private BigDecimal registrationFeePaid = BigDecimal.ZERO;
+    @Column(name = "district")
+    private String district;
+
+    @Column(name = "ward")
+    private String ward;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private AgentStatus status = AgentStatus.PENDING;
+
+    @Column(name = "is_verified")
+    @Builder.Default
+    private Boolean isVerified = false;
 
     // Businesses activated by this agent
     @OneToMany(mappedBy = "agent", fetch = FetchType.LAZY)
@@ -58,6 +68,7 @@ public class Agent {
     @Builder.Default
     private List<Commission> commissions = new ArrayList<>();
 
+    // Financial
     @Column(name = "total_earnings", precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal totalEarnings = BigDecimal.ZERO;
@@ -66,9 +77,17 @@ public class Agent {
     @Builder.Default
     private BigDecimal availableBalance = BigDecimal.ZERO;
 
-    @Column(name = "is_verified")
+    // Stats
+    @Column(name = "businesses_activated")
     @Builder.Default
-    private Boolean isVerified = false;
+    private Integer businessesActivated = 0;
+
+    @Column(name = "total_referrals")
+    @Builder.Default
+    private Integer totalReferrals = 0;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -77,6 +96,16 @@ public class Agent {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Helper methods
+    public void incrementBusinessCount() {
+        this.businessesActivated = (this.businessesActivated == null ? 0 : this.businessesActivated) + 1;
+    }
+
+    public void addEarnings(BigDecimal amount) {
+        this.totalEarnings = this.totalEarnings.add(amount);
+        this.availableBalance = this.availableBalance.add(amount);
+    }
 
     public int getBusinessesCount() {
         return businesses != null ? businesses.size() : 0;

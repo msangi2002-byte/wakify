@@ -50,7 +50,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                        // Agent endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/code/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/search").permitAll()
+                        // Agent registration - any authenticated user can register
+                        .requestMatchers(HttpMethod.POST, "/api/v1/agent/register").authenticated()
+                        // Other Agent endpoints - require AGENT role
                         .requestMatchers("/api/v1/agent/**").hasAnyRole("AGENT", "ADMIN")
                         // Business endpoints
                         .requestMatchers("/api/v1/business/**").hasAnyRole("BUSINESS", "ADMIN")

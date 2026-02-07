@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -28,6 +29,15 @@ public class LiveStreamService {
 
     private final LiveStreamRepository liveStreamRepository;
     private final UserRepository userRepository;
+
+    @Value("${streaming.rtmp-url}")
+    private String rtmpBaseUrl;
+
+    @Value("${streaming.hls-url}")
+    private String hlsBaseUrl;
+
+    @Value("${streaming.webrtc-signal-url}")
+    private String webrtcSignalUrl;
 
     /**
      * Create/Schedule a live stream
@@ -209,6 +219,9 @@ public class LiveStreamService {
                 .thumbnailUrl(ls.getThumbnailUrl())
                 .status(ls.getStatus())
                 .roomId(ls.getRoomId())
+                .streamUrl(hlsBaseUrl + ls.getStreamKey() + ".m3u8")
+                .rtmpUrl(rtmpBaseUrl + ls.getStreamKey())
+                .webrtcUrl(webrtcSignalUrl)
                 .viewerCount(ls.getViewerCount())
                 .peakViewers(ls.getPeakViewers())
                 .totalGiftsValue(ls.getTotalGiftsValue())
@@ -220,5 +233,48 @@ public class LiveStreamService {
                 .durationSeconds(ls.getDurationSeconds())
                 .createdAt(ls.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Verify stream key for SRS callback
+     */
+    @Transactional
+    public boolean verifyStreamKey(String streamKey) {
+        LiveStream liveStream = liveStreamRepository.findByStreamKey(streamKey).orElse(null);
+
+        if (liveStream == null || liveStream.getStatus() == LiveStreamStatus.ENDED
+                || liveStream.getStatus() == LiveStreamStatus.CANCELLED) {
+            return false;
+        }
+
+        // Update status to LIVE if it's scheduled
+        if (liveStream.getStatus() == LiveStreamStatus.SCHEDULED) {
+            liveStream.setStatus(LiveStreamStatus.LIVE);
+            liveStream.setStartedAt(LocalDateTime.now());
+            liveStreamRepository.save(liveStream);
+        }
+
+        return true;
+    }
+
+    /**
+     * Set stream offline for SRS callback
+     */
+    @Transactional
+    public void setStreamOffline(String streamKey) {
+        LiveStream liveStream = liveStreamRepository.findByStreamKey(streamKey).orElse(null);
+
+        if (liveStream != null && liveStream.getStatus() == LiveStreamStatus.LIVE) {
+            liveStream.setStatus(LiveStreamStatus.ENDED);
+            liveStream.setEndedAt(LocalDateTime.now());
+
+            if (liveStream.getStartedAt() != null) {
+                long seconds = Duration.between(liveStream.getStartedAt(), liveStream.getEndedAt()).getSeconds();
+                liveStream.setDurationSeconds((int) seconds);
+            }
+
+            liveStreamRepository.save(liveStream);
+            log.info("Live stream ended via webhook: {}", liveStream.getId());
+        }
     }
 }

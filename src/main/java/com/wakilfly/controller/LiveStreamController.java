@@ -3,9 +3,11 @@ package com.wakilfly.controller;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
+import com.wakilfly.dto.response.StreamingConfigResponse;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.LiveStreamService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,6 +25,24 @@ public class LiveStreamController {
 
     private final LiveStreamService liveStreamService;
     private final CustomUserDetailsService userDetailsService;
+
+    @Value("${streaming.stun.url}")
+    private String stunUrl;
+
+    @Value("${streaming.turn.url}")
+    private String turnUrl;
+
+    @Value("${streaming.turn.username}")
+    private String turnUsername;
+
+    @Value("${streaming.turn.password}")
+    private String turnPassword;
+
+    @Value("${streaming.rtmp-url}")
+    private String rtmpBaseUrl;
+
+    @Value("${streaming.webrtc-signal-url}")
+    private String webrtcSignalUrl;
 
     /**
      * Create/Start a live stream
@@ -133,5 +153,27 @@ public class LiveStreamController {
         UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<LiveStreamResponse> streams = liveStreamService.getUserLiveStreams(hostId, page, size);
         return ResponseEntity.ok(ApiResponse.success(streams));
+    }
+
+    /**
+     * Get streaming configuration (STUN/TURN)
+     * GET /api/v1/live/config
+     */
+    @GetMapping("/config")
+    public ResponseEntity<ApiResponse<StreamingConfigResponse>> getStreamingConfig() {
+        StreamingConfigResponse.StunTurnConfig iceServers = StreamingConfigResponse.StunTurnConfig.builder()
+                .stunUrl(stunUrl)
+                .turnUrl(turnUrl)
+                .turnUsername(turnUsername)
+                .turnPassword(turnPassword)
+                .build();
+
+        StreamingConfigResponse config = StreamingConfigResponse.builder()
+                .iceServers(iceServers)
+                .broadcastUrl(rtmpBaseUrl)
+                .signalUrl(webrtcSignalUrl)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(config));
     }
 }

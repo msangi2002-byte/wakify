@@ -23,6 +23,8 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, UUID> {
     @Query("SELECT ls FROM LiveStream ls WHERE ls.status = 'LIVE' ORDER BY ls.viewerCount DESC")
     List<LiveStream> findActiveLiveStreams(Pageable pageable);
 
+    Optional<LiveStream> findByStreamKey(String streamKey);
+
     Optional<LiveStream> findByRoomId(String roomId);
 
     @Query("SELECT ls FROM LiveStream ls WHERE ls.host.id = :hostId AND ls.status = 'LIVE'")

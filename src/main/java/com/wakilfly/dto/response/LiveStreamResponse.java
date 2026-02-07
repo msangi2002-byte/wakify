@@ -18,6 +18,9 @@ public class LiveStreamResponse {
     private String thumbnailUrl;
     private LiveStreamStatus status;
     private String roomId;
+    private String streamUrl; // HLS URL for playback
+    private String rtmpUrl; // RTMP URL for broadcasting
+    private String webrtcUrl; // WebRTC URL
     private Integer viewerCount;
     private Integer peakViewers;
     private BigDecimal totalGiftsValue;

@@ -20,7 +20,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByPhone(String phone);
 
-    Optional<User> findByEmailOrPhone(String email, String phone);
+    /** Find user by email OR phone (same input for both: login with email or phone). */
+    @Query("SELECT u FROM User u WHERE (u.email IS NOT NULL AND u.email = :input) OR u.phone = :input")
+    Optional<User> findByEmailOrPhone(@Param("input") String emailOrPhone);
 
     boolean existsByEmail(String email);
 

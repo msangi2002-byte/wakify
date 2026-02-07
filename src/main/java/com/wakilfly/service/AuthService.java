@@ -2,6 +2,7 @@ package com.wakilfly.service;
 
 import com.wakilfly.dto.request.*;
 import com.wakilfly.dto.response.AuthResponse;
+import com.wakilfly.dto.response.RegisterResponse;
 import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.model.Role;
 import com.wakilfly.model.User;
@@ -17,6 +18,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,9 @@ import java.util.Random;
 @Slf4j
 public class AuthService {
 
+    @Value("${app.dev-mode:false}")
+    private boolean devMode;
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
@@ -35,7 +40,7 @@ public class AuthService {
     private final CustomUserDetailsService userDetailsService;
 
     @Transactional
-    public UserResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
         // Check if phone already exists
         if (userRepository.existsByPhone(request.getPhone())) {
             throw new BadRequestException("Phone number already registered");
@@ -66,14 +71,39 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        // TODO: Send OTP via SMS
+        // TODO: Send OTP via SMS (production). For dev, log and optionally return in response.
         log.info("OTP for {}: {}", request.getPhone(), otp);
 
         if (request.getReferralCode() != null && !request.getReferralCode().isEmpty()) {
             log.info("User {} registered with referral code: {}", request.getPhone(), request.getReferralCode());
         }
 
-        return mapToUserResponse(user);
+        return RegisterResponse.builder()
+                .user(mapToUserResponse(user))
+                .otpForDev(devMode ? otp : null)
+                .build();
+    }
+
+    /**
+     * Resend OTP for unverified user (e.g. "Resend code" on OTP screen).
+     * TODO: Rate limit per phone (e.g. 1 per 60 seconds). TODO: Send via SMS in production.
+     */
+    @Transactional
+    public void resendOtp(String phone) {
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (Boolean.TRUE.equals(user.getIsVerified())) {
+            throw new BadRequestException("Phone already verified");
+        }
+
+        String otp = generateOtp();
+        user.setOtpCode(otp);
+        user.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+
+        log.info("Resend OTP for {}: {}", phone, otp);
+        // TODO: Send OTP via SMS
     }
 
     @Transactional

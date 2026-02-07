@@ -1,12 +1,16 @@
 package com.wakilfly.config;
 
 import com.wakilfly.model.CoinPackage;
+import com.wakilfly.model.Role;
+import com.wakilfly.model.User;
 import com.wakilfly.model.VirtualGift;
 import com.wakilfly.repository.CoinPackageRepository;
+import com.wakilfly.repository.UserRepository;
 import com.wakilfly.repository.VirtualGiftRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -17,6 +21,8 @@ public class DataInitializer implements CommandLineRunner {
 
     private final VirtualGiftRepository giftRepository;
     private final CoinPackageRepository packageRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
@@ -26,6 +32,24 @@ public class DataInitializer implements CommandLineRunner {
         if (packageRepository.count() == 0) {
             seedPackages();
         }
+        seedTestUserIfMissing();
+    }
+
+    /** Test user for login API testing: phone 255712000000, password test123 (or email test@wakilfy.com) */
+    private void seedTestUserIfMissing() {
+        if (userRepository.findByPhone("255712000000").isPresent()) {
+            return;
+        }
+        User test = User.builder()
+                .name("Test User")
+                .email("test@wakilfy.com")
+                .phone("255712000000")
+                .password(passwordEncoder.encode("test123"))
+                .role(Role.USER)
+                .isVerified(true)
+                .isActive(true)
+                .build();
+        userRepository.save(test);
     }
 
     private void seedGifts() {

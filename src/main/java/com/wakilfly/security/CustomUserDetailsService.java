@@ -21,7 +21,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String usernameOrPhone) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailOrPhone(usernameOrPhone, usernameOrPhone)
+        User user = userRepository.findByEmailOrPhone(usernameOrPhone)
                 .orElseThrow(
                         () -> new UsernameNotFoundException("User not found with email or phone: " + usernameOrPhone));
 
@@ -37,7 +37,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Transactional(readOnly = true)
     public User loadUserEntityByUsername(String usernameOrPhone) {
-        return userRepository.findByEmailOrPhone(usernameOrPhone, usernameOrPhone)
+        return userRepository.findByEmailOrPhone(usernameOrPhone)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

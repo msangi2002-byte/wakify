@@ -3,7 +3,7 @@ package com.wakilfly.controller;
 import com.wakilfly.dto.request.*;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.AuthResponse;
-import com.wakilfly.dto.response.UserResponse;
+import com.wakilfly.dto.response.RegisterResponse;
 import com.wakilfly.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +21,24 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        UserResponse user = authService.register(request);
+    public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse result = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("User registered successfully. OTP sent to phone.", user));
+                .body(ApiResponse.success("User registered successfully. OTP sent to phone.", result));
+    }
+
+    /**
+     * Resend OTP for unverified user (e.g. "Resend code (59s)" on OTP screen).
+     * Body: { "phone": "+255..." }
+     */
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<Void>> resendOtp(@RequestBody Map<String, String> request) {
+        String phone = request.get("phone");
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Phone is required"));
+        }
+        authService.resendOtp(phone.trim());
+        return ResponseEntity.ok(ApiResponse.success("OTP sent again"));
     }
 
     @PostMapping("/verify-otp")

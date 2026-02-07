@@ -46,6 +46,7 @@ dependencies {
     
     // File Upload
     implementation 'commons-io:commons-io:2.15.1'
+    implementation 'com.jcraft:jsch:0.1.55'
     
     // Dev Tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

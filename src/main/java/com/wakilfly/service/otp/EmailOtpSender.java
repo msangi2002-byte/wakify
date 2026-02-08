@@ -1,6 +1,7 @@
 package com.wakilfly.service.otp;
 
 import jakarta.mail.MessagingException;
+import java.io.UnsupportedEncodingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ public class EmailOtpSender {
 
             mailSender.send(message);
             log.info("OTP sent via email to {}", email);
-        } catch (MessagingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             log.error("Failed to send OTP email to {}: {}", email, e.getMessage());
         }
     }

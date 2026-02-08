@@ -36,7 +36,7 @@ public class EmailOtpSender {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(fromEmail, "Wakify");
             helper.setTo(email.trim());
-            helper.setSubject("Wakify - Msimbo wako wa uthibitishaji");
+            helper.setSubject("Wakify - Your verification code");
             helper.setText(buildEmailBody(otp), true);
 
             mailSender.send(message);
@@ -50,9 +50,9 @@ public class EmailOtpSender {
         return """
             <div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto;">
                 <h2 style="color: #333;">Wakify</h2>
-                <p>Karibu. Msimbo wako wa uthibitishaji:</p>
+                <p>Your verification code is:</p>
                 <p style="font-size: 24px; font-weight: bold; color: #0066cc; letter-spacing: 4px;">%s</p>
-                <p>Msimbo unakwisha ndani ya dakika 10. Usichanganye na mtu mwingine.</p>
+                <p>Do not share this code with anyone. It expires in 10 minutes.</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
                 <p style="color: #888; font-size: 12px;">Wakify - Social Commerce</p>
             </div>

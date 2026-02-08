@@ -11,6 +11,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.security.JwtTokenProvider;
+import com.wakilfly.service.otp.EmailOtpSender;
 import com.wakilfly.service.otp.OtpSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
     private final OtpSender otpSender;
+    private final EmailOtpSender emailOtpSender;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -74,6 +76,9 @@ public class AuthService {
         user = userRepository.save(user);
 
         otpSender.sendOtp(request.getPhone(), otp);
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            emailOtpSender.sendOtp(request.getEmail(), otp);
+        }
 
         if (request.getReferralCode() != null && !request.getReferralCode().isEmpty()) {
             log.info("User {} registered with referral code: {}", request.getPhone(), request.getReferralCode());
@@ -104,6 +109,9 @@ public class AuthService {
         userRepository.save(user);
 
         otpSender.sendOtp(phone, otp);
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            emailOtpSender.sendOtp(user.getEmail(), otp);
+        }
     }
 
     @Transactional
@@ -166,6 +174,9 @@ public class AuthService {
         userRepository.save(user);
 
         otpSender.sendOtp(phone, otp);
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            emailOtpSender.sendOtp(user.getEmail(), otp);
+        }
     }
 
     @Transactional

@@ -34,9 +34,9 @@ public class EmailOtpSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
+            helper.setFrom(fromEmail, "Wakify");
             helper.setTo(email.trim());
-            helper.setSubject("Wakify OTP - Msimbo wako wa uthibitishaji");
+            helper.setSubject("Wakify - Msimbo wako wa uthibitishaji");
             helper.setText(buildEmailBody(otp), true);
 
             mailSender.send(message);
@@ -49,12 +49,12 @@ public class EmailOtpSender {
     private String buildEmailBody(String otp) {
         return """
             <div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto;">
-                <h2 style="color: #333;">Wakify OTP</h2>
-                <p>Msimbo wako wa uthibitishaji ni:</p>
+                <h2 style="color: #333;">Wakify</h2>
+                <p>Karibu. Msimbo wako wa uthibitishaji:</p>
                 <p style="font-size: 24px; font-weight: bold; color: #0066cc; letter-spacing: 4px;">%s</p>
-                <p>Usichanganye msimbo huu na mtu mwingine. Inakwisha ndani ya dakika 10.</p>
+                <p>Msimbo unakwisha ndani ya dakika 10. Usichanganye na mtu mwingine.</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #888; font-size: 12px;">Wakify - Huu ni barua pepe ya kiotomatiki.</p>
+                <p style="color: #888; font-size: 12px;">Wakify - Social Commerce</p>
             </div>
             """.formatted(otp);
     }

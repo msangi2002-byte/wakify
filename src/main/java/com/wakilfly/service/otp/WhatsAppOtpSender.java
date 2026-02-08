@@ -64,7 +64,7 @@ public class WhatsAppOtpSender implements OtpSender {
             }
         } catch (Exception e) {
             log.error("Failed to send OTP via WhatsApp to {}: {}", phoneNumber, e.getMessage());
-            log.debug("OTP for {} (fallback): {}", phoneNumber, otp);
+            log.error("W-OTP check: url={}, error={}", url, e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 }

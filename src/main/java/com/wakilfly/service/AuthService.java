@@ -11,6 +11,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.security.JwtTokenProvider;
+import com.wakilfly.service.otp.OtpSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,6 +39,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
+    private final OtpSender otpSender;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -71,8 +73,7 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        // TODO: Send OTP via SMS (production). For dev, log and optionally return in response.
-        log.info("OTP for {}: {}", request.getPhone(), otp);
+        otpSender.sendOtp(request.getPhone(), otp);
 
         if (request.getReferralCode() != null && !request.getReferralCode().isEmpty()) {
             log.info("User {} registered with referral code: {}", request.getPhone(), request.getReferralCode());
@@ -102,8 +103,7 @@ public class AuthService {
         user.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
-        log.info("Resend OTP for {}: {}", phone, otp);
-        // TODO: Send OTP via SMS
+        otpSender.sendOtp(phone, otp);
     }
 
     @Transactional
@@ -165,8 +165,7 @@ public class AuthService {
         user.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
-        // TODO: Send OTP via SMS
-        log.info("Password reset OTP for {}: {}", phone, otp);
+        otpSender.sendOtp(phone, otp);
     }
 
     @Transactional

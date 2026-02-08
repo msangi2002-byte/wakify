@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class EmailOtpSender {
 
-    @Value("${spring.mail.username:otp@wakilfy.com}")
+    @Value("${spring.mail.username:otp@ericksky.online}")
     private String fromEmail;
 
     private final JavaMailSender mailSender;

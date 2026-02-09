@@ -234,14 +234,34 @@ Frontend inaweza ku-check `file.size`:
 
 | Property            | Default | Description                          |
 |---------------------|---------|--------------------------------------|
-| upload.path         | uploads | Base path; chunks go to upload.path/chunks |
-| upload.chunk-size   | 1048576 | 1MB – Frontend inatumia kugawanya    |
+chunk v1| upload.path         | uploads | Base path; chunks go to upload.path/chunks |
+| upload.chunk-size   | 524288  | 500KB – Frontend default (stays under Nginx 1MB) |
 
-Kwa 500KB chunks: `CHUNK_SIZE = 512 * 1024` kwenye frontend.
+**Chunk size:** Frontend inatumia 500KB (512*1024) ili kila request ibaki chini ya Nginx default 1MB (chunk + multipart overhead ≈ 510KB). Kama Nginx ina `client_max_body_size 5M`, unaweza kubadilisha kwa 1MB chunks kwa haraka zaidi.
 
 ---
 
-## Troubleshooting – 500 on POST /upload/start
+## Troubleshooting
+
+### 413 on POST /upload/chunk
+
+**Sababu:** Nginx ina limit ya 1MB (default). Chunk ya 1MB + multipart overhead ≈ 1.05MB inazidi.
+
+**Suluhisho (chaguo 1 – recommended):** Frontend tayari inatumia chunks za **500KB**. Redeploy frontend – inapaswa kufanya kazi.
+
+**Suluhisho (chaguo 2):** Ongeza kwenye Nginx (wakilfy.com):
+```nginx
+location /api/ {
+    client_max_body_size 5M;
+    proxy_pass http://127.0.0.1:8080;
+    # ... proxy headers
+}
+```
+Kisha `sudo nginx -t && sudo systemctl reload nginx`.
+
+---
+
+### 500 on POST /upload/start
 
 **Sababu:** Server haiwezi kuunda au kuandika kwenye `uploads/chunks`.
 

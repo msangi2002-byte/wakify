@@ -27,18 +27,31 @@ public class PostController {
     private final PostService postService;
     private final CustomUserDetailsService userDetailsService;
 
+    /**
+     * Create post with multipart files (small uploads).
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<PostResponse>> createPost(
+    public ResponseEntity<ApiResponse<PostResponse>> createPostMultipart(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestPart(value = "data", required = false) CreatePostRequest request,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-
-        if (request == null) {
-            request = new CreatePostRequest();
-        }
-
+        if (request == null) request = new CreatePostRequest();
         PostResponse post = postService.createPost(userId, request, files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Post created successfully", post));
+    }
+
+    /**
+     * Create post with pre-uploaded mediaUrls (from chunked upload).
+     * Use when files were uploaded via POST /api/v1/upload/chunk + complete.
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<PostResponse>> createPostWithUrls(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CreatePostRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PostResponse post = postService.createPost(userId, request, null);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Post created successfully", post));
     }

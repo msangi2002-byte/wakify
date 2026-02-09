@@ -131,8 +131,22 @@ public class PostService {
                         postRepository.save(finalPost);
                 }
 
-                // Save media files
-                if (files != null && !files.isEmpty()) {
+                // Save media files: either from pre-uploaded URLs (chunked) or from multipart files
+                if (request.getMediaUrls() != null && !request.getMediaUrls().isEmpty()) {
+                        int order = 0;
+                        for (String url : request.getMediaUrls()) {
+                                if (url == null || url.isBlank()) continue;
+                                MediaType type = isVideoUrl(url) ? MediaType.VIDEO : MediaType.IMAGE;
+                                PostMedia media = PostMedia.builder()
+                                                .post(post)
+                                                .url(url.trim())
+                                                .type(type)
+                                                .displayOrder(order++)
+                                                .build();
+                                postMediaRepository.save(media);
+                        }
+                        if (!post.getMedia().isEmpty()) postRepository.save(post);
+                } else if (files != null && !files.isEmpty()) {
                         int order = 0;
                         for (MultipartFile file : files) {
                                 String url = fileStorageService.storeFile(file, "posts");
@@ -149,14 +163,14 @@ public class PostService {
                                                 .build();
                                 postMediaRepository.save(media);
                         }
+                }
 
-                        // Validation for REEL: Must have at least one video
-                        if (post.getPostType() == PostType.REEL) {
-                                boolean hasVideo = post.getMedia().stream()
-                                                .anyMatch(m -> m.getType() == MediaType.VIDEO);
-                                if (!hasVideo) {
-                                        log.warn("Post of type REEL created without video for user {}", userId);
-                                }
+                // Validation for REEL: Must have at least one video
+                if (post.getPostType() == PostType.REEL && !post.getMedia().isEmpty()) {
+                        boolean hasVideo = post.getMedia().stream()
+                                        .anyMatch(m -> m.getType() == MediaType.VIDEO);
+                        if (!hasVideo) {
+                                log.warn("Post of type REEL created without video for user {}", userId);
                         }
                 }
 
@@ -175,6 +189,13 @@ public class PostService {
                 }
 
                 return mapToPostResponse(post, userId);
+        }
+
+        private static boolean isVideoUrl(String url) {
+                if (url == null) return false;
+                String lower = url.toLowerCase();
+                return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm")
+                                || lower.endsWith(".m4v") || lower.endsWith(".avi") || lower.contains(".mp4?");
         }
 
         private Set<String> parseHashtagsFromCaption(String caption) {

@@ -31,4 +31,11 @@ public class CreatePostRequest {
     private UUID originalPostId; // For sharing/reposting
 
     private UUID communityId; // For posting in groups/channels
+
+    /**
+     * Pre-uploaded media URLs (from chunked upload).
+     * Use this when files were uploaded via POST /api/v1/upload/chunk + complete.
+     * If provided, "files" in create post are ignored.
+     */
+    private List<String> mediaUrls;
 }

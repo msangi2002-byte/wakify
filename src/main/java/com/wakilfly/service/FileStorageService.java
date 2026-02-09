@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -92,6 +94,77 @@ public class FileStorageService {
             fileUrl.append(filename);
 
             log.info("File uploaded to VPS: {}", fileUrl);
+            return fileUrl.toString();
+
+        } catch (JSchException | SftpException | IOException e) {
+            log.error("Failed to store file on VPS", e);
+            throw new RuntimeException("Failed to store file on VPS", e);
+        } finally {
+            if (channelSftp != null && channelSftp.isConnected()) {
+                channelSftp.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        }
+    }
+
+    /**
+     * Store a local file (e.g. merged chunks) to storage VPS.
+     * Used by chunked upload flow.
+     */
+    public String storeFile(File file, String originalFilename, String subdirectory) {
+        Session session = null;
+        ChannelSftp channelSftp = null;
+
+        try {
+            JSch jsch = new JSch();
+            session = jsch.getSession(storageConfig.getUsername(), storageConfig.getHost(), storageConfig.getPort());
+            session.setPassword(storageConfig.getPassword());
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect();
+
+            Channel channel = session.openChannel("sftp");
+            channel.connect();
+            channelSftp = (ChannelSftp) channel;
+
+            String currentPath = storageConfig.getUploadPath();
+            try {
+                channelSftp.cd(currentPath);
+            } catch (SftpException e) {
+                log.warn("Base upload path might not exist: {}", currentPath);
+                throw new RuntimeException("Base upload directory does not exist on storage server");
+            }
+
+            if (subdirectory != null && !subdirectory.isEmpty()) {
+                try {
+                    channelSftp.cd(subdirectory);
+                } catch (SftpException e) {
+                    channelSftp.mkdir(subdirectory);
+                    channelSftp.cd(subdirectory);
+                }
+            }
+
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            String filename = UUID.randomUUID().toString() + extension;
+
+            try (InputStream inputStream = new FileInputStream(file)) {
+                channelSftp.put(inputStream, filename);
+            }
+
+            StringBuilder fileUrl = new StringBuilder(storageConfig.getBaseUrl());
+            if (!storageConfig.getBaseUrl().endsWith("/")) {
+                fileUrl.append("/");
+            }
+            if (subdirectory != null && !subdirectory.isEmpty()) {
+                fileUrl.append(subdirectory).append("/");
+            }
+            fileUrl.append(filename);
+
+            log.info("File uploaded to VPS (from merged chunks): {}", fileUrl);
             return fileUrl.toString();
 
         } catch (JSchException | SftpException | IOException e) {

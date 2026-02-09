@@ -137,3 +137,28 @@ Lazima path hi iwe **sawa** na ile Nginx inayotumia (`root` au `alias`).
 | Path | Backend + VPS | `storage.vps.upload-path` = path ile ile Nginx inayoserve |
 
 Baada ya kufanya haya, upload za images/media zinapaswa kuonekana kwenye browser bila 403 na bila OpaqueResponseBlocking.
+
+---
+
+## 413 Payload Too Large (upload ya video / story)
+
+**Shida:** Unapoupload video kwenye Create Story (au post/reel), request inarudisha **413 Payload Too Large**.
+
+**Sababu:**  
+1. **Spring Boot** – `application.properties` ina `spring.servlet.multipart.max-file-size=10MB`. Video kubwa zaidi ya 10MB inakataliwa.  
+2. **Nginx mbele ya API** – Ikiwa backend yako iko nyuma ya Nginx (mfano `api.wakilfy.com`), Nginx ina kikomo chake: `client_max_body_size` (default ni **1MB**). Request kubwa inakataliwa na Nginx kabla haijafikia Spring.
+
+**Kurekebisha:**
+
+1. **Backend (application.properties)** – tayari imeongezwa:
+   - `spring.servlet.multipart.max-file-size=100MB`
+   - `spring.servlet.multipart.max-request-size=100MB`
+   Restart Spring Boot baada ya kubadilisha.
+
+2. **Nginx inayoproxify API** – kwenye server block au location block ambayo inaproxify kwa Spring (port 8080), ongeza:
+   ```nginx
+   client_max_body_size 100M;
+   ```
+   Kisha: `sudo nginx -t` na `sudo systemctl reload nginx`.
+
+Baada ya haya, upload ya video hadi ~100MB inapaswa kupita.

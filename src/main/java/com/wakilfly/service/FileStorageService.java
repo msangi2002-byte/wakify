@@ -48,7 +48,7 @@ public class FileStorageService {
                 channelSftp.cd(currentPath);
             } catch (SftpException e) {
                 // If base path doesn't exist, we might need to create it or fail.
-                // Assuming base path /root/wakilfy-media/uploads/ exists as per user setup
+                // Base path: /var/www/wakilfy-media/uploads/ (must match Nginx on storage server)
                 // But for safety, let's try to create or just log
                 log.warn("Base upload path might not exist: {}", currentPath);
                 throw new RuntimeException("Base upload directory does not exist on storage server");
@@ -79,7 +79,7 @@ public class FileStorageService {
 
             // Construct Public URL
             // URL Structure: https://storage.wakilfy.com/ + subdirectory + / + filename
-            // Note: Nginx maps /root/wakilfy-media/uploads/ to https://storage.wakilfy.com/
+            // Note: Nginx maps /var/www/wakilfy-media/uploads/ to https://storage.wakilfy.com/
             // So if we are in subdirectory 'images', file is at .../images/filename
 
             StringBuilder fileUrl = new StringBuilder(storageConfig.getBaseUrl());

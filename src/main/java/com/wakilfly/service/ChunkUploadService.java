@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,7 +33,10 @@ public class ChunkUploadService {
     @Value("${upload.path:uploads}")
     private String uploadPath;
 
-    /** Chunks folder: uploads/chunks */
+    /** Base path for chunk temp files – resolved at init (absolute, writable) */
+    private Path chunksBasePath;
+
+    /** Chunks folder name under upload path */
     private static final String CHUNKS_DIR = "chunks";
 
     /** Tracks which uploadIds have been started (for cleanup on orphan) */
@@ -49,6 +54,30 @@ public class ChunkUploadService {
         TicketInfo(String filename, String subdirectory) {
             this.filename = filename;
             this.subdirectory = subdirectory;
+        }
+    }
+
+    @PostConstruct
+    public void initChunksDirectory() {
+        Path preferred = Path.of(uploadPath, CHUNKS_DIR);
+        try {
+            Files.createDirectories(preferred);
+            if (!Files.isWritable(preferred)) {
+                throw new IOException("Directory not writable: " + preferred);
+            }
+            chunksBasePath = preferred.toAbsolutePath();
+            log.info("Chunk upload directory ready: {}", chunksBasePath);
+        } catch (IOException e) {
+            log.warn("Could not use {} for chunks, falling back to temp dir: {}", preferred, e.getMessage());
+            Path fallback = Path.of(System.getProperty("java.io.tmpdir", "/tmp"), "wakilfy-chunks");
+            try {
+                Files.createDirectories(fallback);
+                chunksBasePath = fallback.toAbsolutePath();
+                log.info("Chunk upload directory (fallback): {}", chunksBasePath);
+            } catch (IOException e2) {
+                log.error("Failed to init chunk directory. Chunked upload will fail.", e2);
+                throw new IllegalStateException("Cannot create chunk directory: " + e2.getMessage(), e2);
+            }
         }
     }
 
@@ -79,8 +108,8 @@ public class ChunkUploadService {
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {
-            log.error("Failed to create chunk dir for uploadId {}", uploadId, e);
-            throw new RuntimeException("Failed to prepare upload");
+            log.error("Failed to create chunk dir for uploadId {} at {}: {}", uploadId, dir, e.getMessage(), e);
+            throw new RuntimeException("Failed to prepare upload. Check server logs and upload.path/chunks directory permissions.");
         }
 
         uploadTickets.put(uploadId, new TicketInfo(filename, subdirectory));
@@ -232,7 +261,10 @@ public class ChunkUploadService {
     }
 
     private Path getChunksDir(String uploadId) {
-        return Path.of(uploadPath, CHUNKS_DIR, uploadId);
+        if (chunksBasePath == null) {
+            initChunksDirectory();
+        }
+        return chunksBasePath.resolve(uploadId);
     }
 
     private void validateChunkParams(String uploadId, int chunkIndex, int totalChunks,

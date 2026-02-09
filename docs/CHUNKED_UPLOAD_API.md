@@ -234,6 +234,23 @@ Frontend inaweza ku-check `file.size`:
 
 | Property            | Default | Description                          |
 |---------------------|---------|--------------------------------------|
+| upload.path         | uploads | Base path; chunks go to upload.path/chunks |
 | upload.chunk-size   | 1048576 | 1MB – Frontend inatumia kugawanya    |
 
 Kwa 500KB chunks: `CHUNK_SIZE = 512 * 1024` kwenye frontend.
+
+---
+
+## Troubleshooting – 500 on POST /upload/start
+
+**Sababu:** Server haiwezi kuunda au kuandika kwenye `uploads/chunks`.
+
+**Suluhisho:**
+1. **Angalia server logs** – Tafuta "Failed to create chunk dir" au "fallback to temp dir".
+2. **Ruhusa** – Folder `uploads` (au path yote ya upload.path) lazima iwe writable kwa user anayeendesha Spring Boot.
+3. **Production** – Tumia path kamili, mfano:
+   ```properties
+   upload.path=/var/lib/wakilfy/uploads
+   ```
+   Kisha `mkdir -p /var/lib/wakilfy/uploads/chunks && chown app-user:app-user /var/lib/wakilfy/uploads`
+4. **Fallback** – Ikiwa `upload.path/chunks` haijaandikika, backend inatumia `/tmp/wakilfy-chunks`.

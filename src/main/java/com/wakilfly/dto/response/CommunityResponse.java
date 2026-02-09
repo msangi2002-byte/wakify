@@ -1,5 +1,6 @@
 package com.wakilfly.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.wakilfly.model.CommunityType;
 import com.wakilfly.model.Visibility;
 import lombok.Builder;
@@ -24,8 +25,10 @@ public class CommunityResponse {
     private UUID creatorId;
     private String creatorName;
 
-    // Status relative to current user
+    // Status relative to current user (JsonProperty so JSON has isMember/isAdmin not member/admin)
+    @JsonProperty("isMember")
     private boolean isMember;
+    @JsonProperty("isAdmin")
     private boolean isAdmin; // Creator or Admin
 
     /** If false, only creator/admins can post; if true, members can post. */

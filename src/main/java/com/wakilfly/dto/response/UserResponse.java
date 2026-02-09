@@ -36,6 +36,10 @@ public class UserResponse {
     private String work;
     private String education;
     private String currentCity;
+    private String region;   // Mkoa
+    private String country; // Taifa
+    private String interests; // Hobbies comma-separated
+    private Integer age;    // Computed from dateOfBirth
     private String hometown;
     private String relationshipStatus;
     private String gender;

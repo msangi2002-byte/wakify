@@ -70,7 +70,11 @@ public class AuthService {
                 .isActive(true)
                 .otpCode(otp)
                 .otpExpiresAt(LocalDateTime.now().plusMinutes(10))
-                .referredByAgentCode(request.getReferralCode()) // Track referral
+                .referredByAgentCode(request.getReferralCode())
+                .region(request.getRegion())
+                .country(request.getCountry())
+                .dateOfBirth(request.getDateOfBirth())
+                .interests(request.getInterests())
                 .build();
 
         user = userRepository.save(user);

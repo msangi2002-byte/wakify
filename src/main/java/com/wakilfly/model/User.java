@@ -74,6 +74,13 @@ public class User {
     @Column(name = "current_city")
     private String currentCity; // e.g. "Dar es Salaam"
 
+    private String region; // Mkoa e.g. "Dar es Salaam", "Mwanza"
+
+    private String country; // Taifa e.g. "Tanzania"
+
+    @Column(columnDefinition = "TEXT")
+    private String interests; // Hobbies/vitaka comma-separated e.g. "Music,Sports,Tech"
+
     private String hometown; // e.g. "Arusha"
 
     @Column(name = "relationship_status")

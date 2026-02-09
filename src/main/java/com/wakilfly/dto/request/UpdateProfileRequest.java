@@ -21,6 +21,9 @@ public class UpdateProfileRequest {
     private String work;
     private String education;
     private String currentCity;
+    private String region;
+    private String country;
+    private String interests;
     private String hometown;
     private String relationshipStatus;
     private String gender;

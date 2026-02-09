@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -76,6 +79,12 @@ public class UserService {
             user.setEducation(request.getEducation());
         if (request.getCurrentCity() != null)
             user.setCurrentCity(request.getCurrentCity());
+        if (request.getRegion() != null)
+            user.setRegion(request.getRegion());
+        if (request.getCountry() != null)
+            user.setCountry(request.getCountry());
+        if (request.getInterests() != null)
+            user.setInterests(request.getInterests());
         if (request.getHometown() != null)
             user.setHometown(request.getHometown());
         if (request.getRelationshipStatus() != null)
@@ -118,12 +127,45 @@ public class UserService {
     }
 
     public PagedResponse<UserResponse> searchUsers(String query, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<User> users = userRepository.searchUsers(query, pageable);
+        if (query == null || query.isBlank()) {
+            return PagedResponse.<UserResponse>builder()
+                    .content(Collections.emptyList())
+                    .page(page)
+                    .size(size)
+                    .totalElements(0)
+                    .totalPages(0)
+                    .last(true)
+                    .first(true)
+                    .build();
+        }
+        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "name"));
+        Page<User> users = userRepository.searchUsers(query.trim(), pageable);
 
         return PagedResponse.<UserResponse>builder()
                 .content(users.getContent().stream()
                         .map(user -> mapToUserResponse(user, null))
+                        .collect(Collectors.toList()))
+                .page(users.getNumber())
+                .size(users.getSize())
+                .totalElements(users.getTotalElements())
+                .totalPages(users.getTotalPages())
+                .last(users.isLast())
+                .first(users.isFirst())
+                .build();
+    }
+
+    /** Discover / suggested users: by same region, country (and later age/interests). Excludes self and already following. Sorted alphabetically by name. */
+    public PagedResponse<UserResponse> getSuggestedUsers(UUID currentUserId, int page, int size) {
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+        String region = currentUser.getRegion();
+        String country = currentUser.getCountry();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<User> users = userRepository.findSuggestedUsers(currentUserId, region, country, pageable);
+
+        return PagedResponse.<UserResponse>builder()
+                .content(users.getContent().stream()
+                        .map(user -> mapToUserResponse(user, false))
                         .collect(Collectors.toList()))
                 .page(users.getNumber())
                 .size(users.getSize())
@@ -235,6 +277,10 @@ public class UserService {
                 .work(user.getWork())
                 .education(user.getEducation())
                 .currentCity(user.getCurrentCity())
+                .region(user.getRegion())
+                .country(user.getCountry())
+                .interests(user.getInterests())
+                .age(computeAge(user.getDateOfBirth()))
                 .hometown(user.getHometown())
                 .relationshipStatus(user.getRelationshipStatus())
                 .gender(user.getGender())
@@ -242,5 +288,10 @@ public class UserService {
                 .website(user.getWebsite())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private static Integer computeAge(LocalDate dateOfBirth) {
+        if (dateOfBirth == null) return null;
+        return Period.between(dateOfBirth, LocalDate.now()).getYears();
     }
 }

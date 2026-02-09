@@ -72,10 +72,21 @@ public class UserController {
 
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> searchUsers(
-            @RequestParam String q,
+            @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        PagedResponse<UserResponse> users = userService.searchUsers(q, page, size);
+        PagedResponse<UserResponse> users = userService.searchUsers(q == null ? "" : q.trim(), page, size);
+        return ResponseEntity.ok(ApiResponse.success(users));
+    }
+
+    /** Discover / people you may know: same region & country, alphabetical. Auth required. */
+    @GetMapping("/suggested")
+    public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> getSuggestedUsers(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<UserResponse> users = userService.getSuggestedUsers(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(users));
     }
 }

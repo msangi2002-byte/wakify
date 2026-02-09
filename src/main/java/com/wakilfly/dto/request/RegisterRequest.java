@@ -30,6 +30,12 @@ public class RegisterRequest {
     @Size(min = 6, max = 100, message = "Password must be at least 6 characters")
     private String password;
 
+    // Optional: for friends/followers discovery (location, age, interests)
+    private String region;   // Mkoa
+    private String country; // Taifa e.g. Tanzania
+    private java.time.LocalDate dateOfBirth;
+    private String interests; // Hobbies comma-separated
+
     // Optional: Agent referral code
     private String referralCode;
 }

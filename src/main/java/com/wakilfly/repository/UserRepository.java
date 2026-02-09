@@ -28,8 +28,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByPhone(String phone);
 
-    @Query("SELECT u FROM User u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))")
+    @Query("SELECT u FROM User u WHERE u.isActive = true AND (LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR (u.phone IS NOT NULL AND u.phone LIKE CONCAT('%', :query, '%'))) ORDER BY u.name ASC")
     Page<User> searchUsers(@Param("query") String query, Pageable pageable);
+
+    /** Suggested users: not self, not already following, optionally same region/country, ordered by name. */
+    @Query("SELECT u FROM User u WHERE u.id <> :currentUserId AND u.isActive = true " +
+            "AND u NOT IN (SELECT f FROM User me JOIN me.following f WHERE me.id = :currentUserId) " +
+            "AND (:region IS NULL OR :region = '' OR u.region = :region) " +
+            "AND (:country IS NULL OR :country = '' OR u.country = :country) " +
+            "ORDER BY u.name ASC")
+    Page<User> findSuggestedUsers(@Param("currentUserId") UUID currentUserId, @Param("region") String region, @Param("country") String country, Pageable pageable);
 
     @Query("SELECT u FROM User u JOIN u.followers f WHERE f.id = :userId")
     Page<User> findFollowing(@Param("userId") UUID userId, Pageable pageable);

@@ -6,6 +6,7 @@ import com.wakilfly.dto.response.CommentResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PostResponse;
 import com.wakilfly.model.*;
+import com.wakilfly.model.SavedPost;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;
@@ -19,14 +20,22 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.wakilfly.model.Community;
 import com.wakilfly.repository.CommunityRepository;
 import com.wakilfly.repository.CommunityMemberRepository;
+import com.wakilfly.repository.SavedPostRepository;
+import com.wakilfly.repository.HashtagRepository;
+import com.wakilfly.repository.StoryViewRepository;
+import com.wakilfly.repository.UserBlockRepository;
 import com.wakilfly.model.NotificationType;
 
 @Service
@@ -44,6 +53,12 @@ public class PostService {
         private final CommunityRepository communityRepository;
         private final CommunityMemberRepository communityMemberRepository;
         private final NotificationService notificationService;
+        private final SavedPostRepository savedPostRepository;
+        private final HashtagRepository hashtagRepository;
+        private final StoryViewRepository storyViewRepository;
+        private final UserBlockRepository userBlockRepository;
+
+        private static final Pattern HASHTAG_PATTERN = Pattern.compile("#([\\w\\u0080-\\uFFFF]+)");
 
         @Transactional
         public PostResponse createPost(UUID userId, CreatePostRequest request, List<MultipartFile> files) {
@@ -128,14 +143,36 @@ public class PostService {
                                 boolean hasVideo = post.getMedia().stream()
                                                 .anyMatch(m -> m.getType() == MediaType.VIDEO);
                                 if (!hasVideo) {
-                                        // We can either throw exception or log warning. Let's throw for strictness.
-                                        // Actually, let's just log for now to avoid breaking existing flows if any.
                                         log.warn("Post of type REEL created without video for user {}", userId);
                                 }
                         }
                 }
 
+                // Parse and link hashtags from caption (#mzumbe #darasalaam)
+                if (request.getCaption() != null && !request.getCaption().isEmpty()) {
+                        Set<String> tagNames = parseHashtagsFromCaption(request.getCaption());
+                        for (String name : tagNames) {
+                                String normalized = name.toLowerCase();
+                                Hashtag tag = hashtagRepository.findByNameIgnoreCase(normalized)
+                                                .orElseGet(() -> hashtagRepository.save(Hashtag.builder().name(normalized).build()));
+                                post.getHashtags().add(tag);
+                        }
+                        if (!post.getHashtags().isEmpty()) {
+                                postRepository.save(post);
+                        }
+                }
+
                 return mapToPostResponse(post, userId);
+        }
+
+        private Set<String> parseHashtagsFromCaption(String caption) {
+                Set<String> out = new LinkedHashSet<>();
+                Matcher m = HASHTAG_PATTERN.matcher(caption);
+                while (m.find()) {
+                        String tag = m.group(1);
+                        if (tag.length() <= 100) out.add(tag);
+                }
+                return out;
         }
 
         public PagedResponse<PostResponse> getFeed(UUID userId, int page, int size) {
@@ -190,6 +227,17 @@ public class PostService {
         }
 
         public PagedResponse<PostResponse> getUserPosts(UUID userId, int page, int size, UUID currentUserId) {
+                if (currentUserId != null && isBlockedBetween(currentUserId, userId)) {
+                        return PagedResponse.<PostResponse>builder()
+                                        .content(List.of())
+                                        .page(page)
+                                        .size(size)
+                                        .totalElements(0)
+                                        .totalPages(0)
+                                        .last(true)
+                                        .first(true)
+                                        .build();
+                }
                 Pageable pageable = PageRequest.of(page, size);
                 Page<Post> posts = postRepository.findByAuthorId(userId, pageable);
 
@@ -238,8 +286,16 @@ public class PostService {
                 if (post.getIsDeleted()) {
                         throw new ResourceNotFoundException("Post not found");
                 }
+                if (currentUserId != null && isBlockedBetween(currentUserId, post.getAuthor().getId())) {
+                        throw new ResourceNotFoundException("Post not found");
+                }
 
                 return mapToPostResponse(post, currentUserId);
+        }
+
+        private boolean isBlockedBetween(UUID user1, UUID user2) {
+                return userBlockRepository.existsByBlockerIdAndBlockedId(user1, user2)
+                                || userBlockRepository.existsByBlockerIdAndBlockedId(user2, user1);
         }
 
         @Transactional
@@ -433,6 +489,8 @@ public class PostService {
                                 .userReaction(userReaction)
                                 .authorIsFollowed(currentUserId != null && !post.getAuthor().getId().equals(currentUserId)
                                         && userRepository.isFollowing(currentUserId, post.getAuthor().getId()))
+                                .saved(currentUserId != null && savedPostRepository.existsByUserIdAndPostId(currentUserId, post.getId()))
+                                .hashtags(post.getHashtags() != null ? post.getHashtags().stream().map(Hashtag::getName).collect(Collectors.toList()) : List.of())
                                 .originalPost(originalPostResponse)
                                 .createdAt(post.getCreatedAt())
                                 .build();
@@ -546,6 +604,137 @@ public class PostService {
                                 .totalPages(posts.getTotalPages())
                                 .last(posts.isLast())
                                 .first(posts.isFirst())
+                                .build();
+        }
+
+        // ==================== SAVE POST (Hifadhi) ====================
+
+        @Transactional
+        public void savePost(UUID postId, UUID userId) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                if (savedPostRepository.existsByUserIdAndPostId(userId, postId)) {
+                        return; // already saved
+                }
+                SavedPost saved = SavedPost.builder().user(user).post(post).build();
+                savedPostRepository.save(saved);
+        }
+
+        @Transactional
+        public void unsavePost(UUID postId, UUID userId) {
+                savedPostRepository.deleteByUserIdAndPostId(userId, postId);
+        }
+
+        public PagedResponse<PostResponse> getSavedPosts(UUID userId, int page, int size) {
+                Pageable pageable = PageRequest.of(page, size);
+                Page<SavedPost> savedPage = savedPostRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+                List<PostResponse> content = savedPage.getContent().stream()
+                                .map(sp -> mapToPostResponse(sp.getPost(), userId))
+                                .collect(Collectors.toList());
+                return PagedResponse.<PostResponse>builder()
+                                .content(content)
+                                .page(savedPage.getNumber())
+                                .size(savedPage.getSize())
+                                .totalElements(savedPage.getTotalElements())
+                                .totalPages(savedPage.getTotalPages())
+                                .last(savedPage.isLast())
+                                .first(savedPage.isFirst())
+                                .build();
+        }
+
+        /**
+         * Share a post to story (24h). Creates a STORY post with originalPost reference.
+         * Repost to feed: use createPost with originalPostId and postType=POST.
+         */
+        @Transactional
+        public PostResponse sharePostToStory(UUID originalPostId, UUID userId, String caption) {
+                CreatePostRequest request = CreatePostRequest.builder()
+                                .caption(caption)
+                                .postType(PostType.STORY)
+                                .originalPostId(originalPostId)
+                                .visibility(Visibility.PUBLIC)
+                                .build();
+                return createPost(userId, request, null);
+        }
+
+        /** Explore: posts by hashtag (#tagName without #) */
+        public PagedResponse<PostResponse> getPostsByHashtag(String tagName, int page, int size, UUID currentUserId) {
+                Pageable pageable = PageRequest.of(page, size);
+                String name = tagName.startsWith("#") ? tagName.substring(1) : tagName;
+                Page<Post> posts = hashtagRepository.findPostsByHashtagName(name, pageable);
+                return PagedResponse.<PostResponse>builder()
+                                .content(posts.getContent().stream()
+                                                .map(post -> mapToPostResponse(post, currentUserId))
+                                                .collect(Collectors.toList()))
+                                .page(posts.getNumber())
+                                .size(posts.getSize())
+                                .totalElements(posts.getTotalElements())
+                                .totalPages(posts.getTotalPages())
+                                .last(posts.isLast())
+                                .first(posts.isFirst())
+                                .build();
+        }
+
+        /** Trending hashtags for Explore tab */
+        public List<String> getTrendingHashtags(int page, int size) {
+                Pageable pageable = PageRequest.of(page, size);
+                return hashtagRepository.findTrendingHashtags(pageable).getContent().stream()
+                                .map(Hashtag::getName)
+                                .collect(Collectors.toList());
+        }
+
+        // ==================== STORY VIEWERS (Who viewed my story) ====================
+
+        @Transactional
+        public void recordStoryView(UUID postId, UUID viewerUserId) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                if (post.getPostType() != PostType.STORY) {
+                        throw new BadRequestException("Only story posts can record views");
+                }
+                User viewer = userRepository.findById(viewerUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User", "id", viewerUserId));
+                if (post.getAuthor().getId().equals(viewerUserId)) {
+                        return; // don't record self view
+                }
+                if (storyViewRepository.existsByViewerIdAndPostId(viewerUserId, postId)) {
+                        return; // already viewed
+                }
+                StoryView sv = StoryView.builder().viewer(viewer).post(post).build();
+                storyViewRepository.save(sv);
+                // Optionally increment viewsCount on post
+                post.setViewsCount(post.getViewsCount() + 1);
+                postRepository.save(post);
+        }
+
+        public PagedResponse<PostResponse.UserSummary> getStoryViewers(UUID postId, UUID currentUserId, int page, int size) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                if (post.getPostType() != PostType.STORY) {
+                        throw new BadRequestException("Only story posts have viewers list");
+                }
+                if (!post.getAuthor().getId().equals(currentUserId)) {
+                        throw new BadRequestException("Only the story author can see who viewed");
+                }
+                Pageable pageable = PageRequest.of(page, size);
+                Page<StoryView> views = storyViewRepository.findByPostIdOrderByViewedAtDesc(postId, pageable);
+                List<PostResponse.UserSummary> content = views.getContent().stream()
+                                .map(sv -> PostResponse.UserSummary.builder()
+                                                .id(sv.getViewer().getId())
+                                                .name(sv.getViewer().getName())
+                                                .profilePic(sv.getViewer().getProfilePic())
+                                                .build())
+                                .collect(Collectors.toList());
+                return PagedResponse.<PostResponse.UserSummary>builder()
+                                .content(content)
+                                .page(views.getNumber())
+                                .size(views.getSize())
+                                .totalElements(views.getTotalElements())
+                                .totalPages(views.getTotalPages())
+                                .last(views.isLast())
+                                .first(views.isFirst())
                                 .build();
         }
 }

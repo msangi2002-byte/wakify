@@ -15,17 +15,16 @@ import java.util.UUID;
 @Repository
 public interface PostRepository extends JpaRepository<Post, UUID> {
 
-    // Feed for a user (posts from people they follow + their own)
-    // Feed for a user (posts from people they follow + their own) with Visibility
-    // Checks
+    // Feed for a user (posts from people they follow + their own). Excludes blocked users.
     @Query("SELECT p FROM Post p WHERE p.isDeleted = false AND " +
+            "p.author NOT IN (SELECT ub.blocked FROM UserBlock ub WHERE ub.blocker.id = :userId) AND " +
+            "p.author NOT IN (SELECT ub.blocker FROM UserBlock ub WHERE ub.blocked.id = :userId) AND " +
             "(p.author.id = :userId OR " +
             "(p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId) AND " +
             "(p.visibility = 'PUBLIC' OR " +
             "(p.visibility = 'FRIENDS' AND EXISTS (" +
             "SELECT fs FROM Friendship fs WHERE fs.status = 'ACCEPTED' AND " +
-            "((fs.requester.id = :userId AND fs.addressee = p.author) OR (fs.addressee.id = :userId AND fs.requester = p.author))"
-            +
+            "((fs.requester.id = :userId AND fs.addressee = p.author) OR (fs.addressee.id = :userId AND fs.requester = p.author))" +
             "))))) " +
             "ORDER BY p.createdAt DESC")
     Page<Post> findFeedForUser(@Param("userId") UUID userId, Pageable pageable);
@@ -63,8 +62,10 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 
     long countByIsDeletedFalse();
 
-    // Stories (Status) - Active in last 24 hours
+    // Stories (Status) - Active in last 24 hours. Excludes blocked users.
     @Query("SELECT p FROM Post p WHERE p.postType = 'STORY' AND p.isDeleted = false AND p.createdAt >= :since AND " +
+            "p.author NOT IN (SELECT ub.blocked FROM UserBlock ub WHERE ub.blocker.id = :userId) AND " +
+            "p.author NOT IN (SELECT ub.blocker FROM UserBlock ub WHERE ub.blocked.id = :userId) AND " +
             "(p.author.id = :userId OR " +
             "(p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId) AND " +
             "(p.visibility = 'PUBLIC' OR p.visibility = 'FRIENDS'))) " +

@@ -241,4 +241,90 @@ public class PostController {
         PostResponse post = postService.untagProduct(postId, productId, userId);
         return ResponseEntity.ok(ApiResponse.success("Product untagged successfully", post));
     }
+
+    // ==================== SAVE POST (Hifadhi) ====================
+
+    /**
+     * Save post to "Saved" list (profile)
+     * POST /api/v1/posts/{postId}/save
+     */
+    @PostMapping("/{postId}/save")
+    public ResponseEntity<ApiResponse<Void>> savePost(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        postService.savePost(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Post saved (Hifadhi)"));
+    }
+
+    /**
+     * Remove post from Saved list
+     * DELETE /api/v1/posts/{postId}/save
+     */
+    @DeleteMapping("/{postId}/save")
+    public ResponseEntity<ApiResponse<Void>> unsavePost(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        postService.unsavePost(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Post removed from saved"));
+    }
+
+    /**
+     * Get current user's saved posts (for profile "Saved" tab)
+     * GET /api/v1/posts/saved
+     */
+    @GetMapping("/saved")
+    public ResponseEntity<ApiResponse<PagedResponse<PostResponse>>> getSavedPosts(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<PostResponse> saved = postService.getSavedPosts(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(saved));
+    }
+
+    /**
+     * Share post to story (creates a 24h story that references the post).
+     * POST /api/v1/posts/{postId}/share-to-story
+     * Body optional: { "caption": "..." }
+     */
+    @PostMapping("/{postId}/share-to-story")
+    public ResponseEntity<ApiResponse<PostResponse>> sharePostToStory(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody(required = false) Map<String, String> body) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        String caption = body != null ? body.get("caption") : null;
+        PostResponse story = postService.sharePostToStory(postId, userId, caption);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Shared to story", story));
+    }
+
+    /**
+     * Record that current user viewed this story (who viewed my story).
+     * POST /api/v1/posts/{postId}/view
+     */
+    @PostMapping("/{postId}/view")
+    public ResponseEntity<ApiResponse<Void>> recordStoryView(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        postService.recordStoryView(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success("View recorded"));
+    }
+
+    /**
+     * Get list of users who viewed this story (only story author).
+     * GET /api/v1/posts/{postId}/viewers
+     */
+    @GetMapping("/{postId}/viewers")
+    public ResponseEntity<ApiResponse<PagedResponse<PostResponse.UserSummary>>> getStoryViewers(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<PostResponse.UserSummary> viewers = postService.getStoryViewers(postId, userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(viewers));
+    }
 }

@@ -7,14 +7,14 @@ import com.wakilfly.model.User;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;
+import com.wakilfly.repository.UserBlockRepository;
 import com.wakilfly.model.NotificationType;
+import com.wakilfly.model.UserBlock;
 import com.wakilfly.service.NotificationService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,13 +25,21 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserBlockRepository userBlockRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
+
+    public UserService(UserRepository userRepository, UserBlockRepository userBlockRepository,
+                       NotificationService notificationService, FileStorageService fileStorageService) {
+        this.userRepository = userRepository;
+        this.userBlockRepository = userBlockRepository;
+        this.notificationService = notificationService;
+        this.fileStorageService = fileStorageService;
+    }
 
     public UserResponse getUserById(UUID userId) {
         User user = userRepository.findById(userId)
@@ -138,7 +146,7 @@ public class UserService {
                     .first(true)
                     .build();
         }
-        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "name"));
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
         Page<User> users = userRepository.searchUsers(query.trim(), pageable);
 
         return PagedResponse.<UserResponse>builder()
@@ -160,7 +168,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
         String region = currentUser.getRegion();
         String country = currentUser.getCountry();
-        Pageable pageable = PageRequest.of(page, size);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> users = userRepository.findSuggestedUsers(currentUserId, region, country, pageable);
 
         return PagedResponse.<UserResponse>builder()
@@ -176,17 +184,66 @@ public class UserService {
                 .build();
     }
 
+    // ==================== BLOCK / REPORT ====================
+    // Report: use POST /api/v1/reports (ReportController). Block below.
+
+    @Transactional
+    public void blockUser(UUID blockerId, UUID blockedUserId) {
+        if (blockerId.equals(blockedUserId)) {
+            throw new BadRequestException("You cannot block yourself");
+        }
+        User blocker = userRepository.findById(blockerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", blockerId));
+        User blocked = userRepository.findById(blockedUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", blockedUserId));
+        if (userBlockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedUserId)) {
+            return; // already blocked
+        }
+        UserBlock ub = UserBlock.builder().blocker(blocker).blocked(blocked).build();
+        userBlockRepository.save(ub);
+        log.info("User {} blocked user {}", blockerId, blockedUserId);
+    }
+
+    @Transactional
+    public void unblockUser(UUID blockerId, UUID blockedUserId) {
+        userBlockRepository.deleteByBlockerIdAndBlockedId(blockerId, blockedUserId);
+        log.info("User {} unblocked user {}", blockerId, blockedUserId);
+    }
+
+    public boolean isBlocked(UUID blockerId, UUID blockedUserId) {
+        return userBlockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedUserId);
+    }
+
+    public PagedResponse<UserResponse> getBlockedUsers(UUID userId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<UserBlock> blocks = userBlockRepository.findByBlockerIdOrderByCreatedAtDesc(userId, pageable);
+        return PagedResponse.<UserResponse>builder()
+                .content(blocks.getContent().stream()
+                        .map(ub -> mapToUserResponse(ub.getBlocked(), false))
+                        .collect(Collectors.toList()))
+                .page(blocks.getNumber())
+                .size(blocks.getSize())
+                .totalElements(blocks.getTotalElements())
+                .totalPages(blocks.getTotalPages())
+                .last(blocks.isLast())
+                .first(blocks.isFirst())
+                .build();
+    }
+
     @Transactional
     public void followUser(UUID userId, UUID targetUserId) {
         if (userId.equals(targetUserId)) {
             throw new BadRequestException("You cannot follow yourself");
         }
-
         User currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", targetUserId));
 
+        if (userBlockRepository.existsByBlockerIdAndBlockedId(userId, targetUserId)
+                || userBlockRepository.existsByBlockerIdAndBlockedId(targetUserId, userId)) {
+            throw new BadRequestException("Cannot follow: user is blocked");
+        }
         if (targetUser.getFollowers().contains(currentUser)) {
             throw new BadRequestException("You are already following this user");
         }
@@ -194,7 +251,6 @@ public class UserService {
         targetUser.addFollower(currentUser);
         userRepository.save(targetUser);
 
-        // Create notification for targetUser
         log.info("User {} followed user {}", userId, targetUserId);
         notificationService.sendNotification(targetUser, currentUser, NotificationType.FOLLOW, currentUser.getId(),
                 currentUser.getName() + " started following you");
@@ -214,7 +270,7 @@ public class UserService {
     }
 
     public PagedResponse<UserResponse> getFollowers(UUID userId, int page, int size, UUID currentUserId) {
-        Pageable pageable = PageRequest.of(page, size);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> followers = userRepository.findFollowers(userId, pageable);
 
         return PagedResponse.<UserResponse>builder()
@@ -240,7 +296,7 @@ public class UserService {
     }
 
     public PagedResponse<UserResponse> getFollowing(UUID userId, int page, int size, UUID currentUserId) {
-        Pageable pageable = PageRequest.of(page, size);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> following = userRepository.findFollowing(userId, pageable);
 
         return PagedResponse.<UserResponse>builder()

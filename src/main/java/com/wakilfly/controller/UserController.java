@@ -89,4 +89,46 @@ public class UserController {
         PagedResponse<UserResponse> users = userService.getSuggestedUsers(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(users));
     }
+
+    // ==================== BLOCK USER ====================
+
+    /**
+     * Block a user (they won't see your posts/stories in their feed; you won't see theirs).
+     * POST /api/v1/users/{userId}/block
+     */
+    @PostMapping("/{userId}/block")
+    public ResponseEntity<ApiResponse<Void>> blockUser(
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        userService.blockUser(currentUserId, userId);
+        return ResponseEntity.ok(ApiResponse.success("User blocked"));
+    }
+
+    /**
+     * Unblock a user.
+     * DELETE /api/v1/users/{userId}/block
+     */
+    @DeleteMapping("/{userId}/block")
+    public ResponseEntity<ApiResponse<Void>> unblockUser(
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        userService.unblockUser(currentUserId, userId);
+        return ResponseEntity.ok(ApiResponse.success("User unblocked"));
+    }
+
+    /**
+     * List users you have blocked.
+     * GET /api/v1/users/me/blocked
+     */
+    @GetMapping("/me/blocked")
+    public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> getBlockedUsers(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<UserResponse> blocked = userService.getBlockedUsers(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(blocked));
+    }
 }

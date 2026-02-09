@@ -30,6 +30,8 @@ public class PostResponse {
     private Integer viewsCount;
     private String userReaction; // Type of reaction by current user (or null)
     private Boolean authorIsFollowed; // True if current user follows the post author (feed only)
+    private Boolean saved; // True if current user has saved this post (Hifadhi)
+    private List<String> hashtags; // #tag names for Explore
     private PostResponse originalPost; // For shared posts
     private LocalDateTime createdAt;
 

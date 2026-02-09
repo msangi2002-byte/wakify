@@ -71,6 +71,12 @@ public class Post {
     @JoinColumn(name = "community_id")
     private Community community;
 
+    // Hashtags (#mzumbe #darasalaam) for discovery and Explore
+    @ManyToMany
+    @JoinTable(name = "post_hashtags", joinColumns = @JoinColumn(name = "post_id"), inverseJoinColumns = @JoinColumn(name = "hashtag_id"))
+    @Builder.Default
+    private Set<Hashtag> hashtags = new HashSet<>();
+
     @Column(name = "shares_count")
     @Builder.Default
     private Integer sharesCount = 0;

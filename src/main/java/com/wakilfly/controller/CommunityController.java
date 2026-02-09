@@ -91,4 +91,21 @@ public class CommunityController {
         CommunityResponse community = communityService.getCommunityById(id, userId);
         return ResponseEntity.ok(ApiResponse.success(community));
     }
+
+    @PutMapping("/{id}/settings")
+    public ResponseEntity<ApiResponse<CommunityResponse>> updateCommunitySettings(
+            @PathVariable UUID id,
+            @RequestBody java.util.Map<String, Boolean> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        Boolean allowMemberPosts = body != null && body.containsKey("allowMemberPosts")
+                ? body.get("allowMemberPosts")
+                : null;
+        if (allowMemberPosts == null) {
+            allowMemberPosts = true;
+        }
+        CommunityResponse community = communityService.updateSettings(id, userId, allowMemberPosts);
+        return ResponseEntity.ok(ApiResponse.success(community));
+    }
 }

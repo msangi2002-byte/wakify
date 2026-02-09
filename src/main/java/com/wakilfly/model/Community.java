@@ -50,6 +50,11 @@ public class Community {
     @Builder.Default
     private Integer membersCount = 1; // Creator is first member
 
+    /** If false, only the creator (and admins) can post in the group. */
+    @Column(name = "allow_member_posts", nullable = false)
+    @Builder.Default
+    private Boolean allowMemberPosts = true;
+
     @OneToMany(mappedBy = "community", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private Set<CommunityMember> members = new HashSet<>();

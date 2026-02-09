@@ -61,10 +61,14 @@ CREATE TABLE IF NOT EXISTS communities (
     cover_image VARCHAR(255),
     creator_id UUID NOT NULL,
     members_count INTEGER DEFAULT 1,
+    allow_member_posts BOOLEAN NOT NULL DEFAULT TRUE, -- if FALSE, only creator/admins can post
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
     FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- If table already exists, add the column (run manually if needed):
+-- ALTER TABLE communities ADD COLUMN IF NOT EXISTS allow_member_posts BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- Community Members
 CREATE TABLE IF NOT EXISTS community_members (

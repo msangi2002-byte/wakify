@@ -27,4 +27,7 @@ public class CommunityResponse {
     // Status relative to current user
     private boolean isMember;
     private boolean isAdmin; // Creator or Admin
+
+    /** If false, only creator/admins can post; if true, members can post. */
+    private boolean allowMemberPosts;
 }

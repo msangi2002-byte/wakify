@@ -77,6 +77,18 @@ public class PostService {
                                         author.getId())) {
                                 throw new BadRequestException("You are not a member of this community");
                         }
+
+                        // If only creator/admins can post, enforce it
+                        if (Boolean.FALSE.equals(community.getAllowMemberPosts())) {
+                                boolean isCreator = community.getCreator().getId().equals(author.getId());
+                                boolean isAdmin = communityMemberRepository
+                                                .findByCommunityIdAndUserId(community.getId(), author.getId())
+                                                .map(m -> m.getRole() == com.wakilfly.model.CommunityRole.ADMIN)
+                                                .orElse(false);
+                                if (!isCreator && !isAdmin) {
+                                        throw new BadRequestException("Only the group creator and admins can post in this group");
+                                }
+                        }
                 }
 
                 Post.PostBuilder postBuilder = Post.builder()

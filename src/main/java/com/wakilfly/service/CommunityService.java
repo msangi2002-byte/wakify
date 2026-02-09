@@ -2,6 +2,8 @@ package com.wakilfly.service;
 
 import com.wakilfly.dto.request.CreateCommunityRequest;
 import com.wakilfly.dto.response.CommunityResponse;
+import com.wakilfly.exception.BadRequestException;
+import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.Community;
 import com.wakilfly.model.CommunityMember;
 import com.wakilfly.model.CommunityRole;
@@ -117,7 +119,7 @@ public class CommunityService {
     @Transactional(readOnly = true)
     public CommunityResponse getCommunityById(UUID communityId, UUID currentUserId) {
         Community community = communityRepository.findById(communityId)
-                .orElseThrow(() -> new RuntimeException("Community not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Community", "id", communityId));
         return mapToResponse(community, currentUserId);
     }
 
@@ -146,6 +148,21 @@ public class CommunityService {
                 .creatorName(c.getCreator().getName())
                 .isMember(isMember)
                 .isAdmin(isAdmin)
+                .allowMemberPosts(c.getAllowMemberPosts() != null ? c.getAllowMemberPosts() : true)
                 .build();
+    }
+
+    @Transactional
+    public CommunityResponse updateSettings(UUID communityId, UUID userId, boolean allowMemberPosts) {
+        Community community = communityRepository.findById(communityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Community", "id", communityId));
+        CommunityMember member = memberRepository.findByCommunityIdAndUserId(communityId, userId)
+                .orElseThrow(() -> new BadRequestException("You are not a member of this community"));
+        if (member.getRole() != CommunityRole.ADMIN) {
+            throw new BadRequestException("Only group admins can change this setting");
+        }
+        community.setAllowMemberPosts(allowMemberPosts);
+        communityRepository.save(community);
+        return mapToResponse(community, userId);
     }
 }

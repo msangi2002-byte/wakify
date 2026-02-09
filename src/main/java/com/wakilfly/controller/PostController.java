@@ -108,6 +108,17 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.success(posts));
     }
 
+    @GetMapping("/community/{communityId}")
+    public ResponseEntity<ApiResponse<PagedResponse<PostResponse>>> getPostsByCommunity(
+            @PathVariable UUID communityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<PostResponse> posts = postService.getPostsByCommunity(communityId, page, size, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(posts));
+    }
+
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostResponse>> getPost(
             @PathVariable UUID postId,

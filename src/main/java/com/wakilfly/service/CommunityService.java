@@ -114,6 +114,13 @@ public class CommunityService {
         return memberships.map(m -> mapToResponse(m.getCommunity(), currentUserId));
     }
 
+    @Transactional(readOnly = true)
+    public CommunityResponse getCommunityById(UUID communityId, UUID currentUserId) {
+        Community community = communityRepository.findById(communityId)
+                .orElseThrow(() -> new RuntimeException("Community not found"));
+        return mapToResponse(community, currentUserId);
+    }
+
     private CommunityResponse mapToResponse(Community c, UUID currentUserId) {
         boolean isMember = false;
         boolean isAdmin = false;

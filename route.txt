@@ -24,6 +24,17 @@ output: {
 }
 ----------------------
 
+route: /api/v1/auth/resend-otp
+method: POST
+example: {
+    "phone": "+1234567890"
+}
+output: {
+    "success": true,
+    "message": "OTP resent successfully"
+}
+----------------------
+
 route: /api/v1/auth/verify-otp
 method: POST
 example: {
@@ -42,7 +53,7 @@ output: {
 route: /api/v1/auth/login
 method: POST
 example: {
-    "phone": "+1234567890",
+    "emailOrPhone": "+255678165524",
     "password": "password123"
 }
 output: {
@@ -338,6 +349,64 @@ output: {
 }
 ----------------------
 
+route: /api/v1/business/dashboard
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "totalOrders": 150,
+        "pendingOrders": 12,
+        "totalRevenue": 2500000.00,
+        "productsCount": 45
+    }
+}
+----------------------
+
+route: /api/v1/business/me
+method: PUT
+example: {
+    "name": "Tech Gadgets Store Updated",
+    "description": "Updated description",
+    "phone": "+255712345678"
+}
+output: {
+    "success": true,
+    "message": "Business updated successfully",
+    "data": { "id": "c3eefd22...", "name": "Tech Gadgets Store Updated" }
+}
+----------------------
+
+route: /api/v1/business/products
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            { "id": "uuid", "name": "Smart Watch", "price": 130000.00, "stockQuantity": 10 }
+        ],
+        "totalPages": 1,
+        "totalElements": 15
+    }
+}
+----------------------
+
+route: /api/v1/business/orders
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            { "id": "uuid", "orderNumber": "ORD-001", "total": 52000.00, "status": "PENDING" }
+        ],
+        "totalPages": 2,
+        "totalElements": 25
+    }
+}
+----------------------
+
 # Agent Routes
 route: /api/v1/agent/register
 method: POST
@@ -385,7 +454,7 @@ output: {
     "data": {
         "id": "d4fffe33-0f4c-6ab0-ee90-0ee1de502d44",
         "agentCode": "AGT-8821",
-        "name": "John Doe", // From linked User
+        "name": "John Doe"
         "status": "APPROVED",
         "region": "Dar es Salaam"
     }
@@ -470,6 +539,49 @@ output: {
         "totalElements": 1
     }
 }
+----------------------
+
+route: /api/v1/agent/withdrawals
+method: POST
+example: {
+    "amount": 50000.00,
+    "phone": "+255712345678"
+}
+output: {
+    "success": true,
+    "message": "Withdrawal request submitted",
+    "data": { "id": "uuid", "amount": 50000.00, "status": "PENDING" }
+}
+----------------------
+
+route: /api/v1/agent/withdrawals
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            { "id": "uuid", "amount": 50000.00, "status": "PENDING", "createdAt": "2023-11-20T10:00:00" }
+        ],
+        "totalPages": 1,
+        "totalElements": 5
+    }
+}
+----------------------
+
+route: /api/v1/agent/withdrawals/{id}
+method: DELETE
+example: {}
+output: {
+    "success": true,
+    "message": "Withdrawal request cancelled"
+}
+----------------------
+
+route: /api/v1/agent/webhooks/payment-callback
+method: POST
+example: { "orderId": "HP123", "status": "completed", "amount": 10000 }
+output: { "success": true, "message": "Callback received" }
 ----------------------
 
 # Product Routes
@@ -692,6 +804,21 @@ output: {
 }
 ----------------------
 
+route: /api/v1/products/my
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            { "id": "uuid", "name": "My Product", "price": 50000.00 }
+        ],
+        "totalPages": 1,
+        "totalElements": 5
+    }
+}
+----------------------
+
 # Order Routes
 route: /api/v1/orders
 method: POST
@@ -722,6 +849,27 @@ output: {
                 "total": 50000.00
             }
         ]
+    }
+}
+----------------------
+
+route: /api/v1/orders/incoming
+method: GET
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "i9eeej88-549h-1fg5-3345-5336ij057i99",
+                "orderNumber": "ORD-20231201-0001",
+                "total": 52000.00,
+                "status": "PENDING",
+                "buyer": { "name": "John Doe" }
+            }
+        ],
+        "totalPages": 2,
+        "totalElements": 25
     }
 }
 ----------------------
@@ -777,27 +925,6 @@ output: {
         "orderNumber": "ORD-20231201-0001",
         "status": "CANCELLED",
         "cancellationReason": "Found cheaper price elsewhere"
-    }
-}
-----------------------
-
-route: /api/v1/business/orders
-method: GET
-example: {}
-output: {
-    "success": true,
-    "data": {
-        "content": [
-            {
-                "id": "i9eeej88-549h-1fg5-3345-5336ij057i99",
-                "orderNumber": "ORD-20231201-0001",
-                "total": 52000.00,
-                "status": "PENDING",
-                "buyer": { "name": "John Doe" }
-            }
-        ],
-        "totalPages": 2,
-        "totalElements": 25
     }
 }
 ----------------------
@@ -1179,30 +1306,60 @@ output: {
 }
 ----------------------
 
-# Message Routes
-route: /api/v1/messages/conversations
+route: /api/v1/posts/with-products
 method: GET
 example: {}
 output: {
     "success": true,
     "data": {
         "content": [
-            {
-                "id": "m3iiin22-983l-5jk9-7789-9770mn491m33",
-                "participantOne": { "name": "John Doe" },
-                "participantTwo": { "name": "Alice Smith" },
-                "lastMessagePreview": "Hello, is this available?",
-                "lastMessageAt": "2023-12-01T14:00:00",
-                "unreadCount": 1
-            }
+            { "id": "uuid", "caption": "...", "products": [{ "id": "uuid", "name": "Product" }] }
         ],
         "totalPages": 1,
-        "totalElements": 8
+        "totalElements": 10
     }
 }
 ----------------------
 
-route: /api/v1/messages/{conversationId}
+route: /api/v1/posts/{postId}/tags/{productId}
+method: POST
+example: {}
+output: {
+    "success": true,
+    "message": "Product tagged on post"
+}
+----------------------
+
+route: /api/v1/posts/{postId}/tags/{productId}
+method: DELETE
+example: {}
+output: {
+    "success": true,
+    "message": "Product tag removed"
+}
+----------------------
+
+# Message Routes (Chat)
+route: /api/v1/messages
+method: POST
+example: {
+    "recipientId": "b2ffcd11-8d2a-4ef8-cc7e-8cc9bd380b22",
+    "content": "Yes, it is available!"
+}
+output: {
+    "success": true,
+    "data": {
+        "id": "o5kkkp44-105n-7lm1-9901-1992op613o55",
+        "senderId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "content": "Yes, it is available!",
+        "type": "TEXT",
+        "createdAt": "2023-12-01T14:05:00",
+        "isRead": false
+    }
+}
+----------------------
+
+route: /api/v1/messages/{otherUserId}
 method: GET
 example: {}
 output: {
@@ -1224,32 +1381,12 @@ output: {
 }
 ----------------------
 
-route: /api/v1/messages
-method: POST
-example: {
-    "receiverId": "b2ffcd11-8d2a-4ef8-cc7e-8cc9bd380b22",
-    "content": "Yes, it is available!"
-}
-output: {
-    "success": true,
-    "data": {
-        "id": "o5kkkp44-105n-7lm1-9901-1992op613o55",
-        "conversationId": "m3iiin22-983l-5jk9-7789-9770mn491m33",
-        "senderId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-        "content": "Yes, it is available!",
-        "type": "TEXT",
-        "createdAt": "2023-12-01T14:05:00",
-        "isRead": false
-    }
-}
-----------------------
-
-route: /api/v1/messages/{messageId}
-method: DELETE
+route: /api/v1/messages/unread-count
+method: GET
 example: {}
 output: {
     "success": true,
-    "message": "Message deleted successfully"
+    "data": 3
 }
 ----------------------
 
@@ -1372,6 +1509,17 @@ example: {}
 output: {
     "success": true,
     "message": "Friend request accepted"
+}
+----------------------
+
+route: /api/v1/friends/decline/{requestId}
+method: DELETE
+auth: Bearer Token (Required)
+description: Decline a friend request
+example: {}
+output: {
+    "success": true,
+    "message": "Friend request declined"
 }
 ----------------------
 
@@ -1923,6 +2071,112 @@ notes: |
     Reason Types: SPAM, HARASSMENT, FALSE_INFO, INAPPROPRIATE, SCAM, OTHER
 ----------------------
 
+# Promotions API
+
+route: /api/v1/promotions/packages
+method: GET
+example: {}
+output: { "success": true, "data": [ { "id": "uuid", "name": "Boost 1 Day", "price": 5000 } ] }
+----------------------
+
+route: /api/v1/promotions
+method: POST
+example: { "postId": "uuid", "packageId": "uuid" }
+output: { "success": true, "data": { "id": "uuid", "status": "PENDING" } }
+----------------------
+
+route: /api/v1/promotions
+method: GET
+example: {}
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/promotions/{id}
+method: GET
+example: {}
+output: { "success": true, "data": { "id": "uuid", "postId": "uuid", "status": "ACTIVE" } }
+----------------------
+
+route: /api/v1/promotions/{id}/stats
+method: GET
+example: {}
+output: { "success": true, "data": { "impressions": 1000, "clicks": 50 } }
+----------------------
+
+route: /api/v1/promotions/{id}/pause
+method: POST
+example: {}
+output: { "success": true, "message": "Promotion paused" }
+----------------------
+
+route: /api/v1/promotions/{id}/resume
+method: POST
+example: {}
+output: { "success": true, "message": "Promotion resumed" }
+----------------------
+
+route: /api/v1/promotions/{id}
+method: DELETE
+example: {}
+output: { "success": true, "message": "Promotion deleted" }
+----------------------
+
+route: /api/v1/promotions/{id}/impression
+method: POST
+example: {}
+output: { "success": true }
+----------------------
+
+route: /api/v1/promotions/{id}/click
+method: POST
+example: {}
+output: { "success": true }
+----------------------
+
+# Ads API
+
+route: /api/v1/ads/active
+method: GET
+example: {}
+output: { "success": true, "data": [ { "id": "uuid", "title": "...", "imageUrl": "..." } ] }
+----------------------
+
+route: /api/v1/ads/{adId}/impression
+method: POST
+example: {}
+output: { "success": true }
+----------------------
+
+route: /api/v1/ads/{adId}/click
+method: POST
+example: {}
+output: { "success": true }
+----------------------
+
+route: /api/v1/business/ads
+method: POST
+example: { "title": "My Ad", "targetUrl": "https://...", "imageUrl": "..." }
+output: { "success": true, "data": { "id": "uuid", "status": "PENDING" } }
+----------------------
+
+route: /api/v1/business/ads
+method: GET
+example: {}
+output: { "success": true, "data": [ { "id": "uuid", "title": "...", "status": "ACTIVE" } ] }
+----------------------
+
+route: /api/v1/business/ads/{adId}/pause
+method: POST
+example: {}
+output: { "success": true, "message": "Ad paused" }
+----------------------
+
+route: /api/v1/business/ads/{adId}/resume
+method: POST
+example: {}
+output: { "success": true, "message": "Ad resumed" }
+----------------------
+
 # Health Routes
 route: /
 method: GET
@@ -1951,15 +2205,23 @@ output: {
 }
 ----------------------
 
-# 📌 Status Codes
+# SRS Streams Webhook (internal/callback)
 
-| Code | Meaning |
-|------|---------|
-| 200 | OK - Success |
-| 201 | Created - Resource created |
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Token invalid/missing |
-| 403 | Forbidden - No permission |
+route: /api/v1/streams/on-publish
+method: POST
+auth: None (Callback from SRS)
+description: Called when a stream is published
+example: { "stream": "stream_id", "app": "live" }
+output: { "success": true }
+----------------------
+
+route: /api/v1/streams/on-unpublish
+method: POST
+auth: None (Callback from SRS)
+description: Called when a stream is unpublished
+example: { "stream": "stream_id", "app": "live" }
+output: { "success": true }
+----------------------
 
 # 🔔 Notification API
 
@@ -2005,45 +2267,6 @@ example: {}
 output: {
     "success": true,
     "data": null
-}
-----------------------
-
-# 💬 Chat / Messaging API
-
-route: /api/v1/messages
-method: POST
-auth: Bearer Token (Required)
-description: Send a private message
-example: {
-    "recipientId": "uuid",
-    "content": "Hello there!"
-}
-output: {
-    "success": true,
-    "data": { "id": "...", "content": "...", "senderId": "...", "createdAt": "..." }
-}
-----------------------
-
-route: /api/v1/messages/{otherUserId}
-method: GET
-auth: Bearer Token (Required)
-description: Get conversation history with a user
-params: page=0, size=20
-example: {}
-output: {
-    "success": true,
-    "data": { "content": [...] }
-}
-----------------------
-
-route: /api/v1/messages/unread-count
-method: GET
-auth: Bearer Token (Required)
-description: Get total count of unread messages
-example: {}
-output: {
-    "success": true,
-    "data": 3
 }
 ----------------------
 
@@ -2094,6 +2317,40 @@ output: {
     "success": true,
     "message": "Cart cleared"
 }
+----------------------
+
+# ⭐ Favorites API
+
+route: /api/v1/favorites/{productId}
+method: POST
+auth: Bearer Token (Required)
+description: Add product to favorites
+example: {}
+output: { "success": true, "message": "Added to favorites" }
+----------------------
+
+route: /api/v1/favorites/{productId}
+method: DELETE
+auth: Bearer Token (Required)
+description: Remove product from favorites
+example: {}
+output: { "success": true, "message": "Removed from favorites" }
+----------------------
+
+route: /api/v1/favorites
+method: GET
+auth: Bearer Token (Required)
+description: Get my favorite products
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/favorites/check/{productId}
+method: GET
+auth: Bearer Token (Required)
+description: Check if product is in favorites
+example: {}
+output: { "success": true, "data": true }
 ----------------------
 
 # ⭐ Reviews API
@@ -2161,10 +2418,10 @@ output: {
 }
 ----------------------
 
-route: /api/v1/calls/{callId}/accept
+route: /api/v1/calls/{callId}/answer
 method: POST
 auth: Bearer Token (Required)
-description: Accept an incoming call
+description: Answer an incoming call
 example: {}
 output: { "success": true, "message": "Call accepted" }
 ----------------------
@@ -2185,6 +2442,22 @@ example: {}
 output: { "success": true, "message": "Call ended" }
 ----------------------
 
+route: /api/v1/calls/history
+method: GET
+auth: Bearer Token (Required)
+description: Get call history
+example: {}
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/calls/incoming
+method: GET
+auth: Bearer Token (Required)
+description: Get incoming call requests
+example: {}
+output: { "success": true, "data": [...] }
+----------------------
+
 # 🎥 Live Streaming API
 
 route: /api/v1/live/start
@@ -2202,6 +2475,21 @@ output: {
 }
 ----------------------
 
+route: /api/v1/live/schedule
+method: POST
+auth: Bearer Token (Required)
+description: Schedule a live stream
+example: {
+    "title": "Upcoming Live",
+    "description": "Tech talk",
+    "scheduledAt": "2023-12-15T18:00:00"
+}
+output: {
+    "success": true,
+    "data": { "id": "uuid", "title": "Upcoming Live", "scheduledAt": "2023-12-15T18:00:00" }
+}
+----------------------
+
 route: /api/v1/live/{liveId}/end
 method: POST
 auth: Bearer Token (Required)
@@ -2214,8 +2502,16 @@ route: /api/v1/live/active
 method: GET
 auth: None (Public)
 description: Get list of active live streams
-params: page=0, size=20
-output: { "success": true, "data": { "content": [...] } }
+params: limit=20
+output: { "success": true, "data": [...] }
+----------------------
+
+route: /api/v1/live/{liveId}
+method: GET
+auth: None (Public)
+description: Get live stream details
+example: {}
+output: { "success": true, "data": { "id": "uuid", "title": "...", "viewers": 150, "host": {...} } }
 ----------------------
 
 route: /api/v1/live/{liveId}/join
@@ -2224,6 +2520,44 @@ auth: Bearer Token (Required)
 description: Join a live stream (increments viewer count)
 example: {}
 output: { "success": true, "data": { "id": "uuid", "viewers": 150 } }
+----------------------
+
+route: /api/v1/live/{liveId}/leave
+method: POST
+auth: Bearer Token (Required)
+description: Leave a live stream
+example: {}
+output: { "success": true, "message": "Left live stream" }
+----------------------
+
+route: /api/v1/live/{liveId}/like
+method: POST
+auth: Bearer Token (Required)
+description: Like a live stream
+example: {}
+output: { "success": true, "message": "Liked" }
+----------------------
+
+route: /api/v1/live/my-streams
+method: GET
+auth: Bearer Token (Required)
+description: Get my live stream history
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/live/config
+method: GET
+auth: None (Public)
+description: Get streaming config (STUN/TURN, RTMP URL, signal URL)
+output: {
+    "success": true,
+    "data": {
+        "iceServers": { "stunUrl": "...", "turnUrl": "...", "turnUsername": "...", "turnPassword": "..." },
+        "broadcastUrl": "...",
+        "signalUrl": "..."
+    }
+}
 ----------------------
 
 # 💎 Virtual Gifts & Coins API
@@ -2277,6 +2611,22 @@ output: {
 }
 ----------------------
 
+route: /api/v1/wallet/gifts/received
+method: GET
+auth: Bearer Token (Required)
+description: Get gifts I received
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
+route: /api/v1/wallet/gifts/sent
+method: GET
+auth: Bearer Token (Required)
+description: Get gifts I sent
+params: page=0, size=20
+output: { "success": true, "data": { "content": [...] } }
+----------------------
+
 # 📱 Reels & Stories (Status) API
 
 route: /api/v1/posts/reels
@@ -2294,3 +2644,15 @@ description: Get active stories from friends and self (Last 24h)
 alias: /api/v1/posts/stories
 output: { "success": true, "data": [...] }
 ----------------------
+
+# 📌 Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | OK - Success |
+| 201 | Created - Resource created |
+| 400 | Bad Request - Invalid input |
+| 401 | Unauthorized - Token invalid/missing |
+| 403 | Forbidden - No permission |
+| 404 | Not Found - Resource not found |
+| 500 | Server Error |

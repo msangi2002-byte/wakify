@@ -293,6 +293,29 @@ public class PostService {
                 return mapToPostResponse(post, currentUserId);
         }
 
+        public PagedResponse<PostResponse> getPostsByCommunity(UUID communityId, int page, int size, UUID currentUserId) {
+                Community community = communityRepository.findById(communityId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Community", "id", communityId));
+                boolean isMember = currentUserId != null
+                                && communityMemberRepository.existsByCommunityIdAndUserId(communityId, currentUserId);
+                if (community.getPrivacy() == Visibility.PRIVATE && !isMember) {
+                        throw new ResourceNotFoundException("Community", "id", communityId);
+                }
+                Pageable pageable = PageRequest.of(page, size);
+                Page<Post> posts = postRepository.findByCommunityId(communityId, pageable);
+                return PagedResponse.<PostResponse>builder()
+                                .content(posts.getContent().stream()
+                                                .map(post -> mapToPostResponse(post, currentUserId))
+                                                .collect(Collectors.toList()))
+                                .page(posts.getNumber())
+                                .size(posts.getSize())
+                                .totalElements(posts.getTotalElements())
+                                .totalPages(posts.getTotalPages())
+                                .last(posts.isLast())
+                                .first(posts.isFirst())
+                                .build();
+        }
+
         private boolean isBlockedBetween(UUID user1, UUID user2) {
                 return userBlockRepository.existsByBlockerIdAndBlockedId(user1, user2)
                                 || userBlockRepository.existsByBlockerIdAndBlockedId(user2, user1);
@@ -349,7 +372,7 @@ public class PostService {
                                         post.getId(), user.getName() + " liked your post");
                 }
 
-                return post.getReactionsCount();
+                return (int) postReactionRepository.countByPost(post);
         }
 
         @Transactional

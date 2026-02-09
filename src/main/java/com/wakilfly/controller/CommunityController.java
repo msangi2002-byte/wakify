@@ -81,4 +81,14 @@ public class CommunityController {
         Page<CommunityResponse> communities = communityService.getMyCommunities(userId, PageRequest.of(page, size));
         return ResponseEntity.ok(ApiResponse.success(communities));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<CommunityResponse>> getCommunity(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        CommunityResponse community = communityService.getCommunityById(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(community));
+    }
 }

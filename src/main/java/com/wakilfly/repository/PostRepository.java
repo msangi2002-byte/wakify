@@ -60,6 +60,10 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     @Query("SELECT p FROM Post p JOIN p.productTags pt WHERE pt.id = :productId AND p.isDeleted = false ORDER BY p.createdAt DESC")
     Page<Post> findByProductId(@Param("productId") UUID productId, Pageable pageable);
 
+    // Posts in a community (group/channel)
+    @Query("SELECT p FROM Post p WHERE p.community.id = :communityId AND p.isDeleted = false ORDER BY p.createdAt DESC")
+    Page<Post> findByCommunityId(@Param("communityId") UUID communityId, Pageable pageable);
+
     long countByIsDeletedFalse();
 
     // Stories (Status) - Active in last 24 hours. Excludes blocked users.

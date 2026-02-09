@@ -7,10 +7,12 @@ import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -36,6 +38,24 @@ public class UserController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         UserResponse user = userService.updateProfile(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", user));
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestPart("file") MultipartFile file) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        UserResponse user = userService.uploadProfilePic(userId, file);
+        return ResponseEntity.ok(ApiResponse.success("Profile picture updated", user));
+    }
+
+    @PostMapping(value = "/me/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> uploadCover(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestPart("file") MultipartFile file) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        UserResponse user = userService.uploadCoverPic(userId, file);
+        return ResponseEntity.ok(ApiResponse.success("Cover picture updated", user));
     }
 
     @GetMapping("/{userId}")

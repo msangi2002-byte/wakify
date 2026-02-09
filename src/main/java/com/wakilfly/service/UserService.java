@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final FileStorageService fileStorageService;
 
     public UserResponse getUserById(UUID userId) {
         User user = userRepository.findById(userId)
@@ -85,6 +87,32 @@ public class UserService {
         if (request.getWebsite() != null)
             user.setWebsite(request.getWebsite());
 
+        user = userRepository.save(user);
+        return mapToUserResponse(user, null);
+    }
+
+    @Transactional
+    public UserResponse uploadProfilePic(UUID userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Profile picture file is required");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        String url = fileStorageService.storeFile(file, "profile");
+        user.setProfilePic(url);
+        user = userRepository.save(user);
+        return mapToUserResponse(user, null);
+    }
+
+    @Transactional
+    public UserResponse uploadCoverPic(UUID userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Cover picture file is required");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        String url = fileStorageService.storeFile(file, "covers");
+        user.setCoverPic(url);
         user = userRepository.save(user);
         return mapToUserResponse(user, null);
     }

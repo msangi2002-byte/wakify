@@ -29,6 +29,7 @@ public class PostResponse {
     private Integer sharesCount;
     private Integer viewsCount;
     private String userReaction; // Type of reaction by current user (or null)
+    private Boolean authorIsFollowed; // True if current user follows the post author (feed only)
     private PostResponse originalPost; // For shared posts
     private LocalDateTime createdAt;
 

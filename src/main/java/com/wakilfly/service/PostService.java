@@ -431,6 +431,8 @@ public class PostService {
                                 .sharesCount(post.getSharesCount())
                                 .viewsCount(post.getViewsCount())
                                 .userReaction(userReaction)
+                                .authorIsFollowed(currentUserId != null && !post.getAuthor().getId().equals(currentUserId)
+                                        && userRepository.isFollowing(currentUserId, post.getAuthor().getId()))
                                 .originalPost(originalPostResponse)
                                 .createdAt(post.getCreatedAt())
                                 .build();

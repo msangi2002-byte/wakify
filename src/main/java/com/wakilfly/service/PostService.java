@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.wakilfly.model.Community;
+import com.wakilfly.repository.CommentLikeRepository;
 import com.wakilfly.repository.CommunityRepository;
 import com.wakilfly.repository.CommunityMemberRepository;
 import com.wakilfly.repository.SavedPostRepository;
@@ -46,6 +47,7 @@ public class PostService {
         private final PostRepository postRepository;
         private final UserRepository userRepository;
         private final CommentRepository commentRepository;
+        private final CommentLikeRepository commentLikeRepository;
         private final PostMediaRepository postMediaRepository;
         private final ProductRepository productRepository;
         private final FileStorageService fileStorageService;
@@ -455,14 +457,14 @@ public class PostService {
                 return mapToCommentResponse(comment);
         }
 
-        public PagedResponse<CommentResponse> getPostComments(UUID postId, int page, int size) {
+        public PagedResponse<CommentResponse> getPostComments(UUID postId, int page, int size, UUID currentUserId) {
                 Pageable pageable = PageRequest.of(page, size);
                 Page<Comment> comments = commentRepository
                                 .findByPostIdAndParentIsNullAndIsDeletedFalseOrderByCreatedAtDesc(postId, pageable);
 
                 return PagedResponse.<CommentResponse>builder()
                                 .content(comments.getContent().stream()
-                                                .map(this::mapToCommentResponse)
+                                                .map(c -> mapToCommentResponse(c, currentUserId))
                                                 .collect(Collectors.toList()))
                                 .page(comments.getNumber())
                                 .size(comments.getSize())
@@ -484,6 +486,36 @@ public class PostService {
 
                 comment.setIsDeleted(true);
                 commentRepository.save(comment);
+        }
+
+        @Transactional
+        public int likeComment(UUID commentId, UUID userId) {
+                Comment comment = commentRepository.findById(commentId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", commentId));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+                if (commentLikeRepository.findByCommentAndUser(comment, user).isPresent()) {
+                        return (int) commentLikeRepository.countByComment(comment);
+                }
+
+                CommentLike like = CommentLike.builder()
+                                .comment(comment)
+                                .user(user)
+                                .build();
+                commentLikeRepository.save(like);
+                return (int) commentLikeRepository.countByComment(comment);
+        }
+
+        @Transactional
+        public int unlikeComment(UUID commentId, UUID userId) {
+                Comment comment = commentRepository.findById(commentId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", commentId));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+                commentLikeRepository.findByCommentAndUser(comment, user).ifPresent(commentLikeRepository::delete);
+                return (int) commentLikeRepository.countByComment(comment);
         }
 
         private PostResponse mapToPostResponse(Post post, UUID currentUserId) {
@@ -580,7 +612,24 @@ public class PostService {
                                 .build();
         }
 
-        private CommentResponse mapToCommentResponse(Comment comment) {
+        private CommentResponse mapToCommentResponse(Comment comment, UUID currentUserId) {
+                int likesCount = (int) commentLikeRepository.countByComment(comment);
+                boolean userLiked = currentUserId != null
+                                && commentLikeRepository.existsByCommentIdAndUserId(comment.getId(), currentUserId);
+
+                List<Comment> replyList = comment.getReplies() != null
+                                ? comment.getReplies().stream()
+                                                .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
+                                                .sorted((a, b) -> (a.getCreatedAt() != null && b.getCreatedAt() != null)
+                                                                ? a.getCreatedAt().compareTo(b.getCreatedAt())
+                                                                : 0)
+                                                .collect(Collectors.toList())
+                                : List.of();
+
+                List<CommentResponse> replies = replyList.stream()
+                                .map(r -> mapToCommentResponse(r, currentUserId))
+                                .collect(Collectors.toList());
+
                 return CommentResponse.builder()
                                 .id(comment.getId())
                                 .content(comment.getContent())
@@ -590,8 +639,10 @@ public class PostService {
                                                 .profilePic(comment.getAuthor().getProfilePic())
                                                 .build())
                                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
-                                .likesCount(comment.getLikesCount())
-                                .repliesCount(comment.getReplies() != null ? comment.getReplies().size() : 0)
+                                .likesCount(likesCount)
+                                .userLiked(userLiked)
+                                .repliesCount(replies.size())
+                                .replies(replies)
                                 .createdAt(comment.getCreatedAt())
                                 .build();
         }

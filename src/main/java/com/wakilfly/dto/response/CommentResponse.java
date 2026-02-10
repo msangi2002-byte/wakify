@@ -20,6 +20,7 @@ public class CommentResponse {
     private PostResponse.UserSummary author;
     private UUID parentId;
     private Integer likesCount;
+    private Boolean userLiked;
     private Integer repliesCount;
     private List<CommentResponse> replies;
     private LocalDateTime createdAt;

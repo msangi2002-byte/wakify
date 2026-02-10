@@ -205,9 +205,31 @@ public class PostController {
     public ResponseEntity<ApiResponse<PagedResponse<CommentResponse>>> getPostComments(
             @PathVariable UUID postId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PagedResponse<CommentResponse> comments = postService.getPostComments(postId, page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetails != null
+                ? userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId()
+                : null;
+        PagedResponse<CommentResponse> comments = postService.getPostComments(postId, page, size, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(comments));
+    }
+
+    @PostMapping("/comments/{commentId}/like")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> likeComment(
+            @PathVariable UUID commentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        int likesCount = postService.likeComment(commentId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Comment liked", Map.of("likesCount", likesCount)));
+    }
+
+    @DeleteMapping("/comments/{commentId}/like")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> unlikeComment(
+            @PathVariable UUID commentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        int likesCount = postService.unlikeComment(commentId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Comment unliked", Map.of("likesCount", likesCount)));
     }
 
     @DeleteMapping("/comments/{commentId}")

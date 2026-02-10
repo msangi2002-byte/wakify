@@ -283,6 +283,16 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
 );
 
+-- Comment Likes Table (who liked which comment)
+CREATE TABLE IF NOT EXISTS comment_likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    comment_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(comment_id, user_id)
+);
 
 -- Post Reactions Table (Replaces Post Likes)
 CREATE TABLE IF NOT EXISTS post_reactions (

@@ -44,3 +44,7 @@ Credentials and endpoints for livestream, WebRTC voice/video calls, and HLS play
 ### Proxy (solutions ya CORS)
 - Frontend inatumia **API proxy**: `POST /api/v1/streaming/whip` na `POST /api/v1/streaming/whep`
 - Backend inaforward requests kwenye SRS. Hakuna CORS kwa sababu browser inazungumzia na API yake peke yake.
+
+### 500 / 502 proxy error
+- **502 Bad Gateway:** Backend haifiki SRS (firewall, DNS, SSL). Angalia backend logs: `WHIP failed` au `WHEP failed`.
+- **SRS 404:** WHIP/WHEP path si sahihi. Hakikisha SRS ina WebRTC enabled.

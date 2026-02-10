@@ -39,6 +39,9 @@ public class LiveStreamService {
     @Value("${streaming.hls-url}")
     private String hlsBaseUrl;
 
+    @Value("${streaming.hls-path-suffix:.m3u8}")
+    private String hlsPathSuffix;
+
     @Value("${streaming.webrtc-signal-url}")
     private String webrtcSignalUrl;
 
@@ -340,7 +343,7 @@ public class LiveStreamService {
                 .thumbnailUrl(ls.getThumbnailUrl())
                 .status(ls.getStatus())
                 .roomId(ls.getRoomId())
-                .streamUrl(hlsBaseUrl + ls.getStreamKey() + ".m3u8")
+                .streamUrl(hlsBaseUrl + ls.getStreamKey() + hlsPathSuffix)
                 .rtmpUrl(rtmpBaseUrl + ls.getStreamKey())
                 .webrtcUrl(webrtcSignalUrl)
                 .viewerCount(ls.getViewerCount())

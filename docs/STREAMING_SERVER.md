@@ -43,7 +43,46 @@
 | Service | URL |
 |---------|-----|
 | **RTMP (Upload)** | `rtmp://streaming.wakilfy.com/live/` |
-| **HLS (Playback)** | `https://streaming.wakilfy.com/live/{stream_key}.m3u8` |
+| **HLS (Playback)** | `https://streaming.wakilfy.com/live/{STREAM_KEY}.m3u8` |
+
+**Confirmed (SRS reconfigured):** Server inatumia **direct .m3u8** (si `/index.m3u8`). Backend/App lazima itumie format hapo juu kwa HLS playback.
+
+### SRS Server config (Docker) – HLS enabled
+
+- **HLS enabled:** `SRS_VHOST_HLS_ENABLED=on` – WebRTC (WHIP) streams zinabadilishwa kuwa HLS (.m3u8) automatically.
+- **RTC → RTMP:** `SRS_VHOST_RTC_RTC_TO_RTMP=on` – inasaidia conversion kwa HLS.
+- **Fragment:** HLS fragment = 2 sekunde (playback inaanza haraka).
+- **Playback URL (confirmed):** `https://streaming.wakilfy.com/live/{STREAM_KEY}.m3u8`
+
+**Note:** Streaming host lazima awe **hewani (publishing)** – RTMP au WHIP – ndipo faili .m3u8 itengenezwe. Bila publish, `.m3u8` haipo → 404.
+
+---
+
+## 404 on HLS (.m3u8) – Blank video / “video haionekani”
+
+Ikiwa watumiaji wanaona **blank** na F12 inaonyesha **404** kwenye:
+`https://streaming.wakilfy.com/live/{stream_key}.m3u8`
+
+**Sababu 1 – Video haijaanza kwenye server (kawaida)**  
+"Go live" kwenye app inaunda tu **rekodi** kwenye DB na inakupa **RTMP URL**. Video inaonekana **tu** baada ya host **ku-push stream** kwenye streaming server:
+
+1. Host afungue **OBS** (au app nyingine ya RTMP).
+2. **Settings → Stream**:  
+   - Service: Custom  
+   - Server: `rtmp://streaming.wakilfy.com/live/`  
+   - Stream key: **stream key** (kama `c0e8302975954c47bbc8b1d325e1a45d` – unaonyeshwa kwenye ukurasa wa live kwa host).
+3. **Start Streaming**.  
+Mpaka hapo stream haijafika SRS → hakuna `.m3u8` → 404. Baada ya OBS kuanza, HLS inaweza kuchukuwa sekunde chache kuanza.
+
+**Sababu 2 – Path ya HLS (kwenye server hii: direct .m3u8)**  
+Kwenye streaming.wakilfy.com format **ilithibitishwa**: `.../live/{STREAM_KEY}.m3u8` (si `/index.m3u8`). Backend inatumia `streaming.hls-path-suffix=.m3u8` – sahihi.
+
+**Mwenye streaming server (streaming.wakilfy.com) aangalie:**
+- SRS ina **HTTP server** kwa HLS na path `/live/`?
+- Nginx ina **proxy** kwa `/live/` kwenda SRS?
+- Host lazima awe **publishing** (OBS/RTMP au WHIP); kisha `curl -I "https://streaming.wakilfy.com/live/STREAM_KEY.m3u8"` ndani ya server inaweza kuthibitisha .m3u8 iko.
+
+---
 
 ## Usage Notes
 

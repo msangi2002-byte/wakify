@@ -1,10 +1,12 @@
 package com.wakilfly.service;
 
+import com.wakilfly.dto.response.JoinRequestResponse;
 import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
+import com.wakilfly.repository.LiveStreamJoinRequestRepository;
 import com.wakilfly.repository.LiveStreamRepository;
 import com.wakilfly.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 public class LiveStreamService {
 
     private final LiveStreamRepository liveStreamRepository;
+    private final LiveStreamJoinRequestRepository joinRequestRepository;
     private final UserRepository userRepository;
 
     @Value("${streaming.rtmp-url}")
@@ -203,6 +206,124 @@ public class LiveStreamService {
             liveStream.setLikesCount(liveStream.getLikesCount() + 1);
             liveStreamRepository.save(liveStream);
         }
+    }
+
+    // ---------- Join request (guest) ----------
+
+    /**
+     * Viewer requests to join the live stream as guest.
+     */
+    @Transactional
+    public JoinRequestResponse requestToJoinLive(UUID liveStreamId, UUID requesterId) {
+        LiveStream liveStream = liveStreamRepository.findById(liveStreamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Live stream not found"));
+
+        if (liveStream.getStatus() != LiveStreamStatus.LIVE) {
+            throw new BadRequestException("Live stream is not active");
+        }
+
+        if (liveStream.getHost().getId().equals(requesterId)) {
+            throw new BadRequestException("Host cannot request to join own stream");
+        }
+
+        if (joinRequestRepository.existsByLiveStreamIdAndRequesterIdAndStatus(
+                liveStreamId, requesterId, JoinRequestStatus.PENDING)) {
+            throw new BadRequestException("You already have a pending request for this stream");
+        }
+
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        LiveStreamJoinRequest request = LiveStreamJoinRequest.builder()
+                .liveStream(liveStream)
+                .requester(requester)
+                .status(JoinRequestStatus.PENDING)
+                .build();
+        request = joinRequestRepository.save(request);
+        log.info("Join request created: liveStream={}, requester={}", liveStreamId, requesterId);
+        return mapToJoinRequestResponse(request);
+    }
+
+    /**
+     * Host gets join requests for their live stream (default: pending only).
+     */
+    public List<JoinRequestResponse> getJoinRequests(UUID liveStreamId, UUID hostId, boolean pendingOnly) {
+        LiveStream liveStream = liveStreamRepository.findById(liveStreamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Live stream not found"));
+
+        if (!liveStream.getHost().getId().equals(hostId)) {
+            throw new BadRequestException("You are not the host of this stream");
+        }
+
+        List<LiveStreamJoinRequest> list = pendingOnly
+                ? joinRequestRepository.findByLiveStreamIdAndStatusOrderByCreatedAtDesc(
+                        liveStreamId, JoinRequestStatus.PENDING)
+                : joinRequestRepository.findByLiveStreamIdOrderByCreatedAtDesc(liveStreamId);
+
+        return list.stream().map(this::mapToJoinRequestResponse).collect(Collectors.toList());
+    }
+
+    /**
+     * Host accepts a join request (guest can be invited to publish in phase 2).
+     */
+    @Transactional
+    public JoinRequestResponse acceptJoinRequest(UUID requestId, UUID hostId) {
+        LiveStreamJoinRequest request = joinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
+
+        if (!request.getLiveStream().getHost().getId().equals(hostId)) {
+            throw new BadRequestException("You are not the host of this stream");
+        }
+
+        if (request.getStatus() != JoinRequestStatus.PENDING) {
+            throw new BadRequestException("Request already responded to");
+        }
+
+        request.setStatus(JoinRequestStatus.ACCEPTED);
+        request.setHostRespondedAt(LocalDateTime.now());
+        request = joinRequestRepository.save(request);
+        log.info("Join request accepted: {}", requestId);
+        return mapToJoinRequestResponse(request);
+    }
+
+    /**
+     * Host rejects a join request.
+     */
+    @Transactional
+    public JoinRequestResponse rejectJoinRequest(UUID requestId, UUID hostId) {
+        LiveStreamJoinRequest request = joinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
+
+        if (!request.getLiveStream().getHost().getId().equals(hostId)) {
+            throw new BadRequestException("You are not the host of this stream");
+        }
+
+        if (request.getStatus() != JoinRequestStatus.PENDING) {
+            throw new BadRequestException("Request already responded to");
+        }
+
+        request.setStatus(JoinRequestStatus.REJECTED);
+        request.setHostRespondedAt(LocalDateTime.now());
+        request = joinRequestRepository.save(request);
+        log.info("Join request rejected: {}", requestId);
+        return mapToJoinRequestResponse(request);
+    }
+
+    private JoinRequestResponse mapToJoinRequestResponse(LiveStreamJoinRequest req) {
+        User r = req.getRequester();
+        return JoinRequestResponse.builder()
+                .id(req.getId())
+                .liveStreamId(req.getLiveStream().getId())
+                .requester(JoinRequestResponse.RequesterSummary.builder()
+                        .id(r.getId())
+                        .name(r.getName())
+                        .profilePic(r.getProfilePic())
+                        .isVerified(r.getIsVerified())
+                        .build())
+                .status(req.getStatus())
+                .hostRespondedAt(req.getHostRespondedAt())
+                .createdAt(req.getCreatedAt())
+                .build();
     }
 
     private LiveStreamResponse mapToLiveStreamResponse(LiveStream ls) {

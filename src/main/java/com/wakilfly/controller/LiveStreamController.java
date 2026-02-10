@@ -1,6 +1,7 @@
 package com.wakilfly.controller;
 
 import com.wakilfly.dto.response.ApiResponse;
+import com.wakilfly.dto.response.JoinRequestResponse;
 import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.StreamingConfigResponse;
@@ -13,7 +14,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,7 +74,7 @@ public class LiveStreamController {
         UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         String title = (String) request.get("title");
         String description = (String) request.get("description");
-        LocalDateTime scheduledAt = LocalDateTime.parse((String) request.get("scheduledAt"));
+        java.time.LocalDateTime scheduledAt = java.time.LocalDateTime.parse((String) request.get("scheduledAt"));
 
         LiveStreamResponse stream = liveStreamService.createLiveStream(hostId, title, description, scheduledAt);
         return ResponseEntity.ok(ApiResponse.success("Live stream scheduled", stream));
@@ -156,6 +156,61 @@ public class LiveStreamController {
         UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<LiveStreamResponse> streams = liveStreamService.getUserLiveStreams(hostId, page, size);
         return ResponseEntity.ok(ApiResponse.success(streams));
+    }
+
+    // ---------- Join request (guest) ----------
+
+    /**
+     * Request to join live as guest
+     * POST /api/v1/live/{liveId}/join-request
+     */
+    @PostMapping("/{liveId}/join-request")
+    public ResponseEntity<ApiResponse<JoinRequestResponse>> requestToJoin(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("liveId") UUID liveId) {
+        UUID requesterId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        JoinRequestResponse response = liveStreamService.requestToJoinLive(liveId, requesterId);
+        return ResponseEntity.ok(ApiResponse.success("Join request sent", response));
+    }
+
+    /**
+     * Get join requests for a live (host only). ?pendingOnly=true default
+     * GET /api/v1/live/{liveId}/join-requests
+     */
+    @GetMapping("/{liveId}/join-requests")
+    public ResponseEntity<ApiResponse<List<JoinRequestResponse>>> getJoinRequests(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("liveId") UUID liveId,
+            @RequestParam(defaultValue = "true") boolean pendingOnly) {
+        UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        List<JoinRequestResponse> list = liveStreamService.getJoinRequests(liveId, hostId, pendingOnly);
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
+
+    /**
+     * Accept a join request (host only)
+     * POST /api/v1/live/join-requests/{requestId}/accept
+     */
+    @PostMapping("/join-requests/{requestId}/accept")
+    public ResponseEntity<ApiResponse<JoinRequestResponse>> acceptJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID requestId) {
+        UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        JoinRequestResponse response = liveStreamService.acceptJoinRequest(requestId, hostId);
+        return ResponseEntity.ok(ApiResponse.success("Join request accepted", response));
+    }
+
+    /**
+     * Reject a join request (host only)
+     * POST /api/v1/live/join-requests/{requestId}/reject
+     */
+    @PostMapping("/join-requests/{requestId}/reject")
+    public ResponseEntity<ApiResponse<JoinRequestResponse>> rejectJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID requestId) {
+        UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        JoinRequestResponse response = liveStreamService.rejectJoinRequest(requestId, hostId);
+        return ResponseEntity.ok(ApiResponse.success("Join request rejected", response));
     }
 
     /**

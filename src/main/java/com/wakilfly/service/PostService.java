@@ -454,7 +454,7 @@ public class PostService {
                 notificationService.sendNotification(post.getAuthor(), author, NotificationType.COMMENT, post.getId(),
                                 author.getName() + " commented on your post");
 
-                return mapToCommentResponse(comment);
+                return mapToCommentResponse(comment, userId);
         }
 
         public PagedResponse<CommentResponse> getPostComments(UUID postId, int page, int size, UUID currentUserId) {

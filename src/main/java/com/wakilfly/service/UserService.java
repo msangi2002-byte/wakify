@@ -173,7 +173,7 @@ public class UserService {
 
         return PagedResponse.<UserResponse>builder()
                 .content(users.getContent().stream()
-                        .map(user -> mapToUserResponse(user, false))
+                        .map(user -> mapToUserResponse(user, userRepository.isFollowing(currentUserId, user.getId())))
                         .collect(Collectors.toList()))
                 .page(users.getNumber())
                 .size(users.getSize())
@@ -244,7 +244,7 @@ public class UserService {
                 || userBlockRepository.existsByBlockerIdAndBlockedId(targetUserId, userId)) {
             throw new BadRequestException("Cannot follow: user is blocked");
         }
-        if (targetUser.getFollowers().contains(currentUser)) {
+        if (userRepository.isFollowing(userId, targetUserId)) {
             throw new BadRequestException("You are already following this user");
         }
 
@@ -252,8 +252,12 @@ public class UserService {
         userRepository.save(targetUser);
 
         log.info("User {} followed user {}", userId, targetUserId);
-        notificationService.sendNotification(targetUser, currentUser, NotificationType.FOLLOW, currentUser.getId(),
-                currentUser.getName() + " started following you");
+        try {
+            notificationService.sendNotification(targetUser, currentUser, NotificationType.FOLLOW, currentUser.getId(),
+                    currentUser.getName() + " started following you");
+        } catch (Exception e) {
+            log.warn("Failed to send follow notification: {}", e.getMessage());
+        }
     }
 
     @Transactional

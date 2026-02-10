@@ -213,6 +213,10 @@ public class PostService {
         public PagedResponse<PostResponse> getFeed(UUID userId, int page, int size) {
                 Pageable pageable = PageRequest.of(page, size);
                 Page<Post> posts = postRepository.findFeedForUser(userId, pageable);
+                // New users (no following): show public feed so they see posts and can discover
+                if (posts.getContent().isEmpty() && page == 0) {
+                        posts = postRepository.findByVisibility(Visibility.PUBLIC, pageable);
+                }
 
                 return PagedResponse.<PostResponse>builder()
                                 .content(posts.getContent().stream()

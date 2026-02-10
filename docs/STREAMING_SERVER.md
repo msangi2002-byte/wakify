@@ -1,16 +1,22 @@
 # Streaming Server (streaming.wakilfy.com)
 
-**Status: TAYARI** – SRS inafanya kazi. Base URL: `https://streaming.wakilfy.com`
+**Status: Tested & Verified** – 502, CORS, UDP Ports zimetatuliwa. Base URL: `https://streaming.wakilfy.com`
 
 | Endpoint | Method | URL |
 |----------|--------|-----|
 | **Status** | GET | `/api/v1/versions` → 200 OK |
-| **WHIP** (Broadcaster) | POST | `/rtc/v1/whip/?app=live&stream=JINA_LA_STREAM` |
-| **WHEP** (Viewer) | POST | `/rtc/v1/whep/?app=live&stream=JINA_LA_STREAM` |
+| **WHIP** (Publisher) | POST | `/rtc/v1/whip/?app=live&stream=[UNIQUE_STREAM_ID]` → 201 Created |
+| **WHEP** (Player) | POST | `/rtc/v1/whep/?app=live&stream=[UNIQUE_STREAM_ID]` |
 
-**Kumbuka:** SDP mbovu au tupu (k.m. Postman) → 502. Hii ni kawaida; SRS inakata invalid data. Valid WebRTC Offer (SDP) → 201 Created / 200 OK.
+**Ports:** UDP 8000 (Media), TCP 1985 (API). Nginx inaunganisha.
 
-**Auth:** Open kwa sasa. Callback inaweza kuongezwa baadaye.
+**Flow muhimu (kuepuka 502):**
+- **Caller:** Lazima WHIP ipate 201 Created (stream imeanza) kabla ya mtu mwingine ku-WHEP.
+- **Callee:** Usi-WHEP mpaka Caller apate 201. Ukicheza stream isiyopo → 404/502.
+
+**CORS:** `Access-Control-Allow-Origin: *` – domain yoyote inaruhusiwa.
+
+**Auth:** Open kwa sasa.
 
 ---
 

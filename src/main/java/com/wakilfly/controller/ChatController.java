@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.SendMessageRequest;
 import com.wakilfly.dto.response.ApiResponse;
+import com.wakilfly.dto.response.ConversationSummary;
 import com.wakilfly.dto.response.MessageResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -31,6 +33,15 @@ public class ChatController {
         UUID senderId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         MessageResponse response = chatService.sendMessage(senderId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/conversations")
+    public ResponseEntity<ApiResponse<List<ConversationSummary>>> getConversations(
+            @RequestParam(defaultValue = "50") int limit,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        List<ConversationSummary> list = chatService.getConversationsList(userId, limit);
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @GetMapping("/{otherUserId}")

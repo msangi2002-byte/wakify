@@ -315,6 +315,24 @@ public class UserService {
                 .build();
     }
 
+    /** Mutual follows: users I follow AND who follow me back (malafiki) */
+    public PagedResponse<UserResponse> getMutualFollows(UUID userId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<User> mutual = userRepository.findMutualFollows(userId, pageable);
+
+        return PagedResponse.<UserResponse>builder()
+                .content(mutual.getContent().stream()
+                        .map(user -> mapToUserResponse(user, true)) // Always true - mutual follow
+                        .collect(Collectors.toList()))
+                .page(mutual.getNumber())
+                .size(mutual.getSize())
+                .totalElements(mutual.getTotalElements())
+                .totalPages(mutual.getTotalPages())
+                .last(mutual.isLast())
+                .first(mutual.isFirst())
+                .build();
+    }
+
     private UserResponse mapToUserResponse(User user, Boolean isFollowing) {
         return UserResponse.builder()
                 .id(user.getId())

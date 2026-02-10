@@ -66,4 +66,15 @@ public class SocialController {
         PagedResponse<UserResponse> following = userService.getFollowing(userId, page, size, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(following));
     }
+
+    /** Mutual follows: users I follow AND who follow me back (malafiki). For Messages page. */
+    @GetMapping("/mutual-follows")
+    public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> getMutualFollows(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<UserResponse> mutual = userService.getMutualFollows(currentUserId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(mutual));
+    }
 }

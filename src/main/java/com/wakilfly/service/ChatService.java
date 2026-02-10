@@ -1,6 +1,7 @@
 package com.wakilfly.service;
 
 import com.wakilfly.dto.request.SendMessageRequest;
+import com.wakilfly.dto.response.ConversationSummary;
 import com.wakilfly.dto.response.MessageResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.model.Message;
@@ -14,7 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -77,6 +78,29 @@ public class ChatService {
     public long getTotalUnreadCount(UUID userId) {
         User user = userRepository.getReferenceById(userId);
         return messageRepository.countByRecipientAndIsReadFalse(user);
+    }
+
+    public List<ConversationSummary> getConversationsList(UUID userId, int limit) {
+        User user = userRepository.getReferenceById(userId);
+        Pageable pageable = PageRequest.of(0, 500); // Fetch enough to build unique convos
+        Page<Message> messages = messageRepository.findRecentForUser(user, pageable);
+
+        Map<UUID, ConversationSummary> byOther = new LinkedHashMap<>();
+        for (Message m : messages.getContent()) {
+            User other = m.getSender().getId().equals(userId) ? m.getRecipient() : m.getSender();
+            if (byOther.containsKey(other.getId())) continue;
+            long unread = messageRepository.countBySenderAndRecipientAndIsReadFalse(other, user);
+            byOther.put(other.getId(), ConversationSummary.builder()
+                    .otherUserId(other.getId())
+                    .otherUserName(other.getName())
+                    .otherUserProfilePic(other.getProfilePic())
+                    .lastMessageContent(m.getContent())
+                    .lastMessageAt(m.getCreatedAt())
+                    .unreadCount(unread)
+                    .build());
+            if (byOther.size() >= limit) break;
+        }
+        return new ArrayList<>(byOther.values());
     }
 
     private MessageResponse mapToResponse(Message m, UUID currentUserId) {

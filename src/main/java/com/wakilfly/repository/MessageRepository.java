@@ -4,6 +4,8 @@ import com.wakilfly.model.Message;
 import com.wakilfly.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +28,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     // Count unread from specific user
     long countBySenderAndRecipientAndIsReadFalse(User sender, User recipient);
+
+    @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.createdAt DESC")
+    Page<Message> findRecentForUser(@Param("user") User user, Pageable pageable);
 }

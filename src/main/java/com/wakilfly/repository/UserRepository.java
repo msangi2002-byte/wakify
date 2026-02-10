@@ -54,6 +54,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM User u JOIN u.following f WHERE u.id = :followerId AND f.id = :followingId")
     boolean isFollowing(@Param("followerId") UUID followerId, @Param("followingId") UUID followingId);
 
+    /** Mutual follows: users I follow AND who follow me back */
+    @Query("SELECT f FROM User me JOIN me.following f JOIN me.followers fr WHERE me.id = :userId AND fr.id = f.id ORDER BY f.name ASC")
+    Page<User> findMutualFollows(@Param("userId") UUID userId, Pageable pageable);
+
     // Admin stats methods
     long countByIsActiveTrue();
 

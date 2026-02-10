@@ -249,6 +249,7 @@ public class UserService {
         }
 
         targetUser.addFollower(currentUser);
+        currentUser.getFollowing().add(targetUser);
         userRepository.save(targetUser);
 
         log.info("User {} followed user {}", userId, targetUserId);
@@ -268,6 +269,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", targetUserId));
 
         targetUser.removeFollower(currentUser);
+        currentUser.getFollowing().remove(targetUser);
         userRepository.save(targetUser);
 
         log.info("User {} unfollowed user {}", userId, targetUserId);

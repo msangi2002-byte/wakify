@@ -39,12 +39,6 @@ public class CallService {
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Receiver not found"));
 
-        // Block only if receiver has ONGOING call. RINGING (unanswered) is OK - caller should end it first.
-        List<Call> ongoingCalls = callRepository.findByUserIdAndStatus(receiverId, CallStatus.ONGOING);
-        if (!ongoingCalls.isEmpty()) {
-            throw new BadRequestException("User is busy on another call");
-        }
-
         String roomId = "call_" + UUID.randomUUID().toString().substring(0, 8);
 
         Call call = Call.builder()

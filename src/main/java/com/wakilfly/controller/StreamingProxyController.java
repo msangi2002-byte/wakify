@@ -15,6 +15,9 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Proxies WHIP/WHEP requests to SRS to avoid CORS.
  * Browser cannot fetch streaming.wakilfy.com directly; backend forwards the request.
@@ -44,6 +47,37 @@ public class StreamingProxyController {
 
     private String baseUrlForProxy() {
         return (srsProxyUrl != null && !srsProxyUrl.isBlank()) ? srsProxyUrl.trim() : srsBaseUrl;
+    }
+
+    /**
+     * Diagnostic: can the backend reach SRS? GET /api/v1/streaming/health (no auth).
+     * If reachable=false, fix config on the server (srs-base-url or srs-proxy-url) and firewall/DNS.
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> streamingHealth() {
+        String base = baseUrlForProxy();
+        String checkUrl = (base.endsWith("/") ? base : base + "/") + "rtc/v1/";
+        Map<String, Object> body = new HashMap<>();
+        body.put("proxyTargetUrl", checkUrl);
+        body.put("srsBaseUrl", srsBaseUrl);
+        body.put("srsProxyUrlSet", srsProxyUrl != null && !srsProxyUrl.isBlank());
+        try {
+            restTemplate.exchange(checkUrl, HttpMethod.GET, null, String.class);
+            body.put("reachable", true);
+            body.put("message", "Backend can reach SRS. WHEP/WHIP proxy should work.");
+            return ResponseEntity.ok(body);
+        } catch (HttpStatusCodeException e) {
+            // 404/405 = SRS responded; connection works
+            body.put("reachable", true);
+            body.put("message", "Backend reached SRS (got " + e.getStatusCode() + "). WHEP/WHIP proxy should work.");
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            log.warn("SRS health check failed url={} error={}", checkUrl, e.getMessage());
+            body.put("reachable", false);
+            body.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+            body.put("message", "Backend cannot reach SRS. 502 on calls until fixed. Use srs-base-url=https://streaming.wakilfy.com (different VPS) or srs-proxy-url=http://127.0.0.1:1985 (same host only).");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+        }
     }
 
     @PostMapping("/whip")

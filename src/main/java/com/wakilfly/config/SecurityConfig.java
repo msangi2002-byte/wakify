@@ -45,6 +45,7 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/streaming/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/posts/public/**").permitAll()

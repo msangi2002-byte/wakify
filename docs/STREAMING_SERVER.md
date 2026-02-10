@@ -52,12 +52,50 @@
 
 ---
 
-## Technical fix for 502 on Video/Voice calls (message kwa Backend Dev)
+## 502 bado? – Check health (hatua ya kwanza)
+
+1. **Open kwenye browser (bila login):**  
+   **https://wakilfy.com/api/v1/streaming/health**
+
+2. **Angalia response (JSON):**
+   - **`reachable: true`** → Backend inafiki SRS; 502 inaweza kutokana na kitu kingine (k.m. stream haijaanza).
+   - **`reachable: false`** → Backend **haifiki** SRS. Angalia `proxyTargetUrl` na `error`:
+     - `proxyTargetUrl` = `http://127.0.0.1:1985/...` na SRS iko kwenye server **tofauti** → **tatizo ni config.** On the server where the Java app runs: **remove** `streaming.srs-proxy-url` (or do not set it to 127.0.0.1). Use only `streaming.srs-base-url=https://streaming.wakilfy.com`, then restart the app.
+     - `error` = Connection refused / Unknown host / timeout → on that server fix firewall/DNS so it can reach `https://streaming.wakilfy.com` (e.g. `curl -I https://streaming.wakilfy.com`).
+
+3. **Kama hauna server access:** Badilisha **frontend** kutumia SRS moja kwa moja: `POST https://streaming.wakilfy.com/rtc/v1/whep/?app=live&stream=...` (na whip). URL hii unapata kwenye `GET /api/v1/live/config` → `rtcApiBaseUrl`. Hivyo 502 ya proxy haihusiki.
+
+---
+
+## URGENT FIX: 502 Proxy Error (copy kwa Backend Dev)
+
+**Ujumbe unaoweza kutuma kwa Backend Developer:**
+
+> **URGENT FIX: 502 Proxy Error on Main API**
+>
+> The 502 is from the Main Backend (wakilfy.com / nginx), NOT the SRS Server. The app hits `POST https://wakilfy.com/api/v1/streaming/whep`; the Backend tries to proxy to SRS and fails.
+>
+> **Fix:** Update Backend config (`.env` or `application.properties`). Do NOT point the proxy to `http://127.0.0.1:1985` — SRS is on a different VPS.
+>
+> **Set SRS Base URL to one of:**
+> - `https://streaming.wakilfy.com`
+> - `http://107.152.35.163:1985`
+>
+> Property name (Java): **`streaming.srs-base-url`**  
+> Remove or leave unset: **`streaming.srs-proxy-url`** (only use 127.0.0.1 if SRS runs on the same machine as the app).
+>
+> After changing, restart the Backend. Then the 502 on the call screen should stop.
+
+**Kwa nini:** Backend imesetiwa kama “middleman” — app haiongei na SRS moja kwa moja, inapita kwenye Backend. Backend lazima ielekeze kwenye anwani halisi ya SRS (domain au IP 107.152.35.163), si localhost.
+
+---
+
+## Technical fix for 502 on Video/Voice calls (details)
 
 - App inapiga Main API: `https://wakilfy.com/api/v1/streaming/whep` (proxy). Proxy inashindwa (502) kwa sababu Backend haifiki SRS.
 - **Lazima config ielekeze SRS kwenye server halisi:**
-  - **SRS kwenye VPS tofauti (streaming.wakilfy.com):** `streaming.srs-base-url=https://streaming.wakilfy.com`. **Usiweke** `streaming.srs-proxy-url` (au usiweke 127.0.0.1). Hakikisha server inayokwenda Java inaweza `curl https://streaming.wakilfy.com`.
-  - **SRS kwenye server moja na App:** `streaming.srs-proxy-url=http://127.0.0.1:1985`.
+  - **SRS kwenye VPS tofauti:** `streaming.srs-base-url` = **`https://streaming.wakilfy.com`** au **`http://107.152.35.163:1985`**. **Usiweke** `streaming.srs-proxy-url` (au usiweke 127.0.0.1). Hakikisha server inayokwenda Java inaweza kufikia URL hiyo (`curl`).
+fix call 008  - **SRS kwenye server moja na App:** `streaming.srs-proxy-url=http://127.0.0.1:1985`.
 - **Best practice:** Frontend iite SRS moja kwa moja: `RTC_API_URL = https://streaming.wakilfy.com/rtc/v1` (WHIP/WHEP). Backend inatoa hii kwenye `GET /api/v1/live/config` → `rtcApiBaseUrl`. Hivyo traffic haipiti proxy; hakuna 502.
 
 ---

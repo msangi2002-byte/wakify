@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,4 +32,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.createdAt DESC")
     Page<Message> findRecentForUser(@Param("user") User user, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Message m SET m.isRead = true WHERE m.recipient = :recipient AND m.sender = :sender AND m.isRead = false")
+    int markAsReadByRecipientAndSender(@Param("recipient") User recipient, @Param("sender") User sender);
 }

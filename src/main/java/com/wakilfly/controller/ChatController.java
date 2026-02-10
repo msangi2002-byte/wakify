@@ -44,6 +44,15 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 
+    @PutMapping("/{otherUserId}/read")
+    public ResponseEntity<ApiResponse<Void>> markConversationRead(
+            @PathVariable UUID otherUserId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        chatService.markConversationAsRead(userId, otherUserId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
     @GetMapping("/{otherUserId}")
     public ResponseEntity<ApiResponse<PagedResponse<MessageResponse>>> getConversation(
             @PathVariable UUID otherUserId,

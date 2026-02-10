@@ -69,10 +69,9 @@ public class ChatService {
 
     @Transactional
     public void markConversationAsRead(UUID userId, UUID otherUserId) {
-        // This requires a custom modifying query in Repo, or fetching and updating
-        // unread messages.
-        // Skipping implementation details for MVP speed, assume frontend marks visually
-        // or we iterate.
+        User recipient = userRepository.getReferenceById(userId);
+        User sender = userRepository.getReferenceById(otherUserId);
+        messageRepository.markAsReadByRecipientAndSender(recipient, sender);
     }
 
     public long getTotalUnreadCount(UUID userId) {

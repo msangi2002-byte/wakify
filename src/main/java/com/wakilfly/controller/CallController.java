@@ -27,14 +27,39 @@ public class CallController {
     /**
      * Initiate a call (voice or video)
      * POST /api/v1/calls/initiate
+     * Body: { "receiverId": "uuid-string", "type": "VOICE" | "VIDEO" }
      */
     @PostMapping("/initiate")
     public ResponseEntity<ApiResponse<CallResponse>> initiateCall(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody Map<String, Object> request) {
         UUID callerId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        UUID receiverId = UUID.fromString((String) request.get("receiverId"));
-        CallType type = CallType.valueOf(((String) request.get("type")).toUpperCase());
+
+        Object receiverIdObj = request.get("receiverId");
+        if (receiverIdObj == null || receiverIdObj.toString().isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("receiverId is required"));
+        }
+        UUID receiverId;
+        try {
+            receiverId = UUID.fromString(receiverIdObj.toString());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid receiverId format"));
+        }
+
+        if (callerId.equals(receiverId)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("You cannot call yourself"));
+        }
+
+        Object typeObj = request.get("type");
+        if (typeObj == null || typeObj.toString().isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("type is required (VOICE or VIDEO)"));
+        }
+        CallType type;
+        try {
+            type = CallType.valueOf(typeObj.toString().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid type. Use VOICE or VIDEO"));
+        }
 
         CallResponse call = callService.initiateCall(callerId, receiverId, type);
         return ResponseEntity.ok(ApiResponse.success("Call initiated", call));

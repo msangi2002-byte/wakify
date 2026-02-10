@@ -52,6 +52,16 @@
 
 ---
 
+## Technical fix for 502 on Video/Voice calls (message kwa Backend Dev)
+
+- App inapiga Main API: `https://wakilfy.com/api/v1/streaming/whep` (proxy). Proxy inashindwa (502) kwa sababu Backend haifiki SRS.
+- **Lazima config ielekeze SRS kwenye server halisi:**
+  - **SRS kwenye VPS tofauti (streaming.wakilfy.com):** `streaming.srs-base-url=https://streaming.wakilfy.com`. **Usiweke** `streaming.srs-proxy-url` (au usiweke 127.0.0.1). Hakikisha server inayokwenda Java inaweza `curl https://streaming.wakilfy.com`.
+  - **SRS kwenye server moja na App:** `streaming.srs-proxy-url=http://127.0.0.1:1985`.
+- **Best practice:** Frontend iite SRS moja kwa moja: `RTC_API_URL = https://streaming.wakilfy.com/rtc/v1` (WHIP/WHEP). Backend inatoa hii kwenye `GET /api/v1/live/config` → `rtcApiBaseUrl`. Hivyo traffic haipiti proxy; hakuna 502.
+
+---
+
 ## Troubleshooting
 
 ### SRS inafanya kazi (livestream) lakini calls hazifanyi
@@ -59,9 +69,11 @@
 - Hakikisha SRS WebRTC iko enabled (`rtc_server.enabled on`).
 - CORS: SRS lazima iruhusu requests kutoka `https://wakilfy.com`.
 
-### Proxy (solutions ya CORS)
-- Frontend inatumia **API proxy**: `POST /api/v1/streaming/whip` na `POST /api/v1/streaming/whep`
-- Backend inaforward requests kwenye SRS. Hakuna CORS kwa sababu browser inazungumzia na API yake peke yake.
+### Proxy vs Direct (kwa Video/Voice calls)
+- **Njia ya sasa (proxy):** Frontend inapiga `POST https://wakilfy.com/api/v1/streaming/whep` (na whip). Backend (wakilfy.com) inaenda ku-forward kwa SRS. **502 inatokea wakati Backend haifiki SRS** (k.m. Backend iko kwenye VPS tofauti na imesetiwa kutafuta SRS kwenye `127.0.0.1`).
+- **Config sahihi:** SRS iko kwenye **server tofauti** (streaming.wakilfy.com) → **usiwahi** kuweka `streaming.srs-proxy-url=http://127.0.0.1:1985`. Tumia `streaming.srs-base-url=https://streaming.wakilfy.com` na hakikisha server inayokwenda Java inaweza kufikia URL hiyo (curl/firewall).
+- **Same VPS tu:** Ikiwa app na SRS ziko kwenye server moja, basi weka `streaming.srs-proxy-url=http://127.0.0.1:1985`.
+- **Best practice (direct):** Frontend inaweza kuwasiliana na SRS moja kwa moja: `POST https://streaming.wakilfy.com/rtc/v1/whep/?app=live&stream=...` (na whip). CORS kwenye SRS inaruhusu (`*`). Backend inatoa URL hii kwenye `GET /api/v1/live/config` → `rtcApiBaseUrl`. Hivyo hakuna proxy, hakuna 502 kutoka backend.
 
 ### 502 Bad Gateway
 - **SDP invalid/tupu (Postman):** Kawaida. SRS inakata invalid data. Tumia valid WebRTC Offer (SDP) → 201/200.
@@ -87,6 +99,10 @@ location /rtc/ {
 3. SRS config: `rtc_server.enabled on` na `rtc.enabled on` kwa vhost
 4. Baada ya kubadilisha Nginx: `sudo nginx -t && sudo systemctl reload nginx`
 
-### 500 / 502 proxy error (backend)
-- **502 (badala ya nginx):** Backend haifiki streaming.wakilfy.com (firewall, DNS). Angalia backend logs.
-- **SRS 404:** WHIP/WHEP path si sahihi. Hakikisha SRS ina WebRTC enabled.
+### 500 / 502 proxy error (backend) – "Proxy via API. Ensure you are logged in and backend can reach SRS"
+- **502 on POST /api/v1/streaming/whep (or whip):** Backend (wakilfy.com) ni "middleman" – inapokea request kutoka browser, halafu inajaribu ku-forward kwa SRS. 502 = Backend **haipati** SRS (connection refused, timeout, SSL, DNS). **Kosa la kawaida:** Backend na SRS ziko kwenye **VPS tofauti** lakini config inasema `127.0.0.1:1985` – Backend inagonga "ukuta" kwa kuita localhost ya server yake, si streaming.wakilfy.com.
+- **Angalia:** Backend logs (exception: Connection refused, UnknownHost, timeout, SSL).
+- **Suluhisho 1 – VPS tofauti (kawaida):** **Usiweke** `streaming.srs-proxy-url`. Acha `streaming.srs-base-url=https://streaming.wakilfy.com`. Kutoka **server inayokwenda Java app** jaribu: `curl -I https://streaming.wakilfy.com`. Ikiwa haifiki, rekebisha firewall/DNS/SSL.
+- **Suluhisho 2 – same VPS:** Ikiwa app na SRS ziko kwenye server moja, weka `streaming.srs-proxy-url=http://127.0.0.1:1985`.
+- **Suluhisho 3 – Direct (best practice):** Epuka proxy kabisa. Frontend iite SRS moja kwa moja: `POST {rtcApiBaseUrl}/whep/?app=live&stream=...`. `GET /api/v1/live/config` inarudisha `rtcApiBaseUrl` (mf. `https://streaming.wakilfy.com/rtc/v1`). CORS kwenye SRS inaruhusu; auth kwa sasa open.
+- **SRS 404:** Stream haijaanza. Callee asiwhep mpaka Caller apate 201 kwenye WHIP.

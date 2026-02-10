@@ -13,6 +13,8 @@ public class StreamingConfigResponse {
     private StunTurnConfig iceServers;
     private String broadcastUrl; // RTMP
     private String signalUrl; // WebRTC
+    /** Base URL for WHIP/WHEP (e.g. https://streaming.wakilfy.com/rtc/v1). Frontend can call this directly to avoid proxy 502. */
+    private String rtcApiBaseUrl;
 
     @Data
     @Builder

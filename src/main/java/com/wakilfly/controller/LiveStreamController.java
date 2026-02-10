@@ -44,6 +44,9 @@ public class LiveStreamController {
     @Value("${streaming.webrtc-signal-url}")
     private String webrtcSignalUrl;
 
+    @Value("${streaming.srs-base-url:https://streaming.wakilfy.com}")
+    private String srsBaseUrl;
+
     /**
      * Create/Start a live stream
      * POST /api/v1/live/start
@@ -168,10 +171,12 @@ public class LiveStreamController {
                 .turnPassword(turnPassword)
                 .build();
 
+        String rtcApiBaseUrl = (srsBaseUrl.endsWith("/") ? srsBaseUrl : srsBaseUrl + "/") + "rtc/v1";
         StreamingConfigResponse config = StreamingConfigResponse.builder()
                 .iceServers(iceServers)
                 .broadcastUrl(rtmpBaseUrl)
                 .signalUrl(webrtcSignalUrl)
+                .rtcApiBaseUrl(rtcApiBaseUrl)
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(config));

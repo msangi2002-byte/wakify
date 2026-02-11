@@ -1,13 +1,16 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.CreateBusinessRequestRequest;
 import com.wakilfly.dto.request.UpdateProfileRequest;
 import com.wakilfly.dto.request.UploadContactsRequest;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.AuthEventResponse;
+import com.wakilfly.dto.response.BusinessRequestResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AuthEventService;
+import com.wakilfly.service.BusinessRequestService;
 import com.wakilfly.service.PeopleYouMayKnowService;
 import com.wakilfly.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.validation.Valid;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +32,7 @@ public class UserController {
     private final UserService userService;
     private final AuthEventService authEventService;
     private final PeopleYouMayKnowService peopleYouMayKnowService;
+    private final BusinessRequestService businessRequestService;
     private final CustomUserDetailsService userDetailsService;
 
     @GetMapping("/me")
@@ -127,6 +132,20 @@ public class UserController {
      * Returns Wakify users whose phone or email is in your contacts (excludes self & already following).
      * POST /api/v1/users/me/contacts
      */
+    /**
+     * Request to become a business (user selects an agent; agent sees request in their dashboard).
+     * POST /api/v1/users/me/business-requests
+     */
+    @PostMapping("/me/business-requests")
+    public ResponseEntity<ApiResponse<BusinessRequestResponse>> createBusinessRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CreateBusinessRequestRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessRequestResponse created = businessRequestService.create(userId, request);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(ApiResponse.success("Request submitted. Your selected agent will contact you.", created));
+    }
+
     @PostMapping("/me/contacts")
     public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> uploadContacts(
             @AuthenticationPrincipal UserDetails userDetails,

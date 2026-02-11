@@ -6,6 +6,7 @@ import com.wakilfly.dto.request.WithdrawalRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AgentService;
+import com.wakilfly.service.BusinessRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,7 +25,9 @@ import java.util.UUID;
 public class AgentController {
 
     private final AgentService agentService;
+    private final BusinessRequestService businessRequestService;
     private final CustomUserDetailsService userDetailsService;
+    private final BusinessRequestService businessRequestService;
 
     /**
      * Register as an agent (any authenticated user can become an agent)
@@ -104,6 +107,21 @@ public class AgentController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<BusinessResponse> businesses = agentService.getAgentBusinesses(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(businesses));
+    }
+
+    /**
+     * Get business requests (users who selected this agent when requesting to become a business).
+     * GET /api/v1/agent/business-requests
+     */
+    @GetMapping("/business-requests")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<PagedResponse<BusinessRequestResponse>>> getBusinessRequests(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<BusinessRequestResponse> requests = businessRequestService.findByAgentId(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(requests));
     }
 
     /**

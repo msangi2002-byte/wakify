@@ -782,7 +782,9 @@ CREATE TABLE `live_stream_join_requests` (
   `requester_id` binary(16) NOT NULL,
   `status` enum('PENDING','ACCEPTED','REJECTED') NOT NULL,
   `host_responded_at` datetime(6) DEFAULT NULL,
-  `created_at` datetime(6) DEFAULT NULL
+  `created_at` datetime(6) DEFAULT NULL,
+  `guest_stream_key` varchar(255) DEFAULT NULL,
+  UNIQUE KEY `UK_guest_stream_key` (`guest_stream_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --

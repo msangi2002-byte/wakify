@@ -20,4 +20,6 @@ public interface LiveStreamJoinRequestRepository extends JpaRepository<LiveStrea
     Optional<LiveStreamJoinRequest> findByLiveStreamIdAndRequesterId(UUID liveStreamId, UUID requesterId);
 
     boolean existsByLiveStreamIdAndRequesterIdAndStatus(UUID liveStreamId, UUID requesterId, JoinRequestStatus status);
+
+    Optional<LiveStreamJoinRequest> findByGuestStreamKey(String guestStreamKey);
 }

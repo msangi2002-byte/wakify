@@ -44,4 +44,8 @@ public class LiveStreamJoinRequest {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    /** Unique stream key for this guest to publish (WHIP/RTMP). Set when host accepts. */
+    @Column(name = "guest_stream_key", unique = true)
+    private String guestStreamKey;
 }

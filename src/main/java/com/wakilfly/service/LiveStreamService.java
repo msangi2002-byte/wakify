@@ -288,8 +288,12 @@ public class LiveStreamService {
 
         request.setStatus(JoinRequestStatus.ACCEPTED);
         request.setHostRespondedAt(LocalDateTime.now());
+        // Guest gets their own stream ID so they don't overwrite host; viewers see both on live page
+        String hostKey = request.getLiveStream().getStreamKey();
+        String guestKey = hostKey + "_guest_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        request.setGuestStreamKey(guestKey);
         request = joinRequestRepository.save(request);
-        log.info("Join request accepted: {}", requestId);
+        log.info("Join request accepted: {} guestStreamKey={}", requestId, guestKey);
         return mapToJoinRequestResponse(request);
     }
 
@@ -340,8 +344,8 @@ public class LiveStreamService {
                 .status(req.getStatus())
                 .hostRespondedAt(req.getHostRespondedAt())
                 .createdAt(req.getCreatedAt());
-        if (req.getStatus() == JoinRequestStatus.ACCEPTED && liveStream.getStreamKey() != null) {
-            b.guestStreamKey(liveStream.getStreamKey());
+        if (req.getStatus() == JoinRequestStatus.ACCEPTED && req.getGuestStreamKey() != null) {
+            b.guestStreamKey(req.getGuestStreamKey());
         }
         return b.build();
     }
@@ -411,6 +415,17 @@ public class LiveStreamService {
     }
 
     private LiveStreamResponse mapToLiveStreamResponse(LiveStream ls) {
+        List<LiveStreamResponse.GuestStreamInfo> guestStreams = joinRequestRepository
+                .findByLiveStreamIdOrderByCreatedAtDesc(ls.getId()).stream()
+                .filter(req -> req.getStatus() == JoinRequestStatus.ACCEPTED && req.getGuestStreamKey() != null)
+                .map(req -> LiveStreamResponse.GuestStreamInfo.builder()
+                        .streamKey(req.getGuestStreamKey())
+                        .streamUrl(hlsBaseUrl + req.getGuestStreamKey() + hlsPathSuffix)
+                        .requesterId(req.getRequester().getId())
+                        .requesterName(req.getRequester().getName())
+                        .build())
+                .collect(Collectors.toList());
+
         return LiveStreamResponse.builder()
                 .id(ls.getId())
                 .host(LiveStreamResponse.HostSummary.builder()
@@ -427,6 +442,7 @@ public class LiveStreamService {
                 .streamUrl(hlsBaseUrl + ls.getStreamKey() + hlsPathSuffix)
                 .rtmpUrl(rtmpBaseUrl + ls.getStreamKey())
                 .webrtcUrl(webrtcSignalUrl)
+                .guestStreams(guestStreams)
                 .viewerCount(ls.getViewerCount())
                 .peakViewers(ls.getPeakViewers())
                 .totalGiftsValue(ls.getTotalGiftsValue())
@@ -441,43 +457,48 @@ public class LiveStreamService {
     }
 
     /**
-     * Verify stream key for SRS callback
+     * Verify stream key for SRS callback. Accepts both host stream key and guest stream keys.
      */
     @Transactional
     public boolean verifyStreamKey(String streamKey) {
         LiveStream liveStream = liveStreamRepository.findByStreamKey(streamKey).orElse(null);
-
+        if (liveStream == null) {
+            // Maybe a guest key: lookup by guest_stream_key on join request
+            liveStream = joinRequestRepository.findByGuestStreamKey(streamKey)
+                    .map(LiveStreamJoinRequest::getLiveStream)
+                    .orElse(null);
+        }
         if (liveStream == null || liveStream.getStatus() == LiveStreamStatus.ENDED
                 || liveStream.getStatus() == LiveStreamStatus.CANCELLED) {
             return false;
         }
-
-        // Update status to LIVE if it's scheduled
-        if (liveStream.getStatus() == LiveStreamStatus.SCHEDULED) {
+        // Only host publish starts/updates live status; guest publish just allowed
+        if (liveStreamRepository.findByStreamKey(streamKey).isPresent()
+                && liveStream.getStatus() == LiveStreamStatus.SCHEDULED) {
             liveStream.setStatus(LiveStreamStatus.LIVE);
             liveStream.setStartedAt(LocalDateTime.now());
             liveStreamRepository.save(liveStream);
         }
-
         return true;
     }
 
     /**
-     * Set stream offline for SRS callback
+     * Set stream offline for SRS callback. Only host disconnect ends the live; guest disconnect is just logged.
      */
     @Transactional
     public void setStreamOffline(String streamKey) {
         LiveStream liveStream = liveStreamRepository.findByStreamKey(streamKey).orElse(null);
-
-        if (liveStream != null && liveStream.getStatus() == LiveStreamStatus.LIVE) {
+        if (liveStream == null) {
+            joinRequestRepository.findByGuestStreamKey(streamKey).ifPresent(req -> log.info("Guest left stream: {}", streamKey));
+            return;
+        }
+        if (liveStream.getStatus() == LiveStreamStatus.LIVE) {
             liveStream.setStatus(LiveStreamStatus.ENDED);
             liveStream.setEndedAt(LocalDateTime.now());
-
             if (liveStream.getStartedAt() != null) {
                 long seconds = Duration.between(liveStream.getStartedAt(), liveStream.getEndedAt()).getSeconds();
                 liveStream.setDurationSeconds((int) seconds);
             }
-
             liveStreamRepository.save(liveStream);
             log.info("Live stream ended via webhook: {}", liveStream.getId());
         }

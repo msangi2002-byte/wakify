@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -32,6 +33,9 @@ public class LiveStreamResponse {
     private Integer durationSeconds;
     private LocalDateTime createdAt;
 
+    /** Accepted guests on this live (stream key + URL). Viewers see "yupo live" for each. */
+    private List<GuestStreamInfo> guestStreams;
+
     @Data
     @Builder
     public static class HostSummary {
@@ -39,5 +43,14 @@ public class LiveStreamResponse {
         private String name;
         private String profilePic;
         private Boolean isVerified;
+    }
+
+    @Data
+    @Builder
+    public static class GuestStreamInfo {
+        private String streamKey;
+        private String streamUrl;
+        private UUID requesterId;
+        private String requesterName;
     }
 }

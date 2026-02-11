@@ -33,6 +33,9 @@ public class AuthEventService {
         String ip = ctx != null ? ctx.getIpAddress() : null;
         String userAgent = ctx != null ? ctx.getUserAgent() : null;
         UserAgentParser.Parsed parsed = UserAgentParser.parse(userAgent);
+        if (parsed == null) {
+            parsed = UserAgentParser.Parsed.builder().deviceType("Unknown").browser("Unknown").os("Unknown").build();
+        }
 
         AuthEvent event = AuthEvent.builder()
                 .eventType(eventType)

@@ -243,6 +243,21 @@ public class LiveStreamController {
     }
 
     /**
+     * Get my join request for this live (viewer). When accepted, response includes guestStreamKey
+     * so the guest can publish and appear on the same live with the host.
+     * GET /api/v1/live/{liveId}/my-join-request
+     */
+    @GetMapping("/{liveId}/my-join-request")
+    public ResponseEntity<ApiResponse<JoinRequestResponse>> getMyJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("liveId") UUID liveId) {
+        UUID requesterId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        return liveStreamService.getMyJoinRequestForLive(liveId, requesterId)
+                .map(response -> ResponseEntity.ok(ApiResponse.success(response)))
+                .orElse(ResponseEntity.ok(ApiResponse.success(null)));
+    }
+
+    /**
      * Get streaming configuration (STUN/TURN)
      * GET /api/v1/live/config
      */

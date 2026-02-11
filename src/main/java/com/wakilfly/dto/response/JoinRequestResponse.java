@@ -16,6 +16,8 @@ public class JoinRequestResponse {
     private JoinRequestStatus status;
     private LocalDateTime hostRespondedAt;
     private LocalDateTime createdAt;
+    /** When status is ACCEPTED, the guest can use this key to publish (WHIP/RTMP) and appear on the same live. */
+    private String guestStreamKey;
 
     @Data
     @Builder

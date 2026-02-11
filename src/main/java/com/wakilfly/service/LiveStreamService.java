@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -315,6 +316,36 @@ public class LiveStreamService {
         return mapToJoinRequestResponse(request);
     }
 
+    /**
+     * Get current user's join request for a live (viewer only). When status is ACCEPTED,
+     * response includes guestStreamKey so the guest can publish and appear on the same live.
+     */
+    public Optional<JoinRequestResponse> getMyJoinRequestForLive(UUID liveStreamId, UUID requesterId) {
+        LiveStream liveStream = liveStreamRepository.findById(liveStreamId).orElse(null);
+        if (liveStream == null) return Optional.empty();
+        return joinRequestRepository.findByLiveStreamIdAndRequesterId(liveStreamId, requesterId)
+                .map(req -> mapToJoinRequestResponseWithGuestKey(req, liveStream));
+    }
+
+    private JoinRequestResponse mapToJoinRequestResponseWithGuestKey(LiveStreamJoinRequest req, LiveStream liveStream) {
+        JoinRequestResponse.JoinRequestResponseBuilder b = JoinRequestResponse.builder()
+                .id(req.getId())
+                .liveStreamId(req.getLiveStream().getId())
+                .requester(JoinRequestResponse.RequesterSummary.builder()
+                        .id(req.getRequester().getId())
+                        .name(req.getRequester().getName())
+                        .profilePic(req.getRequester().getProfilePic())
+                        .isVerified(req.getRequester().getIsVerified())
+                        .build())
+                .status(req.getStatus())
+                .hostRespondedAt(req.getHostRespondedAt())
+                .createdAt(req.getCreatedAt());
+        if (req.getStatus() == JoinRequestStatus.ACCEPTED && liveStream.getStreamKey() != null) {
+            b.guestStreamKey(liveStream.getStreamKey());
+        }
+        return b.build();
+    }
+
     // ---------- Live comments ----------
 
     /**
@@ -376,20 +407,7 @@ public class LiveStreamService {
     }
 
     private JoinRequestResponse mapToJoinRequestResponse(LiveStreamJoinRequest req) {
-        User r = req.getRequester();
-        return JoinRequestResponse.builder()
-                .id(req.getId())
-                .liveStreamId(req.getLiveStream().getId())
-                .requester(JoinRequestResponse.RequesterSummary.builder()
-                        .id(r.getId())
-                        .name(r.getName())
-                        .profilePic(r.getProfilePic())
-                        .isVerified(r.getIsVerified())
-                        .build())
-                .status(req.getStatus())
-                .hostRespondedAt(req.getHostRespondedAt())
-                .createdAt(req.getCreatedAt())
-                .build();
+        return mapToJoinRequestResponseWithGuestKey(req, req.getLiveStream());
     }
 
     private LiveStreamResponse mapToLiveStreamResponse(LiveStream ls) {

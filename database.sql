@@ -19,6 +19,7 @@ SET time_zone = "+00:00";
 
 --
 -- Database: `wakilfly_db`
+-- Schema reference: when editing the database, add or update table definitions here.
 --
 
 DELIMITER $$
@@ -195,6 +196,34 @@ CREATE TABLE `business_follows` (
   `user_id` binary(16) NOT NULL,
   `business_id` binary(16) NOT NULL,
   `created_at` datetime(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `business_requests`
+-- User requests to become a business; user selects an agent when filling the form.
+-- Agent sees requests where they were selected (agent_id = this agent).
+--
+CREATE TABLE `business_requests` (
+  `id` binary(16) NOT NULL,
+  `business_name` varchar(255) NOT NULL,
+  `owner_phone` varchar(255) NOT NULL,
+  `category` varchar(255) DEFAULT NULL,
+  `region` varchar(255) DEFAULT NULL,
+  `district` varchar(255) DEFAULT NULL,
+  `ward` varchar(255) DEFAULT NULL,
+  `street` varchar(255) DEFAULT NULL,
+  `description` text,
+  `status` enum('PENDING','APPROVED','REJECTED','CONVERTED') NOT NULL DEFAULT 'PENDING',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `user_id` binary(16) NOT NULL,
+  `agent_id` binary(16) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_business_requests_user` (`user_id`),
+  KEY `FK_business_requests_agent` (`agent_id`),
+  KEY `idx_business_requests_agent_created` (`agent_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------

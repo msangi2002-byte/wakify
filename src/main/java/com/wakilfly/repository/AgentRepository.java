@@ -36,8 +36,9 @@ public interface AgentRepository extends JpaRepository<Agent, UUID> {
 
         @Query("SELECT a FROM Agent a WHERE " +
                         "(LOWER(a.user.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+                        "LOWER(COALESCE(a.user.email, '')) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                         "a.agentCode LIKE CONCAT('%', :query, '%') OR " +
-                        "a.user.phone LIKE CONCAT('%', :query, '%')) AND a.status = 'ACTIVE'")
+                        "a.user.phone LIKE CONCAT('%', :query, '%')) AND (a.status = 'ACTIVE' OR a.status = 'PENDING')")
         Page<Agent> searchAgents(@Param("query") String query, Pageable pageable);
 
         @Query("SELECT COUNT(a) FROM Agent a WHERE a.status = 'ACTIVE'")

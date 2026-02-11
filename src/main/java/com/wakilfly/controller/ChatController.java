@@ -7,14 +7,18 @@ import com.wakilfly.dto.response.MessageResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.ChatService;
+import com.wakilfly.service.FileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,6 +28,7 @@ public class ChatController {
 
     private final ChatService chatService;
     private final CustomUserDetailsService userDetailsService;
+    private final FileStorageService fileStorageService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<MessageResponse>> sendMessage(
@@ -33,6 +38,21 @@ public class ChatController {
         UUID senderId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         MessageResponse response = chatService.sendMessage(senderId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * Upload voice note (or other message media). Returns URL to use in sendMessage with type VOICE and mediaUrl.
+     * POST /api/v1/messages/upload
+     */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadMessageMedia(
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("File is required"));
+        }
+        String url = fileStorageService.storeFile(file, "messages");
+        return ResponseEntity.ok(ApiResponse.success(Map.of("url", url)));
     }
 
     @GetMapping("/conversations")

@@ -27,7 +27,6 @@ public class AgentController {
     private final AgentService agentService;
     private final BusinessRequestService businessRequestService;
     private final CustomUserDetailsService userDetailsService;
-    private final BusinessRequestService businessRequestService;
 
     /**
      * Register as an agent (any authenticated user can become an agent)

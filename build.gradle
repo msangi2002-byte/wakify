@@ -41,7 +41,7 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'com.h2database:h2'
     
-    // Lombok
+    // Lombok (must be on annotation processor path for Docker/CI builds)
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     
@@ -59,4 +59,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// Ensure Lombok annotation processor runs (fixes Docker/CI builds)
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add('-parameters')
+    options.annotationProcessorPath = configurations.annotationProcessor
 }

@@ -43,7 +43,7 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
             "(p.visibility = 'PUBLIC' OR p.visibility = 'FOLLOWERS' OR " +
             "(p.visibility = 'FRIENDS' AND EXISTS (SELECT fs FROM Friendship fs WHERE fs.status = 'ACCEPTED' AND " +
             "((fs.requester.id = :userId AND fs.addressee = p.author) OR (fs.addressee.id = :userId AND fs.requester = p.author))))) " +
-            ") ORDER BY p.createdAt DESC")
+            ")) ORDER BY p.createdAt DESC")
     List<Post> findFeedCandidatesSince(@Param("userId") UUID userId, @Param("since") LocalDateTime since, Pageable pageable);
 
     // Public feed (for visitors/explore)

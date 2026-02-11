@@ -20,4 +20,7 @@ public class SendMessageRequest {
 
     /** Message type: TEXT, IMAGE, VIDEO, VOICE, DOCUMENT, etc. */
     private MessageType type;
+
+    /** Reply to this message ID (optional) */
+    private UUID replyToId;
 }

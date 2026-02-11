@@ -44,6 +44,16 @@ public class ChatService {
         User recipient = userRepository.findById(request.getRecipientId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getRecipientId()));
 
+        Message replyToMsg = null;
+        if (request.getReplyToId() != null) {
+            replyToMsg = messageRepository.findById(request.getReplyToId()).orElse(null);
+            if (replyToMsg != null) {
+                boolean sameConvo = (replyToMsg.getSender().getId().equals(senderId) && replyToMsg.getRecipient().getId().equals(request.getRecipientId()))
+                        || (replyToMsg.getRecipient().getId().equals(senderId) && replyToMsg.getSender().getId().equals(request.getRecipientId()));
+                if (!sameConvo) replyToMsg = null;
+            }
+        }
+
         MessageType type = request.getType() != null ? request.getType() : MessageType.TEXT;
         Message message = Message.builder()
                 .sender(sender)
@@ -51,6 +61,7 @@ public class ChatService {
                 .content(content)
                 .mediaUrl(mediaUrl)
                 .type(type)
+                .replyTo(replyToMsg)
                 .isRead(false)
                 .build();
 
@@ -157,6 +168,18 @@ public class ChatService {
     }
 
     private MessageResponse mapToResponse(Message m, UUID currentUserId) {
+        MessageResponse.ReplyToInfo replyToInfo = null;
+        if (m.getReplyTo() != null) {
+            Message rt = m.getReplyTo();
+            String preview = rt.getContent() != null && !rt.getContent().isEmpty()
+                    ? (rt.getContent().length() > 80 ? rt.getContent().substring(0, 80) + "…" : rt.getContent())
+                    : (rt.getMediaUrl() != null ? "📎 Media" : "Message");
+            replyToInfo = MessageResponse.ReplyToInfo.builder()
+                    .id(rt.getId())
+                    .content(preview)
+                    .senderName(rt.getSender().getName())
+                    .build();
+        }
         return MessageResponse.builder()
                 .id(m.getId())
                 .content(m.getContent())
@@ -168,6 +191,7 @@ public class ChatService {
                 .senderName(m.getSender().getName())
                 .senderProfilePic(m.getSender().getProfilePic())
                 .isMe(m.getSender().getId().equals(currentUserId))
+                .replyTo(replyToInfo)
                 .build();
     }
 }

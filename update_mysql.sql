@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS `conversations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
+-- Add reply_to_id to messages (reply to specific message)
+-- --------------------------------------------------------
+ALTER TABLE `messages` ADD COLUMN `reply_to_id` binary(16) DEFAULT NULL;
+ALTER TABLE `messages` ADD KEY `FK_message_reply_to` (`reply_to_id`);
+ALTER TABLE `messages` ADD CONSTRAINT `FK_message_reply_to` FOREIGN KEY (`reply_to_id`) REFERENCES `messages` (`id`) ON DELETE SET NULL;
+
+-- --------------------------------------------------------
 -- Add guest_stream_key to live_stream_join_requests (guest gets own stream ID)
 -- Skip if column already exists (duplicate column error).
 -- --------------------------------------------------------

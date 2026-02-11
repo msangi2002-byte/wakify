@@ -24,4 +24,15 @@ public class MessageResponse {
 
     // Helper for UI
     private Boolean isMe;
+
+    /** Reply target: message you're replying to */
+    private ReplyToInfo replyTo;
+
+    @Data
+    @Builder
+    public static class ReplyToInfo {
+        private UUID id;
+        private String content;
+        private String senderName;
+    }
 }

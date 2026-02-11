@@ -47,6 +47,11 @@ public class Message {
     @Builder.Default
     private Boolean isDeleted = false;
 
+    /** Reply to another message (optional) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_id")
+    private Message replyTo;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

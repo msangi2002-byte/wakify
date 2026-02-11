@@ -77,6 +77,20 @@ public class Post {
     @Builder.Default
     private Set<Hashtag> hashtags = new HashSet<>();
 
+    /** Location/place on post (e.g. "Dar es Salaam", "Nyerere Square") */
+    @Column(length = 500)
+    private String location;
+
+    /** Feeling/activity (e.g. "Feeling happy", "Watching TV") */
+    @Column(name = "feeling_activity", length = 200)
+    private String feelingActivity;
+
+    /** Tagged/mentioned users in this post */
+    @ManyToMany
+    @JoinTable(name = "post_tagged_users", joinColumns = @JoinColumn(name = "post_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @Builder.Default
+    private Set<User> taggedUsers = new HashSet<>();
+
     @Column(name = "shares_count")
     @Builder.Default
     private Integer sharesCount = 0;
@@ -88,6 +102,14 @@ public class Post {
     @Column(name = "is_deleted")
     @Builder.Default
     private Boolean isDeleted = false;
+
+    /** Pinned in group by admin (shown first in group feed) */
+    @Column(name = "is_pinned")
+    @Builder.Default
+    private Boolean isPinned = false;
+
+    @Column(name = "pinned_at")
+    private java.time.LocalDateTime pinnedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

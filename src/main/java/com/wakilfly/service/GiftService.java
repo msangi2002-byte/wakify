@@ -3,6 +3,8 @@ package com.wakilfly.service;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
+import com.wakilfly.dto.request.UserWithdrawalRequest;
+import com.wakilfly.dto.response.UserCashWithdrawalResponse;
 import com.wakilfly.model.*;
 import com.wakilfly.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -29,6 +32,9 @@ public class GiftService {
     private final CoinPackageRepository coinPackageRepository;
     private final UserRepository userRepository;
     private final LiveStreamRepository liveStreamRepository;
+    private final UserCashWithdrawalRepository userCashWithdrawalRepository;
+
+    private static final BigDecimal MIN_WITHDRAWAL = new BigDecimal("1000");
 
     // ============================================
     // COIN PACKAGES
@@ -134,11 +140,115 @@ public class GiftService {
     // ============================================
 
     /**
+     * Request withdrawal of gift cash to pesa (host convert balance to mobile money etc.)
+     * Deducts from balance when request is created; on reject admin adds back.
+     */
+    @Transactional
+    public UserCashWithdrawalResponse requestCashWithdrawal(UUID userId, UserWithdrawalRequest request) {
+        UserWallet wallet = getOrCreateWallet(userId);
+        if (request.getAmount().compareTo(MIN_WITHDRAWAL) < 0) {
+            throw new BadRequestException("Minimum withdrawal is " + MIN_WITHDRAWAL + " TZS");
+        }
+        if (wallet.getCashBalance().compareTo(request.getAmount()) < 0) {
+            throw new BadRequestException("Insufficient cash balance. You have " + wallet.getCashBalance() + " TZS.");
+        }
+        if (userCashWithdrawalRepository.existsByUserIdAndStatus(userId, WithdrawalStatus.PENDING)) {
+            throw new BadRequestException("You already have a pending withdrawal. Wait for it to be processed.");
+        }
+        User user = userRepository.getReferenceById(userId);
+        wallet.setCashBalance(wallet.getCashBalance().subtract(request.getAmount()));
+        userWalletRepository.save(wallet);
+
+        UserCashWithdrawal w = UserCashWithdrawal.builder()
+                .user(user)
+                .amount(request.getAmount())
+                .paymentMethod(request.getPaymentMethod())
+                .paymentPhone(request.getPaymentPhone())
+                .paymentName(request.getPaymentName())
+                .status(WithdrawalStatus.PENDING)
+                .build();
+        w = userCashWithdrawalRepository.save(w);
+        log.info("User {} requested cash withdrawal {} TZS", userId, request.getAmount());
+        return mapToWithdrawalResponse(w);
+    }
+
+    /**
+     * Admin: list user cash withdrawal requests (e.g. pending only).
+     */
+    public PagedResponse<UserCashWithdrawalResponse> getPendingUserWithdrawals(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserCashWithdrawal> pageResult = userCashWithdrawalRepository.findByStatusOrderByCreatedAtDesc(WithdrawalStatus.PENDING, pageable);
+        return PagedResponse.<UserCashWithdrawalResponse>builder()
+                .content(pageResult.getContent().stream().map(this::mapToWithdrawalResponse).collect(Collectors.toList()))
+                .page(pageResult.getNumber())
+                .size(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .last(pageResult.isLast())
+                .first(pageResult.isFirst())
+                .build();
+    }
+
+    /**
+     * Admin: process user cash withdrawal (approve = already deducted; reject = add back to wallet).
+     */
+    @Transactional
+    public UserCashWithdrawalResponse processUserCashWithdrawal(UUID withdrawalId, boolean approve,
+            String transactionId, String rejectionReason) {
+        UserCashWithdrawal w = userCashWithdrawalRepository.findById(withdrawalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Withdrawal not found"));
+        if (w.getStatus() != WithdrawalStatus.PENDING) {
+            throw new BadRequestException("Withdrawal already processed");
+        }
+        if (approve) {
+            w.setStatus(WithdrawalStatus.COMPLETED);
+            w.setTransactionId(transactionId);
+            w.setProcessedAt(LocalDateTime.now());
+        } else {
+            UserWallet wallet = getOrCreateWallet(w.getUser().getId());
+            wallet.setCashBalance(wallet.getCashBalance().add(w.getAmount()));
+            userWalletRepository.save(wallet);
+            w.setStatus(WithdrawalStatus.REJECTED);
+            w.setRejectionReason(rejectionReason);
+            w.setProcessedAt(LocalDateTime.now());
+        }
+        w = userCashWithdrawalRepository.save(w);
+        log.info("User cash withdrawal {} {}", withdrawalId, approve ? "approved" : "rejected");
+        return mapToWithdrawalResponse(w);
+    }
+
+    /**
+     * Get my withdrawal history (gift cash → pesa)
+     */
+    public PagedResponse<UserCashWithdrawalResponse> getMyWithdrawals(UUID userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserCashWithdrawal> pageResult = userCashWithdrawalRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        return PagedResponse.<UserCashWithdrawalResponse>builder()
+                .content(pageResult.getContent().stream().map(this::mapToWithdrawalResponse).collect(Collectors.toList()))
+                .page(pageResult.getNumber())
+                .size(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .last(pageResult.isLast())
+                .first(pageResult.isFirst())
+                .build();
+    }
+
+    /**
      * Get user's wallet
      */
     public WalletResponse getWallet(UUID userId) {
         UserWallet wallet = getOrCreateWallet(userId);
         return mapToWalletResponse(wallet);
+    }
+
+    /**
+     * Get gifts sent during a live stream (viewers see who sent what – coins/gift value inapanda)
+     */
+    public PagedResponse<GiftTransactionResponse> getGiftsForLive(UUID liveStreamId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<GiftTransaction> pageResult = giftTransactionRepository.findByLiveStreamIdOrderByCreatedAtDesc(liveStreamId, pageable);
+        return buildPagedGiftResponse(pageResult);
     }
 
     /**
@@ -224,6 +334,21 @@ public class GiftService {
                 .description(pkg.getDescription())
                 .iconUrl(pkg.getIconUrl())
                 .isPopular(pkg.getIsPopular())
+                .build();
+    }
+
+    private UserCashWithdrawalResponse mapToWithdrawalResponse(UserCashWithdrawal w) {
+        return UserCashWithdrawalResponse.builder()
+                .id(w.getId())
+                .amount(w.getAmount())
+                .paymentMethod(w.getPaymentMethod())
+                .paymentPhone(w.getPaymentPhone())
+                .paymentName(w.getPaymentName())
+                .status(w.getStatus())
+                .transactionId(w.getTransactionId())
+                .rejectionReason(w.getRejectionReason())
+                .processedAt(w.getProcessedAt())
+                .createdAt(w.getCreatedAt())
                 .build();
     }
 

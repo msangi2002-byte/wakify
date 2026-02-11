@@ -17,20 +17,20 @@ import java.util.UUID;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
-    // Get chat history between two users
-    @Query("SELECT m FROM Message m WHERE " +
-            "(m.sender = :user1 AND m.recipient = :user2) OR " +
-            "(m.sender = :user2 AND m.recipient = :user1) " +
+    // Get chat history between two users (exclude deleted)
+    @Query("SELECT m FROM Message m WHERE m.isDeleted = false AND " +
+            "((m.sender = :user1 AND m.recipient = :user2) OR (m.sender = :user2 AND m.recipient = :user1)) " +
             "ORDER BY m.createdAt DESC")
     Page<Message> findConversation(@Param("user1") User user1, @Param("user2") User user2, Pageable pageable);
 
-    // Count unread messages for a user
-    long countByRecipientAndIsReadFalse(User recipient);
+    // Count unread messages for a user (exclude deleted)
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.recipient = :recipient AND m.isRead = false AND m.isDeleted = false")
+    long countByRecipientAndIsReadFalse(@Param("recipient") User recipient);
 
-    // Count unread from specific user
-    long countBySenderAndRecipientAndIsReadFalse(User sender, User recipient);
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.sender = :sender AND m.recipient = :recipient AND m.isRead = false AND m.isDeleted = false")
+    long countBySenderAndRecipientAndIsReadFalse(@Param("sender") User sender, @Param("recipient") User recipient);
 
-    @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.createdAt DESC")
+    @Query("SELECT m FROM Message m WHERE m.isDeleted = false AND (m.sender = :user OR m.recipient = :user) ORDER BY m.createdAt DESC")
     Page<Message> findRecentForUser(@Param("user") User user, Pageable pageable);
 
     @Modifying

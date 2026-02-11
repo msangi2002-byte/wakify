@@ -1,5 +1,6 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.UserWithdrawalRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.model.CoinPackage;
@@ -82,6 +83,19 @@ public class GiftController {
     }
 
     /**
+     * Get gifts sent during a live (viewers see total coins / gifts; host stores & converts later)
+     * GET /api/v1/gifts/live/{liveStreamId}
+     */
+    @GetMapping("/gifts/live/{liveStreamId}")
+    public ResponseEntity<ApiResponse<PagedResponse<GiftTransactionResponse>>> getGiftsForLive(
+            @PathVariable UUID liveStreamId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        PagedResponse<GiftTransactionResponse> gifts = giftService.getGiftsForLive(liveStreamId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(gifts));
+    }
+
+    /**
      * Send a gift
      * POST /api/v1/gifts/send
      */
@@ -107,7 +121,7 @@ public class GiftController {
     // ============================================
 
     /**
-     * Get my wallet
+     * Get my wallet (coin balance + cash balance from gifts – host anaweza kuconvert cash to pesa)
      * GET /api/v1/wallet
      */
     @GetMapping("/wallet")
@@ -116,6 +130,33 @@ public class GiftController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         WalletResponse wallet = giftService.getWallet(userId);
         return ResponseEntity.ok(ApiResponse.success(wallet));
+    }
+
+    /**
+     * Request withdrawal of gift cash to pesa (convert balance → mobile money)
+     * POST /api/v1/wallet/withdraw
+     */
+    @PostMapping("/wallet/withdraw")
+    public ResponseEntity<ApiResponse<UserCashWithdrawalResponse>> requestWithdrawal(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody UserWithdrawalRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        UserCashWithdrawalResponse withdrawal = giftService.requestCashWithdrawal(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Withdrawal request submitted", withdrawal));
+    }
+
+    /**
+     * Get my withdrawal history (gift cash → pesa)
+     * GET /api/v1/wallet/withdrawals
+     */
+    @GetMapping("/wallet/withdrawals")
+    public ResponseEntity<ApiResponse<PagedResponse<UserCashWithdrawalResponse>>> getMyWithdrawals(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<UserCashWithdrawalResponse> withdrawals = giftService.getMyWithdrawals(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(withdrawals));
     }
 
     /**

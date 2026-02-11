@@ -32,6 +32,15 @@ public class CreatePostRequest {
 
     private UUID communityId; // For posting in groups/channels
 
+    /** Location/place (e.g. "Dar es Salaam") */
+    private String location;
+
+    /** Feeling or activity (e.g. "Feeling happy", "Watching TV") */
+    private String feelingActivity;
+
+    /** User IDs to tag/mention in the post */
+    private List<UUID> taggedUserIds;
+
     /**
      * Pre-uploaded media URLs (from chunked upload).
      * Use this when files were uploaded via POST /api/v1/upload/chunk + complete.

@@ -42,9 +42,10 @@ public class AuthService {
     private final CustomUserDetailsService userDetailsService;
     private final OtpSender otpSender;
     private final EmailOtpSender emailOtpSender;
+    private final AuthEventService authEventService;
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request, com.wakilfly.dto.request.AuthRequestContext ctx) {
         // Check if phone already exists
         if (userRepository.existsByPhone(request.getPhone())) {
             throw new BadRequestException("Phone number already registered");
@@ -71,6 +72,7 @@ public class AuthService {
                 .otpCode(otp)
                 .otpExpiresAt(LocalDateTime.now().plusMinutes(10))
                 .referredByAgentCode(request.getReferralCode())
+                .currentCity(request.getCurrentCity())
                 .region(request.getRegion())
                 .country(request.getCountry())
                 .dateOfBirth(request.getDateOfBirth())
@@ -87,6 +89,8 @@ public class AuthService {
         if (request.getReferralCode() != null && !request.getReferralCode().isEmpty()) {
             log.info("User {} registered with referral code: {}", request.getPhone(), request.getReferralCode());
         }
+
+        authEventService.recordEvent(com.wakilfly.model.AuthEventType.REGISTRATION, user, null, ctx, true);
 
         return RegisterResponse.builder()
                 .user(mapToUserResponse(user))
@@ -139,12 +143,14 @@ public class AuthService {
         return true;
     }
 
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, com.wakilfly.dto.request.AuthRequestContext ctx) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmailOrPhone(), request.getPassword()));
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
+
+        authEventService.recordEvent(com.wakilfly.model.AuthEventType.LOGIN, user, null, ctx, true);
 
         String accessToken = tokenProvider.generateAccessToken(userDetails);
         String refreshToken = tokenProvider.generateRefreshToken(userDetails);
@@ -154,6 +160,13 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .user(mapToUserResponse(user))
                 .build();
+    }
+
+    /**
+     * Record failed login attempt (no user; for security/fraud). Call from controller on BadCredentialsException.
+     */
+    public void recordFailedLogin(String emailOrPhone, com.wakilfly.dto.request.AuthRequestContext ctx) {
+        authEventService.recordEvent(com.wakilfly.model.AuthEventType.LOGIN_FAILED, null, emailOrPhone, ctx, false);
     }
 
     public String refreshToken(String refreshToken) {

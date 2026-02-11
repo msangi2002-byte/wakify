@@ -1,6 +1,8 @@
 package com.wakilfly.controller;
 
 import com.wakilfly.dto.response.ApiResponse;
+import com.wakilfly.dto.response.PagedResponse;
+import com.wakilfly.dto.response.PaymentHistoryResponse;
 import com.wakilfly.model.Payment;
 import com.wakilfly.model.PaymentType;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -18,9 +20,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.PageRequest;
+
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -106,6 +111,51 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("Imeshindikana kupata salio"));
         }
+    }
+
+    /**
+     * Get my payment history (profile – historia ya malipo: kununua coins, subscription, n.k.)
+     * Integrated with Haraka Pay; inaonyesha malipo yote ya user.
+     * GET /api/v1/payments/me
+     */
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<PagedResponse<PaymentHistoryResponse>>> getMyPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        var paymentPage = paymentService.getMyPayments(userId, PageRequest.of(page, size));
+
+        PagedResponse<PaymentHistoryResponse> response = PagedResponse.<PaymentHistoryResponse>builder()
+                .content(paymentPage.getContent().stream()
+                        .map(this::toPaymentHistoryResponse)
+                        .collect(Collectors.toList()))
+                .page(paymentPage.getNumber())
+                .size(paymentPage.getSize())
+                .totalElements(paymentPage.getTotalElements())
+                .totalPages(paymentPage.getTotalPages())
+                .last(paymentPage.isLast())
+                .first(paymentPage.isFirst())
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success("Historia ya malipo", response));
+    }
+
+    private PaymentHistoryResponse toPaymentHistoryResponse(Payment p) {
+        return PaymentHistoryResponse.builder()
+                .id(p.getId())
+                .transactionId(p.getTransactionId())
+                .amount(p.getAmount())
+                .type(p.getType())
+                .status(p.getStatus())
+                .method(p.getMethod())
+                .paymentPhone(p.getPaymentPhone())
+                .description(p.getDescription())
+                .paidAt(p.getPaidAt())
+                .createdAt(p.getCreatedAt())
+                .build();
     }
 
     /**

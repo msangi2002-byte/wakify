@@ -16,4 +16,7 @@ public interface CommentRepository extends JpaRepository<Comment, UUID> {
     Page<Comment> findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(UUID parentId, Pageable pageable);
 
     long countByPostIdAndIsDeletedFalse(UUID postId);
+
+    /** Count comments by this user on posts by this author (for relationship strength in feed). */
+    long countByAuthor_IdAndPost_Author_Id(UUID commentAuthorId, UUID postAuthorId);
 }

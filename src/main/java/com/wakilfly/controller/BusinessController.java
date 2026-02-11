@@ -27,13 +27,45 @@ public class BusinessController {
     // ============================================
 
     /**
-     * Get business by ID
+     * Get business by ID. If authenticated, response includes isFollowing.
      * GET /api/v1/businesses/{id}
      */
     @GetMapping("/businesses/{id}")
-    public ResponseEntity<ApiResponse<BusinessResponse>> getBusinessById(@PathVariable UUID id) {
-        BusinessResponse business = businessService.getBusinessById(id);
+    public ResponseEntity<ApiResponse<BusinessResponse>> getBusinessById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = null;
+        if (userDetails != null) {
+            currentUserId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        }
+        BusinessResponse business = businessService.getBusinessById(id, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(business));
+    }
+
+    /**
+     * Follow a business (like/follow page). Any authenticated user.
+     * POST /api/v1/businesses/{id}/follow
+     */
+    @PostMapping("/businesses/{id}/follow")
+    public ResponseEntity<ApiResponse<String>> followBusiness(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        businessService.followBusiness(userId, id);
+        return ResponseEntity.ok(ApiResponse.success("You are now following this business"));
+    }
+
+    /**
+     * Unfollow a business.
+     * DELETE /api/v1/businesses/{id}/follow
+     */
+    @DeleteMapping("/businesses/{id}/follow")
+    public ResponseEntity<ApiResponse<String>> unfollowBusiness(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        businessService.unfollowBusiness(userId, id);
+        return ResponseEntity.ok(ApiResponse.success("You have unfollowed this business"));
     }
 
     /**

@@ -7,5 +7,6 @@ public enum NotificationType {
     FRIEND_REQUEST,
     FRIEND_ACCEPT,
     FOLLOW,
+    COMMUNITY_INVITE, // Invited to join a group
     SYSTEM
 }

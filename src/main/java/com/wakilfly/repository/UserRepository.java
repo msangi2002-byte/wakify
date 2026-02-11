@@ -31,13 +31,29 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.isActive = true AND (LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR (u.phone IS NOT NULL AND u.phone LIKE CONCAT('%', :query, '%'))) ORDER BY u.name ASC")
     Page<User> searchUsers(@Param("query") String query, Pageable pageable);
 
-    /** Suggested users: not self, not already following, optionally same region/country, ordered by name. */
+    /** Suggested users: not self, not already following, same region & country when set, ordered by name. */
     @Query("SELECT u FROM User u WHERE u.id <> :currentUserId AND u.isActive = true " +
             "AND u NOT IN (SELECT f FROM User me JOIN me.following f WHERE me.id = :currentUserId) " +
             "AND (:region IS NULL OR :region = '' OR u.region = :region) " +
             "AND (:country IS NULL OR :country = '' OR u.country = :country) " +
             "ORDER BY u.name ASC")
     Page<User> findSuggestedUsers(@Param("currentUserId") UUID currentUserId, @Param("region") String region, @Param("country") String country, Pageable pageable);
+
+    /** People nearby: same country (when set), ordered by proximity — same city first, then same region, then same country, then name. */
+    @Query("SELECT u FROM User u WHERE u.id <> :currentUserId AND u.isActive = true " +
+            "AND u NOT IN (SELECT f FROM User me JOIN me.following f WHERE me.id = :currentUserId) " +
+            "AND ((:country IS NULL OR :country = '') OR u.country = :country) " +
+            "ORDER BY CASE WHEN (:currentCity IS NOT NULL AND :currentCity != '' AND u.currentCity = :currentCity) THEN 0 WHEN (:region IS NOT NULL AND :region != '' AND u.region = :region) THEN 1 WHEN (:country IS NOT NULL AND :country != '' AND u.country = :country) THEN 2 ELSE 3 END, u.name ASC")
+    Page<User> findNearbyUsers(@Param("currentUserId") UUID currentUserId, @Param("currentCity") String currentCity, @Param("region") String region, @Param("country") String country, Pageable pageable);
+
+    /** Candidates for "People You May Know": not self, not already following, active. Used for scoring (contacts, location, mutuals, interests). */
+    @Query("SELECT u FROM User u WHERE u.id <> :currentUserId AND u.isActive = true " +
+            "AND u NOT IN (SELECT f FROM User me JOIN me.following f WHERE me.id = :currentUserId) ORDER BY u.name ASC")
+    Page<User> findCandidatesForPeopleYouMayKnow(@Param("currentUserId") UUID currentUserId, Pageable pageable);
+
+    /** Count mutual follows between current user and another: users that both follow. */
+    @Query("SELECT COUNT(f) FROM User me JOIN me.following f WHERE me.id = :currentUserId AND f.id IN (SELECT f2.id FROM User other JOIN other.following f2 WHERE other.id = :otherUserId)")
+    long countMutualFollowing(@Param("currentUserId") UUID currentUserId, @Param("otherUserId") UUID otherUserId);
 
     @Query("SELECT u FROM User u JOIN u.followers f WHERE f.id = :userId")
     Page<User> findFollowing(@Param("userId") UUID userId, Pageable pageable);

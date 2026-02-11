@@ -20,4 +20,5 @@ public class ConversationSummary {
     private String lastMessageContent;
     private LocalDateTime lastMessageAt;
     private long unreadCount;
+    private Boolean archived;
 }

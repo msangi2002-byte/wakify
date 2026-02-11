@@ -1,5 +1,6 @@
 package com.wakilfly.dto.request;
 
+import com.wakilfly.model.Visibility;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,4 +30,9 @@ public class UpdateProfileRequest {
     private String gender;
     private LocalDate dateOfBirth;
     private String website;
+
+    /** Who can see your profile: PUBLIC, FOLLOWERS, PRIVATE */
+    private Visibility profileVisibility;
+    /** Who can see your following/followers list: PUBLIC, FOLLOWERS, PRIVATE */
+    private Visibility followingListVisibility;
 }

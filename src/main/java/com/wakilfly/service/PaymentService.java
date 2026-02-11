@@ -421,6 +421,14 @@ public class PaymentService {
     }
 
     /**
+     * Get payment history for user (profile – historia ya malipo: coins, subscription, n.k.)
+     */
+    public org.springframework.data.domain.Page<Payment> getMyPayments(UUID userId,
+            org.springframework.data.domain.Pageable pageable) {
+        return paymentRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    /**
      * Get payment by order ID
      */
     public Payment getPaymentByOrderId(String orderId) {

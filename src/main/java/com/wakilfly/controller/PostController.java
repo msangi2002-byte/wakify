@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.CreateCommentRequest;
 import com.wakilfly.dto.request.CreatePostRequest;
+import com.wakilfly.dto.request.UpdatePostRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.PostService;
@@ -142,6 +143,16 @@ public class PostController {
         }
         PostResponse post = postService.getPostById(postId, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(post));
+    }
+
+    @PutMapping("/{postId}")
+    public ResponseEntity<ApiResponse<PostResponse>> updatePost(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody UpdatePostRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PostResponse post = postService.updatePost(postId, userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Post updated successfully", post));
     }
 
     @DeleteMapping("/{postId}")

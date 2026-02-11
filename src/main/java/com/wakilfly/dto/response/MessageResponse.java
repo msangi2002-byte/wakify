@@ -12,6 +12,8 @@ public class MessageResponse {
     private UUID id;
     private String content;
     private String mediaUrl;
+    /** TEXT, IMAGE, VIDEO, VOICE, DOCUMENT, etc. */
+    private String type;
     private LocalDateTime createdAt;
     private Boolean isRead;
 

@@ -24,16 +24,25 @@ import java.util.stream.Collectors;
 public class BusinessService {
 
     private final BusinessRepository businessRepository;
+    private final BusinessFollowRepository businessFollowRepository;
+    private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
 
     /**
-     * Get business by ID
+     * Get business by ID (optionally with isFollowing for current user)
      */
-    public BusinessResponse getBusinessById(UUID businessId) {
+    public BusinessResponse getBusinessById(UUID businessId, UUID currentUserId) {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
-        return mapToBusinessResponse(business);
+        return mapToBusinessResponse(business, currentUserId);
+    }
+
+    /**
+     * Get business by ID (no current user - for public)
+     */
+    public BusinessResponse getBusinessById(UUID businessId) {
+        return getBusinessById(businessId, null);
     }
 
     /**
@@ -42,7 +51,31 @@ public class BusinessService {
     public BusinessResponse getBusinessByOwnerId(UUID ownerId) {
         Business business = businessRepository.findByOwnerId(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found for this user"));
-        return mapToBusinessResponse(business);
+        return mapToBusinessResponse(business, ownerId);
+    }
+
+    @Transactional
+    public void followBusiness(UUID userId, UUID businessId) {
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
+        if (businessFollowRepository.existsByUserIdAndBusinessId(userId, businessId)) return;
+        User user = userRepository.getReferenceById(userId);
+        businessFollowRepository.save(BusinessFollow.builder().user(user).business(business).build());
+        business.setFollowersCount(business.getFollowersCount() != null ? business.getFollowersCount() + 1 : 1);
+        businessRepository.save(business);
+        log.info("User {} followed business {}", userId, businessId);
+    }
+
+    @Transactional
+    public void unfollowBusiness(UUID userId, UUID businessId) {
+        if (!businessFollowRepository.existsByUserIdAndBusinessId(userId, businessId)) return;
+        businessFollowRepository.deleteByUserIdAndBusinessId(userId, businessId);
+        Business business = businessRepository.findById(businessId).orElse(null);
+        if (business != null) {
+            business.setFollowersCount(Math.max(0, (business.getFollowersCount() != null ? business.getFollowersCount() : 1) - 1));
+            businessRepository.save(business);
+        }
+        log.info("User {} unfollowed business {}", userId, businessId);
     }
 
     /**
@@ -117,7 +150,7 @@ public class BusinessService {
             business.setLongitude(request.getLongitude());
 
         business = businessRepository.save(business);
-        return mapToBusinessResponse(business);
+        return mapToBusinessResponse(business, ownerId);
     }
 
     /**
@@ -207,7 +240,7 @@ public class BusinessService {
     private PagedResponse<BusinessResponse> buildPagedResponse(Page<Business> businesses) {
         return PagedResponse.<BusinessResponse>builder()
                 .content(businesses.getContent().stream()
-                        .map(this::mapToBusinessResponse)
+                        .map(b -> mapToBusinessResponse(b, null))
                         .collect(Collectors.toList()))
                 .page(businesses.getNumber())
                 .size(businesses.getSize())
@@ -218,7 +251,11 @@ public class BusinessService {
                 .build();
     }
 
-    private BusinessResponse mapToBusinessResponse(Business business) {
+    private BusinessResponse mapToBusinessResponse(Business business, UUID currentUserId) {
+        Boolean isFollowing = null;
+        if (currentUserId != null) {
+            isFollowing = businessFollowRepository.existsByUserIdAndBusinessId(currentUserId, business.getId());
+        }
         return BusinessResponse.builder()
                 .id(business.getId())
                 .name(business.getName())
@@ -243,8 +280,10 @@ public class BusinessService {
                 .agentName(business.getAgent() != null ? business.getAgent().getUser().getName() : null)
                 .agentCode(business.getAgent() != null ? business.getAgent().getAgentCode() : null)
                 .productsCount(business.getProductsCount())
+                .followersCount(business.getFollowersCount())
                 .rating(business.getRating())
                 .reviewsCount(business.getReviewsCount())
+                .isFollowing(isFollowing)
                 .createdAt(business.getCreatedAt())
                 .build();
     }

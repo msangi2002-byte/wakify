@@ -1,6 +1,7 @@
 package com.wakilfly.dto.response;
 
 import com.wakilfly.model.Role;
+import com.wakilfly.model.Visibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -45,6 +46,11 @@ public class UserResponse {
     private String gender;
     private java.time.LocalDate dateOfBirth;
     private String website;
+
+    /** Who can see your profile (for settings screen) */
+    private Visibility profileVisibility;
+    /** Who can see your following/followers list */
+    private Visibility followingListVisibility;
 
     private LocalDateTime createdAt;
 }

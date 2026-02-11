@@ -48,8 +48,12 @@ public class BusinessResponse {
     // Stats
     private Integer productsCount;
     private Integer ordersCount;
+    private Integer followersCount;
     private Double rating;
     private Integer reviewsCount;
+
+    /** True if current user follows this business (when authenticated) */
+    private Boolean isFollowing;
 
     private LocalDateTime createdAt;
 }

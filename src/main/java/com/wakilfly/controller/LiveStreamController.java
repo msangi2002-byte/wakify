@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.JoinRequestResponse;
+import com.wakilfly.dto.response.LiveStreamCommentResponse;
 import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.StreamingConfigResponse;
@@ -142,6 +143,34 @@ public class LiveStreamController {
     public ResponseEntity<ApiResponse<Void>> likeLive(@PathVariable UUID liveId) {
         liveStreamService.likeLiveStream(liveId);
         return ResponseEntity.ok(ApiResponse.success("Liked"));
+    }
+
+    /**
+     * Send a comment on live (comment inapita kwenye live; watu wote wanaona)
+     * POST /api/v1/live/{liveId}/comments
+     */
+    @PostMapping("/{liveId}/comments")
+    public ResponseEntity<ApiResponse<LiveStreamCommentResponse>> addComment(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID liveId,
+            @RequestBody java.util.Map<String, String> body) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        String content = body != null ? body.get("content") : null;
+        LiveStreamCommentResponse comment = liveStreamService.addComment(liveId, userId, content != null ? content : "");
+        return ResponseEntity.ok(ApiResponse.success("Comment sent", comment));
+    }
+
+    /**
+     * Get comments for a live stream (paginated)
+     * GET /api/v1/live/{liveId}/comments
+     */
+    @GetMapping("/{liveId}/comments")
+    public ResponseEntity<ApiResponse<PagedResponse<LiveStreamCommentResponse>>> getComments(
+            @PathVariable UUID liveId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        PagedResponse<LiveStreamCommentResponse> comments = liveStreamService.getComments(liveId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(comments));
     }
 
     /**

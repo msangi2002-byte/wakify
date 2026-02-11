@@ -1,14 +1,18 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.AuthRequestContext;
 import com.wakilfly.dto.request.*;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.AuthResponse;
 import com.wakilfly.dto.response.RegisterResponse;
 import com.wakilfly.service.AuthService;
+import com.wakilfly.util.RequestContextUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -21,8 +25,11 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        RegisterResponse result = authService.register(request);
+    public ResponseEntity<ApiResponse<RegisterResponse>> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest) {
+        AuthRequestContext ctx = RequestContextUtils.fromRequest(httpRequest);
+        RegisterResponse result = authService.register(request, ctx);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("User registered successfully. OTP sent to phone.", result));
     }
@@ -48,9 +55,17 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse authResponse = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        AuthRequestContext ctx = RequestContextUtils.fromRequest(httpRequest);
+        try {
+            AuthResponse authResponse = authService.login(request, ctx);
+            return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
+        } catch (BadCredentialsException e) {
+            authService.recordFailedLogin(request.getEmailOrPhone(), ctx);
+            throw e;
+        }
     }
 
     @PostMapping("/refresh")

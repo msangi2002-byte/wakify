@@ -38,9 +38,10 @@ public class ChatController {
     @GetMapping("/conversations")
     public ResponseEntity<ApiResponse<List<ConversationSummary>>> getConversations(
             @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "false") boolean includeArchived,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        List<ConversationSummary> list = chatService.getConversationsList(userId, limit);
+        List<ConversationSummary> list = chatService.getConversationsList(userId, limit, includeArchived);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 
@@ -70,5 +71,44 @@ public class ChatController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         long count = chatService.getTotalUnreadCount(userId);
         return ResponseEntity.ok(ApiResponse.success(count));
+    }
+
+    /**
+     * Delete a message (soft delete). Only sender can delete.
+     * DELETE /api/v1/messages/{messageId}
+     */
+    @DeleteMapping("/{messageId}")
+    public ResponseEntity<ApiResponse<Void>> deleteMessage(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        chatService.deleteMessage(messageId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Message deleted"));
+    }
+
+    /**
+     * Archive a conversation (hide from main list).
+     * POST /api/v1/messages/conversations/{otherUserId}/archive
+     */
+    @PostMapping("/conversations/{otherUserId}/archive")
+    public ResponseEntity<ApiResponse<Void>> archiveConversation(
+            @PathVariable UUID otherUserId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        chatService.archiveConversation(userId, otherUserId);
+        return ResponseEntity.ok(ApiResponse.success("Conversation archived"));
+    }
+
+    /**
+     * Unarchive a conversation.
+     * DELETE /api/v1/messages/conversations/{otherUserId}/archive
+     */
+    @DeleteMapping("/conversations/{otherUserId}/archive")
+    public ResponseEntity<ApiResponse<Void>> unarchiveConversation(
+            @PathVariable UUID otherUserId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        chatService.unarchiveConversation(userId, otherUserId);
+        return ResponseEntity.ok(ApiResponse.success("Conversation unarchived"));
     }
 }

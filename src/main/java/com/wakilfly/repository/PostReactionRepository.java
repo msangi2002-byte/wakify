@@ -14,4 +14,7 @@ public interface PostReactionRepository extends JpaRepository<PostReaction, UUID
     Optional<PostReaction> findByPostAndUser(Post post, User user);
 
     long countByPost(Post post);
+
+    /** Count reactions given by this user on posts by this author (for relationship strength in feed). */
+    long countByUser_IdAndPost_Author_Id(UUID userId, UUID authorId);
 }

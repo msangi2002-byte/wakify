@@ -4,10 +4,13 @@ import com.wakilfly.dto.request.UpdateProfileRequest;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.model.User;
+import com.wakilfly.model.Visibility;
+import com.wakilfly.model.UserRestriction;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.repository.UserBlockRepository;
+import com.wakilfly.repository.UserRestrictionRepository;
 import com.wakilfly.model.NotificationType;
 import com.wakilfly.model.UserBlock;
 import com.wakilfly.service.NotificationService;
@@ -30,13 +33,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
+    private final UserRestrictionRepository userRestrictionRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
 
     public UserService(UserRepository userRepository, UserBlockRepository userBlockRepository,
+                       UserRestrictionRepository userRestrictionRepository,
                        NotificationService notificationService, FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.userBlockRepository = userBlockRepository;
+        this.userRestrictionRepository = userRestrictionRepository;
         this.notificationService = notificationService;
         this.fileStorageService = fileStorageService;
     }
@@ -51,14 +57,18 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        boolean isFollowing = false;
-        if (currentUserId != null && !userId.equals(currentUserId)) {
-            User currentUser = userRepository.findById(currentUserId).orElse(null);
-            if (currentUser != null) {
-                isFollowing = user.getFollowers().contains(currentUser);
-            }
+        if (currentUserId == null || userId.equals(currentUserId)) {
+            return mapToUserResponse(user, null);
         }
 
+        boolean isFollowing = userRepository.isFollowing(currentUserId, userId);
+        Visibility profileVisibility = user.getProfileVisibility() != null ? user.getProfileVisibility() : Visibility.PUBLIC;
+        if (profileVisibility == Visibility.PRIVATE) {
+            return mapToMinimalUserResponse(user, isFollowing);
+        }
+        if (profileVisibility == Visibility.FOLLOWERS && !isFollowing) {
+            return mapToMinimalUserResponse(user, isFollowing);
+        }
         return mapToUserResponse(user, isFollowing);
     }
 
@@ -103,6 +113,10 @@ public class UserService {
             user.setDateOfBirth(request.getDateOfBirth());
         if (request.getWebsite() != null)
             user.setWebsite(request.getWebsite());
+        if (request.getProfileVisibility() != null)
+            user.setProfileVisibility(request.getProfileVisibility());
+        if (request.getFollowingListVisibility() != null)
+            user.setFollowingListVisibility(request.getFollowingListVisibility());
 
         user = userRepository.save(user);
         return mapToUserResponse(user, null);
@@ -162,7 +176,7 @@ public class UserService {
                 .build();
     }
 
-    /** Discover / suggested users: by same region, country (and later age/interests). Excludes self and already following. Sorted alphabetically by name. */
+    /** Discover / suggested users: by same region & country (from profile/register). Excludes self and already following. */
     public PagedResponse<UserResponse> getSuggestedUsers(UUID currentUserId, int page, int size) {
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
@@ -170,6 +184,29 @@ public class UserService {
         String country = currentUser.getCountry();
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> users = userRepository.findSuggestedUsers(currentUserId, region, country, pageable);
+
+        return PagedResponse.<UserResponse>builder()
+                .content(users.getContent().stream()
+                        .map(user -> mapToUserResponse(user, userRepository.isFollowing(currentUserId, user.getId())))
+                        .collect(Collectors.toList()))
+                .page(users.getNumber())
+                .size(users.getSize())
+                .totalElements(users.getTotalElements())
+                .totalPages(users.getTotalPages())
+                .last(users.isLast())
+                .first(users.isFirst())
+                .build();
+    }
+
+    /** People nearby: uses your profile/register location (currentCity, region, country). Same country only when set; ordered by proximity (same city first, then region, then country). */
+    public PagedResponse<UserResponse> getNearbyUsers(UUID currentUserId, int page, int size) {
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+        String currentCity = currentUser.getCurrentCity();
+        String region = currentUser.getRegion();
+        String country = currentUser.getCountry();
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<User> users = userRepository.findNearbyUsers(currentUserId, currentCity, region, country, pageable);
 
         return PagedResponse.<UserResponse>builder()
                 .content(users.getContent().stream()
@@ -276,6 +313,7 @@ public class UserService {
     }
 
     public PagedResponse<UserResponse> getFollowers(UUID userId, int page, int size, UUID currentUserId) {
+        enforceFollowingListVisibility(userId, currentUserId);
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> followers = userRepository.findFollowers(userId, pageable);
 
@@ -302,6 +340,7 @@ public class UserService {
     }
 
     public PagedResponse<UserResponse> getFollowing(UUID userId, int page, int size, UUID currentUserId) {
+        enforceFollowingListVisibility(userId, currentUserId);
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         Page<User> following = userRepository.findFollowing(userId, pageable);
 
@@ -339,6 +378,76 @@ public class UserService {
                 .build();
     }
 
+    private void enforceFollowingListVisibility(UUID profileOwnerId, UUID viewerId) {
+        if (viewerId == null || profileOwnerId.equals(viewerId)) return;
+        User owner = userRepository.findById(profileOwnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", profileOwnerId));
+        Visibility vis = owner.getFollowingListVisibility() != null ? owner.getFollowingListVisibility() : Visibility.PUBLIC;
+        if (vis == Visibility.PRIVATE) {
+            throw new BadRequestException("This list is private");
+        }
+        if (vis == Visibility.FOLLOWERS && !userRepository.isFollowing(viewerId, profileOwnerId)) {
+            throw new BadRequestException("You must follow this user to see their list");
+        }
+    }
+
+    @Transactional
+    public void addToRestrictedList(UUID restricterId, UUID restrictedId) {
+        if (restricterId.equals(restrictedId)) {
+            throw new BadRequestException("You cannot restrict yourself");
+        }
+        User restricter = userRepository.findById(restricterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", restricterId));
+        User restricted = userRepository.findById(restrictedId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", restrictedId));
+        if (userRestrictionRepository.existsByRestricterIdAndRestrictedId(restricterId, restrictedId)) {
+            return;
+        }
+        userRestrictionRepository.save(UserRestriction.builder().restricter(restricter).restricted(restricted).build());
+        log.info("User {} restricted user {}", restricterId, restrictedId);
+    }
+
+    @Transactional
+    public void removeFromRestrictedList(UUID restricterId, UUID restrictedId) {
+        userRestrictionRepository.deleteByRestricterIdAndRestrictedId(restricterId, restrictedId);
+        log.info("User {} unrestricted user {}", restricterId, restrictedId);
+    }
+
+    public PagedResponse<UserResponse> getRestrictedList(UUID restricterId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<UserRestriction> pageResult = userRestrictionRepository.findByRestricterIdOrderByCreatedAtDesc(restricterId, pageable);
+        java.util.List<UserResponse> content = pageResult.getContent().stream()
+                .map(ur -> mapToUserResponse(ur.getRestricted(), false))
+                .collect(Collectors.toList());
+        return PagedResponse.<UserResponse>builder()
+                .content(content)
+                .page(pageResult.getNumber())
+                .size(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .last(pageResult.isLast())
+                .first(pageResult.isFirst())
+                .build();
+    }
+
+    public boolean isRestrictedBy(UUID restricterId, UUID restrictedId) {
+        return userRestrictionRepository.existsByRestricterIdAndRestrictedId(restricterId, restrictedId);
+    }
+
+    private UserResponse mapToMinimalUserResponse(User user, Boolean isFollowing) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .profilePic(user.getProfilePic())
+                .isFollowing(isFollowing)
+                .build();
+    }
+
+    /** Used by PeopleYouMayKnowService etc. to map User to UserResponse. */
+    public UserResponse toUserResponse(User user, Boolean isFollowing) {
+        return mapToUserResponse(user, isFollowing);
+    }
+
     private UserResponse mapToUserResponse(User user, Boolean isFollowing) {
         return UserResponse.builder()
                 .id(user.getId())
@@ -366,6 +475,8 @@ public class UserService {
                 .gender(user.getGender())
                 .dateOfBirth(user.getDateOfBirth())
                 .website(user.getWebsite())
+                .profileVisibility(user.getProfileVisibility())
+                .followingListVisibility(user.getFollowingListVisibility())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

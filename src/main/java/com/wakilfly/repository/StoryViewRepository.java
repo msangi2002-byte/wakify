@@ -19,4 +19,7 @@ public interface StoryViewRepository extends JpaRepository<StoryView, UUID> {
     Optional<StoryView> findByViewerAndPost(User viewer, Post post);
 
     boolean existsByViewerIdAndPostId(UUID viewerId, UUID postId);
+
+    /** Count how many times this viewer viewed stories by this author (for story feed ordering by closeness). */
+    long countByViewer_IdAndPost_Author_Id(UUID viewerId, UUID authorId);
 }

@@ -5,6 +5,7 @@ import com.wakilfly.model.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AdminService;
 import com.wakilfly.service.AuditLogService;
+import com.wakilfly.service.GiftService;
 import com.wakilfly.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService adminService;
+    private final GiftService giftService;
     private final ReportService reportService;
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
@@ -225,6 +227,33 @@ public class AdminController {
         WithdrawalResponse withdrawal = adminService.processWithdrawal(id, adminId, approve, notes, transactionId);
         return ResponseEntity.ok(ApiResponse.success(
                 approve ? "Withdrawal approved" : "Withdrawal rejected", withdrawal));
+    }
+
+    /**
+     * Get pending user (host) cash withdrawals (gift cash → pesa)
+     * GET /api/v1/admin/user-withdrawals
+     */
+    @GetMapping("/user-withdrawals")
+    public ResponseEntity<ApiResponse<PagedResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse>>> getUserWithdrawals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse> list = giftService.getPendingUserWithdrawals(page, size);
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
+
+    /**
+     * Process user cash withdrawal (approve = payout done; reject = refund to wallet)
+     * POST /api/v1/admin/user-withdrawals/{id}/process
+     */
+    @PostMapping("/user-withdrawals/{id}/process")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse>> processUserWithdrawal(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> request) {
+        boolean approve = (Boolean) request.get("approve");
+        String transactionId = (String) request.get("transactionId");
+        String rejectionReason = (String) request.get("rejectionReason");
+        com.wakilfly.dto.response.UserCashWithdrawalResponse w = giftService.processUserCashWithdrawal(id, approve, transactionId, rejectionReason);
+        return ResponseEntity.ok(ApiResponse.success(approve ? "Withdrawal approved" : "Withdrawal rejected", w));
     }
 
     // ==================== REPORTS & MODERATION ====================

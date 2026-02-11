@@ -1,11 +1,13 @@
 package com.wakilfly.service;
 
 import com.wakilfly.dto.response.JoinRequestResponse;
+import com.wakilfly.dto.response.LiveStreamCommentResponse;
 import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
+import com.wakilfly.repository.LiveStreamCommentRepository;
 import com.wakilfly.repository.LiveStreamJoinRequestRepository;
 import com.wakilfly.repository.LiveStreamRepository;
 import com.wakilfly.repository.UserRepository;
@@ -31,6 +33,7 @@ public class LiveStreamService {
 
     private final LiveStreamRepository liveStreamRepository;
     private final LiveStreamJoinRequestRepository joinRequestRepository;
+    private final LiveStreamCommentRepository liveStreamCommentRepository;
     private final UserRepository userRepository;
 
     @Value("${streaming.rtmp-url}")
@@ -310,6 +313,66 @@ public class LiveStreamService {
         request = joinRequestRepository.save(request);
         log.info("Join request rejected: {}", requestId);
         return mapToJoinRequestResponse(request);
+    }
+
+    // ---------- Live comments ----------
+
+    /**
+     * Send a comment on a live stream. Visible to all viewers; increments commentsCount.
+     */
+    @Transactional
+    public LiveStreamCommentResponse addComment(UUID liveStreamId, UUID authorId, String content) {
+        LiveStream liveStream = liveStreamRepository.findById(liveStreamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Live stream not found"));
+        if (liveStream.getStatus() != LiveStreamStatus.LIVE) {
+            throw new BadRequestException("Can only comment on an active live stream");
+        }
+        if (content == null || content.isBlank() || content.length() > 500) {
+            throw new BadRequestException("Comment must be 1-500 characters");
+        }
+        User author = userRepository.findById(authorId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        LiveStreamComment comment = LiveStreamComment.builder()
+                .liveStream(liveStream)
+                .author(author)
+                .content(content.trim())
+                .build();
+        comment = liveStreamCommentRepository.save(comment);
+
+        liveStream.setCommentsCount((liveStream.getCommentsCount() == null ? 0 : liveStream.getCommentsCount()) + 1);
+        liveStreamRepository.save(liveStream);
+
+        return mapToCommentResponse(comment);
+    }
+
+    /**
+     * Get comments for a live stream (paginated, newest first).
+     */
+    public PagedResponse<LiveStreamCommentResponse> getComments(UUID liveStreamId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<LiveStreamComment> comments = liveStreamCommentRepository.findByLiveStreamIdOrderByCreatedAtDesc(liveStreamId, pageable);
+        return PagedResponse.<LiveStreamCommentResponse>builder()
+                .content(comments.getContent().stream().map(this::mapToCommentResponse).collect(Collectors.toList()))
+                .page(comments.getNumber())
+                .size(comments.getSize())
+                .totalElements(comments.getTotalElements())
+                .totalPages(comments.getTotalPages())
+                .last(comments.isLast())
+                .first(comments.isFirst())
+                .build();
+    }
+
+    private LiveStreamCommentResponse mapToCommentResponse(LiveStreamComment c) {
+        User a = c.getAuthor();
+        return LiveStreamCommentResponse.builder()
+                .id(c.getId())
+                .authorId(a.getId())
+                .authorName(a.getName())
+                .authorProfilePic(a.getProfilePic())
+                .content(c.getContent())
+                .createdAt(c.getCreatedAt())
+                .build();
     }
 
     private JoinRequestResponse mapToJoinRequestResponse(LiveStreamJoinRequest req) {

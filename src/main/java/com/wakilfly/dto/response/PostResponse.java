@@ -32,7 +32,12 @@ public class PostResponse {
     private Boolean authorIsFollowed; // True if current user follows the post author (feed only)
     private Boolean saved; // True if current user has saved this post (Hifadhi)
     private List<String> hashtags; // #tag names for Explore
+    private String location; // Place on post
+    private String feelingActivity; // e.g. "Feeling happy"
+    private List<UserSummary> taggedUsers; // Tagged/mentioned users
     private PostResponse originalPost; // For shared posts
+    private Boolean isPinned; // In group: admin pinned (shown first)
+    private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;
 
     @Data

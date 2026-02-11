@@ -34,9 +34,18 @@ public class Message {
     @Column(name = "media_url")
     private String mediaUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 20)
+    @Builder.Default
+    private MessageType type = MessageType.TEXT;
+
     @Column(name = "is_read")
     @Builder.Default
     private Boolean isRead = false;
+
+    @Column(name = "is_deleted")
+    @Builder.Default
+    private Boolean isDeleted = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

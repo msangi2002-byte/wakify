@@ -2,6 +2,7 @@ package com.wakilfly.service;
 
 import com.wakilfly.dto.request.CreateCommentRequest;
 import com.wakilfly.dto.request.CreatePostRequest;
+import com.wakilfly.dto.request.UpdatePostRequest;
 import com.wakilfly.dto.response.CommentResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PostResponse;
@@ -20,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -99,7 +102,9 @@ public class PostService {
                                 .community(community) // Set community
                                 .visibility(request.getVisibility() != null ? request.getVisibility()
                                                 : Visibility.PUBLIC)
-                                .postType(request.getPostType() != null ? request.getPostType() : PostType.POST);
+                                .postType(request.getPostType() != null ? request.getPostType() : PostType.POST)
+                                .location(request.getLocation())
+                                .feelingActivity(request.getFeelingActivity());
 
                 // Handle Shared Post (Repost - Facebook Repost feature)
                 if (request.getOriginalPostId() != null) {
@@ -131,6 +136,16 @@ public class PostService {
                                 });
                         }
                         postRepository.save(finalPost);
+                }
+
+                // Add tagged/mentioned users
+                if (request.getTaggedUserIds() != null && !request.getTaggedUserIds().isEmpty()) {
+                        Post finalPost = post;
+                        for (UUID uid : request.getTaggedUserIds()) {
+                                if (uid.equals(userId)) continue; // skip self
+                                userRepository.findById(uid).ifPresent(u -> finalPost.getTaggedUsers().add(u));
+                        }
+                        if (!finalPost.getTaggedUsers().isEmpty()) postRepository.save(finalPost);
                 }
 
                 // Save media files: either from pre-uploaded URLs (chunked) or from multipart files
@@ -210,25 +225,60 @@ public class PostService {
                 return out;
         }
 
+        /** Feed algorithm: rank by interaction probability, recency, engagement, and relationship strength (like Facebook). */
         public PagedResponse<PostResponse> getFeed(UUID userId, int page, int size) {
-                Pageable pageable = PageRequest.of(page, size);
-                Page<Post> posts = postRepository.findFeedForUser(userId, pageable);
-                // New users (no following): show public feed so they see posts and can discover
-                if (posts.getContent().isEmpty() && page == 0) {
-                        posts = postRepository.findByVisibility(Visibility.PUBLIC, pageable);
+                LocalDateTime since = LocalDateTime.now().minusDays(14);
+                List<Post> candidates = postRepository.findFeedCandidatesSince(userId, since, PageRequest.of(0, 500));
+                if (candidates.isEmpty() && page == 0) {
+                        // New users (no following): show public feed
+                        Page<Post> publicPage = postRepository.findByVisibility(Visibility.PUBLIC, PageRequest.of(0, size));
+                        List<Post> list = publicPage.getContent();
+                        return PagedResponse.<PostResponse>builder()
+                                        .content(list.stream().map(post -> mapToPostResponse(post, userId)).collect(Collectors.toList()))
+                                        .page(0).size(list.size()).totalElements(publicPage.getTotalElements())
+                                        .totalPages(publicPage.getTotalPages()).last(publicPage.isLast()).first(true)
+                                        .build();
                 }
-
+                List<Post> scored = scoreAndSortFeedPosts(candidates, userId);
+                int total = scored.size();
+                int from = page * size;
+                int to = Math.min(from + size, total);
+                List<Post> pageContent = from < total ? scored.subList(from, to) : List.of();
+                int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
                 return PagedResponse.<PostResponse>builder()
-                                .content(posts.getContent().stream()
-                                                .map(post -> mapToPostResponse(post, userId))
-                                                .collect(Collectors.toList()))
-                                .page(posts.getNumber())
-                                .size(posts.getSize())
-                                .totalElements(posts.getTotalElements())
-                                .totalPages(posts.getTotalPages())
-                                .last(posts.isLast())
-                                .first(posts.isFirst())
+                                .content(pageContent.stream().map(post -> mapToPostResponse(post, userId)).collect(Collectors.toList()))
+                                .page(page).size(size).totalElements((long) total).totalPages(totalPages)
+                                .last(to >= total).first(page == 0)
                                 .build();
+        }
+
+        /** Score = recency decay + engagement (reactions, comments, shares) + relationship (mutual follows, my reactions/comments on author). */
+        private List<Post> scoreAndSortFeedPosts(List<Post> candidates, UUID currentUserId) {
+                return candidates.stream()
+                                .map(post -> {
+                                        long hoursAgo = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
+                                        double recency = 1.0 / (1.0 + hoursAgo / 48.0);
+                                        int reactions = post.getReactionsCount();
+                                        int comments = post.getCommentsCount();
+                                        int shares = post.getSharesCount() != null ? post.getSharesCount() : 0;
+                                        double engagement = Math.log(1.0 + reactions + comments * 2.0 + shares);
+                                        UUID authorId = post.getAuthor().getId();
+                                        long mutual = authorId.equals(currentUserId) ? 0 : userRepository.countMutualFollowing(currentUserId, authorId);
+                                        long myReactions = postReactionRepository.countByUser_IdAndPost_Author_Id(currentUserId, authorId);
+                                        long myComments = commentRepository.countByAuthor_IdAndPost_Author_Id(currentUserId, authorId);
+                                        double relationship = 0.5 * mutual + 0.3 * myReactions + 0.3 * myComments;
+                                        double score = 2.0 * recency + engagement + 0.5 * relationship;
+                                        return new ScoredPost(post, score);
+                                })
+                                .sorted(Comparator.comparingDouble((ScoredPost sp) -> sp.score).reversed())
+                                .map(sp -> sp.post)
+                                .collect(Collectors.toList());
+        }
+
+        private static class ScoredPost {
+                final Post post;
+                final double score;
+                ScoredPost(Post post, double score) { this.post = post; this.score = score; }
         }
 
         public PagedResponse<PostResponse> getPublicFeed(int page, int size) {
@@ -293,26 +343,49 @@ public class PostService {
                                 .build();
         }
 
+        /** Reels feed: from following + public; ranked by engagement (likes, comments, views) + recency (algorithm-based, not chronological). */
         public PagedResponse<PostResponse> getReels(int page, int size, UUID currentUserId) {
-                Pageable pageable = PageRequest.of(page, size);
-                Page<Post> posts = postRepository.findByPostType(PostType.REEL, pageable);
-
+                List<Post> candidates = currentUserId != null
+                        ? postRepository.findReelsCandidatesForUser(currentUserId, PageRequest.of(0, 300))
+                        : postRepository.findByPostType(PostType.REEL, PageRequest.of(0, 300)).getContent();
+                List<Post> scored = scoreAndSortReels(candidates);
+                int total = scored.size();
+                int from = page * size;
+                int to = Math.min(from + size, total);
+                List<Post> pageContent = from < total ? scored.subList(from, to) : List.of();
+                int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
                 return PagedResponse.<PostResponse>builder()
-                                .content(posts.getContent().stream()
-                                                .map(post -> mapToPostResponse(post, currentUserId))
-                                                .collect(Collectors.toList()))
-                                .page(posts.getNumber())
-                                .size(posts.getSize())
-                                .totalElements(posts.getTotalElements())
-                                .totalPages(posts.getTotalPages())
-                                .last(posts.isLast())
-                                .first(posts.isFirst())
+                                .content(pageContent.stream().map(post -> mapToPostResponse(post, currentUserId)).collect(Collectors.toList()))
+                                .page(page).size(size).totalElements((long) total).totalPages(totalPages)
+                                .last(to >= total).first(page == 0)
                                 .build();
         }
 
+        /** Score reels by engagement (reactions, comments, views) + recency; trending gets boost. */
+        private List<Post> scoreAndSortReels(List<Post> candidates) {
+                return candidates.stream()
+                                .map(post -> {
+                                        long hoursAgo = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
+                                        double recency = 1.0 / (1.0 + hoursAgo / 72.0);
+                                        int reactions = post.getReactionsCount();
+                                        int comments = post.getCommentsCount();
+                                        int views = post.getViewsCount() != null ? post.getViewsCount() : 0;
+                                        double engagement = Math.log(1.0 + reactions * 2.0 + comments + views * 0.5);
+                                        double score = 1.5 * recency + engagement;
+                                        return new ScoredPost(post, score);
+                                })
+                                .sorted(Comparator.comparingDouble((ScoredPost sp) -> sp.score).reversed())
+                                .map(sp -> sp.post)
+                                .collect(Collectors.toList());
+        }
+
+        /** Stories ordered by closeness (how often I viewed this author's stories) then recency (latest first). */
         public List<PostResponse> getActiveStories(UUID userId) {
                 LocalDateTime since = LocalDateTime.now().minusHours(24);
                 List<Post> stories = postRepository.findActiveStories(userId, since);
+                stories.sort(Comparator
+                                .comparingLong((Post p) -> storyViewRepository.countByViewer_IdAndPost_Author_Id(userId, p.getAuthor().getId())).reversed()
+                                .thenComparing(Post::getCreatedAt, Comparator.reverseOrder()));
                 return stories.stream()
                                 .map(post -> mapToPostResponse(post, userId))
                                 .collect(Collectors.toList());
@@ -371,6 +444,51 @@ public class PostService {
 
                 post.setIsDeleted(true);
                 postRepository.save(post);
+        }
+
+        @Transactional
+        public PostResponse updatePost(UUID postId, UUID userId, UpdatePostRequest request) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                if (!post.getAuthor().getId().equals(userId)) {
+                        throw new BadRequestException("You can only edit your own posts");
+                }
+                if (Boolean.TRUE.equals(post.getIsDeleted())) {
+                        throw new ResourceNotFoundException("Post not found");
+                }
+
+                if (request.getCaption() != null) post.setCaption(request.getCaption());
+                if (request.getVisibility() != null) post.setVisibility(request.getVisibility());
+                if (request.getLocation() != null) post.setLocation(request.getLocation());
+                if (request.getFeelingActivity() != null) post.setFeelingActivity(request.getFeelingActivity());
+
+                if (request.getTaggedUserIds() != null) {
+                        post.getTaggedUsers().clear();
+                        for (UUID uid : request.getTaggedUserIds()) {
+                                if (uid.equals(userId)) continue;
+                                userRepository.findById(uid).ifPresent(u -> post.getTaggedUsers().add(u));
+                        }
+                }
+
+                if (request.getMediaUrls() != null) {
+                        post.getMedia().clear();
+                        postMediaRepository.deleteByPostId(post.getId());
+                        int order = 0;
+                        for (String url : request.getMediaUrls()) {
+                                if (url == null || url.isBlank()) continue;
+                                MediaType type = isVideoUrl(url) ? MediaType.VIDEO : MediaType.IMAGE;
+                                PostMedia media = PostMedia.builder()
+                                                .post(post)
+                                                .url(url.trim())
+                                                .type(type)
+                                                .displayOrder(order++)
+                                                .build();
+                                postMediaRepository.save(media);
+                        }
+                }
+
+                Post updated = postRepository.save(post);
+                return mapToPostResponse(updated, userId);
         }
 
         // Facebook Style Reactions (Replaces simple Like)
@@ -583,7 +701,18 @@ public class PostService {
                                         && userRepository.isFollowing(currentUserId, post.getAuthor().getId()))
                                 .saved(currentUserId != null && savedPostRepository.existsByUserIdAndPostId(currentUserId, post.getId()))
                                 .hashtags(post.getHashtags() != null ? post.getHashtags().stream().map(Hashtag::getName).collect(Collectors.toList()) : List.of())
+                                .location(post.getLocation())
+                                .feelingActivity(post.getFeelingActivity())
+                                .taggedUsers(post.getTaggedUsers() != null ? post.getTaggedUsers().stream()
+                                                .map(u -> PostResponse.UserSummary.builder()
+                                                                .id(u.getId())
+                                                                .name(u.getName())
+                                                                .profilePic(u.getProfilePic())
+                                                                .build())
+                                                .collect(Collectors.toList()) : List.of())
                                 .originalPost(originalPostResponse)
+                                .isPinned(post.getIsPinned())
+                                .pinnedAt(post.getPinnedAt())
                                 .createdAt(post.getCreatedAt())
                                 .build();
         }
@@ -612,6 +741,8 @@ public class PostService {
                                                                 .thumbnailUrl(m.getThumbnailUrl())
                                                                 .build())
                                                 .collect(Collectors.toList()))
+                                .location(post.getLocation())
+                                .feelingActivity(post.getFeelingActivity())
                                 .createdAt(post.getCreatedAt())
                                 .build();
         }

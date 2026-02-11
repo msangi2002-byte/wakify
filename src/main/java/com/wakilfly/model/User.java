@@ -93,6 +93,18 @@ public class User {
 
     private String website;
 
+    /** Who can see your profile (PUBLIC, FOLLOWERS, PRIVATE) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "profile_visibility", length = 20)
+    @Builder.Default
+    private Visibility profileVisibility = Visibility.PUBLIC;
+
+    /** Who can see your following/followers list (PUBLIC, FOLLOWERS, PRIVATE) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "following_list_visibility", length = 20)
+    @Builder.Default
+    private Visibility followingListVisibility = Visibility.PUBLIC;
+
     // Referral tracking
     @Column(name = "referred_by_agent_code")
     private String referredByAgentCode; // Agent code who referred this user

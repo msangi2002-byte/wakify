@@ -30,6 +30,8 @@ public class BusinessActivationRequest {
     private String ownerName;
     private String ownerPhone;
     private String ownerEmail;
+    /** Password for the new owner so they can log in after payment success. */
+    private String ownerPassword;
 
     // Location
     @NotBlank(message = "Region is required")

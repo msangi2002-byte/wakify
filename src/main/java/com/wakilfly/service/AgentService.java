@@ -147,16 +147,25 @@ public class AgentService {
                         throw new BadRequestException(
                                         "Owner phone and name are required for new business owner");
                 }
+                if (request.getOwnerPassword() == null || request.getOwnerPassword().trim().length() < 6) {
+                        throw new BadRequestException(
+                                        "Owner password is required (min 6 characters) so they can log in after payment.");
+                }
                 if (userRepository.existsByPhone(request.getOwnerPhone())) {
                         throw new BadRequestException(
                                         "Phone number already registered. That user should request business in the app and pay via USSD.");
                 }
+                if (request.getOwnerEmail() != null && !request.getOwnerEmail().isBlank()
+                                && userRepository.existsByEmail(request.getOwnerEmail().trim())) {
+                        throw new BadRequestException("Email already registered.");
+                }
 
+                String encodedPassword = passwordEncoder.encode(request.getOwnerPassword().trim());
                 User owner = User.builder()
                                 .name(request.getOwnerName())
                                 .phone(request.getOwnerPhone())
-                                .email(request.getOwnerEmail())
-                                .password(passwordEncoder.encode("temp" + System.currentTimeMillis()))
+                                .email(request.getOwnerEmail() != null ? request.getOwnerEmail().trim() : null)
+                                .password(encodedPassword)
                                 .role(Role.BUSINESS)
                                 .isVerified(false)
                                 .isActive(true)

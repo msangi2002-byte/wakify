@@ -543,6 +543,73 @@ public class AgentService {
                 log.info("Withdrawal {} cancelled by agent {}", withdrawalId, agent.getAgentCode());
         }
 
+        /**
+         * Approve/Verify a business activation manually (agent can approve businesses they activated)
+         * POST /api/v1/agent/businesses/{id}/approve
+         */
+        @Transactional
+        public BusinessResponse approveBusiness(UUID businessId, UUID agentUserId) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
+
+                Business business = businessRepository.findById(businessId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
+
+                // Verify the business belongs to this agent
+                if (business.getAgent() == null || !business.getAgent().getId().equals(agent.getId())) {
+                        throw new BadRequestException("You can only approve businesses that you activated");
+                }
+
+                // Can only approve pending businesses
+                if (business.getStatus() != BusinessStatus.PENDING) {
+                        throw new BadRequestException("Only pending businesses can be approved. Current status: " + business.getStatus());
+                }
+
+                // Approve the business
+                business.setStatus(BusinessStatus.ACTIVE);
+                business = businessRepository.save(business);
+
+                log.info("Business {} approved manually by agent {}", business.getName(), agent.getAgentCode());
+
+                return mapToBusinessResponse(business);
+        }
+
+        /**
+         * Cancel a business activation (agent can cancel businesses they activated that are still pending)
+         * DELETE /api/v1/agent/businesses/{id}
+         */
+        @Transactional
+        public void cancelBusiness(UUID businessId, UUID agentUserId) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
+
+                Business business = businessRepository.findById(businessId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
+
+                // Verify the business belongs to this agent
+                if (business.getAgent() == null || !business.getAgent().getId().equals(agent.getId())) {
+                        throw new BadRequestException("You can only cancel businesses that you activated");
+                }
+
+                // Can only cancel pending businesses (not active or already cancelled)
+                if (business.getStatus() != BusinessStatus.PENDING) {
+                        throw new BadRequestException("Only pending businesses can be cancelled. Current status: " + business.getStatus());
+                }
+
+                // Check if payment has been made
+                Payment payment = paymentRepository.findByRelatedEntityTypeAndRelatedEntityId("BUSINESS", businessId)
+                                .orElse(null);
+                if (payment != null && payment.getStatus() == PaymentStatus.SUCCESS) {
+                        throw new BadRequestException("Cannot cancel business that has already been paid. Please contact admin.");
+                }
+
+                // Set status to INACTIVE instead of deleting (to maintain audit trail)
+                business.setStatus(BusinessStatus.INACTIVE);
+                businessRepository.save(business);
+
+                log.info("Business {} cancelled by agent {}", business.getName(), agent.getAgentCode());
+        }
+
         private WithdrawalResponse mapToWithdrawalResponse(Withdrawal withdrawal) {
                 return WithdrawalResponse.builder()
                                 .id(withdrawal.getId())

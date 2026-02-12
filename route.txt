@@ -501,6 +501,43 @@ output: {
 }
 ----------------------
 
+route: /api/v1/agent/businesses/{id}/approve
+method: POST
+auth: Bearer Token (Required, AGENT role)
+description: Approve/Verify a business activation manually (agent can approve businesses they activated)
+example: {}
+output: {
+    "success": true,
+    "message": "Business approved successfully",
+    "data": {
+        "id": "e5aaaf44-105d-7bc1-ff01-1ff2ef613e55",
+        "name": "Mama Ntilie Food",
+        "status": "ACTIVE",
+        "isVerified": false
+    }
+}
+notes: |
+    - Agent can only approve businesses they activated
+    - Only pending businesses can be approved
+    - Sets business status to ACTIVE
+----------------------
+
+route: /api/v1/agent/businesses/{id}
+method: DELETE
+auth: Bearer Token (Required, AGENT role)
+description: Cancel a business activation (agent can cancel businesses they activated that are still pending)
+example: {}
+output: {
+    "success": true,
+    "message": "Business activation cancelled successfully"
+}
+notes: |
+    - Agent can only cancel businesses they activated
+    - Only pending businesses can be cancelled
+    - Cannot cancel if payment has been completed
+    - Sets business status to INACTIVE
+----------------------
+
 route: /api/v1/agent/commissions
 method: GET
 example: {}

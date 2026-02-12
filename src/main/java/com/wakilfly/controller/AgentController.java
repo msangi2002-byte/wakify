@@ -109,6 +109,34 @@ public class AgentController {
     }
 
     /**
+     * Approve/Verify a business activation manually
+     * POST /api/v1/agent/businesses/{id}/approve
+     */
+    @PostMapping("/businesses/{id}/approve")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<BusinessResponse>> approveBusiness(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessResponse business = agentService.approveBusiness(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Business approved successfully", business));
+    }
+
+    /**
+     * Cancel a business activation
+     * DELETE /api/v1/agent/businesses/{id}
+     */
+    @DeleteMapping("/businesses/{id}")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<Void>> cancelBusiness(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        agentService.cancelBusiness(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Business activation cancelled successfully"));
+    }
+
+    /**
      * Get business requests (users who selected this agent when requesting to become a business).
      * GET /api/v1/agent/business-requests
      */

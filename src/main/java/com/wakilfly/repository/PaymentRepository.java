@@ -35,6 +35,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findFirstByUserIdAndTypeAndStatusAndRelatedEntityTypeOrderByCreatedAtDesc(
             UUID userId, PaymentType type, PaymentStatus status, String relatedEntityType);
 
+    Optional<Payment> findByRelatedEntityTypeAndRelatedEntityId(String relatedEntityType, UUID relatedEntityId);
+
     // Revenue calculation methods
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status")
     BigDecimal sumByStatus(@Param("status") PaymentStatus status);

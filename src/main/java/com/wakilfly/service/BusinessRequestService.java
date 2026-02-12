@@ -49,10 +49,13 @@ public class BusinessRequestService {
         if (businessRepository.findByOwnerId(user.getId()).isPresent()) {
             throw new BadRequestException("You already have a registered business.");
         }
-        Agent agent = agentRepository.findByAgentCode(request.getAgentCode().trim())
-                .orElseThrow(() -> new BadRequestException("Invalid agent code: " + request.getAgentCode()));
-        if (agent.getStatus() != com.wakilfly.model.AgentStatus.ACTIVE) {
-            throw new BadRequestException("Selected agent is not active. Please choose another agent.");
+        Agent agent = null;
+        if (request.getAgentCode() != null && !request.getAgentCode().trim().isEmpty()) {
+            agent = agentRepository.findByAgentCode(request.getAgentCode().trim())
+                    .orElseThrow(() -> new BadRequestException("Invalid agent code: " + request.getAgentCode()));
+            if (agent.getStatus() != com.wakilfly.model.AgentStatus.ACTIVE) {
+                throw new BadRequestException("Selected agent is not active. Please choose another agent.");
+            }
         }
         BusinessRequest br = BusinessRequest.builder()
                 .user(user)

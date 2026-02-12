@@ -26,7 +26,7 @@ public class BusinessRequest {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agent_id", nullable = false)
+    @JoinColumn(name = "agent_id")
     private Agent agent;
 
     @Column(name = "business_name", nullable = false)

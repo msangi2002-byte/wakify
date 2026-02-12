@@ -18,7 +18,7 @@ public class CreateBusinessRequestRequest {
     @NotBlank(message = "Owner phone is required")
     private String ownerPhone;
 
-    @NotBlank(message = "Agent code is required")
+    /** Optional; not needed for users with an account (system handles activation via USSD). */
     private String agentCode;
 
     private String category;

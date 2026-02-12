@@ -59,6 +59,10 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "onboarding_completed")
+    @Builder.Default
+    private Boolean onboardingCompleted = false;
+
     @Column(name = "otp_code")
     private String otpCode;
 

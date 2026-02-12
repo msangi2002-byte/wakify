@@ -477,6 +477,7 @@ public class UserService {
                 .website(user.getWebsite())
                 .profileVisibility(user.getProfileVisibility())
                 .followingListVisibility(user.getFollowingListVisibility())
+                .onboardingCompleted(Boolean.TRUE.equals(user.getOnboardingCompleted()))
                 .createdAt(user.getCreatedAt())
                 .lastSeen(user.getLastSeen())
                 .isOnline(computeIsOnline(user.getLastSeen()))
@@ -492,6 +493,15 @@ public class UserService {
     private static Boolean computeIsOnline(java.time.LocalDateTime lastSeen) {
         if (lastSeen == null) return false;
         return lastSeen.isAfter(java.time.LocalDateTime.now().minusMinutes(5));
+    }
+
+    @Transactional
+    public UserResponse completeOnboarding(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        user.setOnboardingCompleted(true);
+        user = userRepository.save(user);
+        return mapToUserResponse(user, null);
     }
 
     @Transactional

@@ -64,6 +64,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(activity));
     }
 
+    @PatchMapping("/me/onboarding-complete")
+    public ResponseEntity<ApiResponse<UserResponse>> completeOnboarding(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        UserResponse user = userService.completeOnboarding(userId);
+        return ResponseEntity.ok(ApiResponse.success("Onboarding completed", user));
+    }
+
     @PutMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,

@@ -26,6 +26,7 @@ public class UserResponse {
     private Role role;
     private Boolean isVerified;
     private Boolean isActive;
+    private Boolean onboardingCompleted;
     private Integer followersCount;
     private Integer followingCount;
     private Integer postsCount;

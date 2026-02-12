@@ -69,6 +69,7 @@ public class AuthService {
                 .role(Role.USER)
                 .isVerified(false)
                 .isActive(true)
+                .onboardingCompleted(false)
                 .otpCode(otp)
                 .otpExpiresAt(LocalDateTime.now().plusMinutes(10))
                 .referredByAgentCode(request.getReferralCode())
@@ -76,6 +77,7 @@ public class AuthService {
                 .region(request.getRegion())
                 .country(request.getCountry())
                 .dateOfBirth(request.getDateOfBirth())
+                .gender(request.getGender())
                 .interests(request.getInterests())
                 .build();
 
@@ -240,6 +242,7 @@ public class AuthService {
                 .followersCount(user.getFollowersCount())
                 .followingCount(user.getFollowingCount())
                 .postsCount(user.getPostsCount())
+                .onboardingCompleted(Boolean.TRUE.equals(user.getOnboardingCompleted()))
                 .createdAt(user.getCreatedAt())
                 .build();
     }

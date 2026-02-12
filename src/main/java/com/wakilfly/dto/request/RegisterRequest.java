@@ -35,6 +35,7 @@ public class RegisterRequest {
     private String region;      // Mkoa e.g. Dar es Salaam, Mwanza
     private String country;     // Taifa e.g. Tanzania
     private java.time.LocalDate dateOfBirth;
+    private String gender;      // MALE, FEMALE, etc.
     private String interests;   // Hobbies comma-separated e.g. Music,Sports,Tech
 
     // Optional: Agent referral code

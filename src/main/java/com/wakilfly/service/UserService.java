@@ -478,11 +478,27 @@ public class UserService {
                 .profileVisibility(user.getProfileVisibility())
                 .followingListVisibility(user.getFollowingListVisibility())
                 .createdAt(user.getCreatedAt())
+                .lastSeen(user.getLastSeen())
+                .isOnline(computeIsOnline(user.getLastSeen()))
                 .build();
     }
 
     private static Integer computeAge(LocalDate dateOfBirth) {
         if (dateOfBirth == null) return null;
         return Period.between(dateOfBirth, LocalDate.now()).getYears();
+    }
+
+    /** User is online if lastSeen within last 5 minutes. */
+    private static Boolean computeIsOnline(java.time.LocalDateTime lastSeen) {
+        if (lastSeen == null) return false;
+        return lastSeen.isAfter(java.time.LocalDateTime.now().minusMinutes(5));
+    }
+
+    @Transactional
+    public void updateLastSeen(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        user.setLastSeen(java.time.LocalDateTime.now());
+        userRepository.save(user);
     }
 }

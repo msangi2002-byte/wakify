@@ -53,4 +53,10 @@ public class UserResponse {
     private Visibility followingListVisibility;
 
     private LocalDateTime createdAt;
+
+    /** Last activity timestamp (heartbeat). */
+    private LocalDateTime lastSeen;
+
+    /** Computed: lastSeen within last 5 minutes. */
+    private Boolean isOnline;
 }

@@ -138,6 +138,10 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /** Last activity/heartbeat; used to compute isOnline (within ~5 min). */
+    @Column(name = "last_seen")
+    private LocalDateTime lastSeen;
+
     // Helper methods
     public void addFollower(User follower) {
         this.followers.add(follower);

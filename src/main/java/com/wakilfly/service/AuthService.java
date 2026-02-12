@@ -150,6 +150,9 @@ public class AuthService {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
 
+        user.setLastSeen(java.time.LocalDateTime.now());
+        userRepository.save(user);
+
         authEventService.recordEvent(com.wakilfly.model.AuthEventType.LOGIN, user, null, ctx, true);
 
         String accessToken = tokenProvider.generateAccessToken(userDetails);

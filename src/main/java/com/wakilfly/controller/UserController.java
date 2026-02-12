@@ -35,6 +35,13 @@ public class UserController {
     private final BusinessRequestService businessRequestService;
     private final CustomUserDetailsService userDetailsService;
 
+    @PostMapping("/me/activity")
+    public ResponseEntity<ApiResponse<String>> recordActivity(@AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        userService.updateLastSeen(userId);
+        return ResponseEntity.ok(ApiResponse.success("Activity recorded"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();

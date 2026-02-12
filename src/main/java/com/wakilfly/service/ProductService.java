@@ -56,11 +56,15 @@ public class ProductService {
 
         product = productRepository.save(product);
 
-        // Save product images
+        // Save product images and set first image as thumbnail
         if (images != null && !images.isEmpty()) {
             int order = 0;
+            String firstImageUrl = null;
             for (MultipartFile file : images) {
                 String url = fileStorageService.storeFile(file, "products");
+                if (order == 0) {
+                    firstImageUrl = url; // Store first image URL for thumbnail
+                }
                 ProductImage image = ProductImage.builder()
                         .product(product)
                         .url(url)
@@ -68,6 +72,11 @@ public class ProductService {
                         .displayOrder(order++)
                         .build();
                 productImageRepository.save(image);
+            }
+            // Set first image as thumbnail
+            if (firstImageUrl != null) {
+                product.setThumbnail(firstImageUrl);
+                product = productRepository.save(product);
             }
         }
 
@@ -224,6 +233,12 @@ public class ProductService {
         List<ProductImage> images = productImageRepository.findByProductIdOrderByDisplayOrderAsc(product.getId());
         Business business = product.getBusiness();
 
+        // Get thumbnail - use product.thumbnail if set, otherwise use first image
+        String thumbnail = product.getThumbnail();
+        if (thumbnail == null && !images.isEmpty()) {
+            thumbnail = images.get(0).getUrl();
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -234,6 +249,7 @@ public class ProductService {
                 .stockQuantity(product.getStockQuantity())
                 .inStock(product.isInStock())
                 .isActive(product.getIsActive())
+                .thumbnail(thumbnail)
                 .images(images.stream()
                         .map(img -> ProductResponse.ImageResponse.builder()
                                 .id(img.getId())

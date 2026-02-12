@@ -28,6 +28,7 @@ public class ProductResponse {
 
     // Images
     private List<ImageResponse> images;
+    private String thumbnail; // Cover/thumbnail image URL (first image)
 
     // Business info
     private BusinessSummary business;

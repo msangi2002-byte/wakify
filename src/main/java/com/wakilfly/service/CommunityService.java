@@ -13,6 +13,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
 import com.wakilfly.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CommunityService {
 
     private final CommunityRepository communityRepository;
@@ -196,7 +198,8 @@ public class CommunityService {
         if (inviterMember.getRole() != CommunityRole.ADMIN && inviterMember.getRole() != CommunityRole.MODERATOR) {
             throw new BadRequestException("Only admins and moderators can invite");
         }
-        User inviter = userRepository.getReferenceById(inviterId);
+        User inviter = userRepository.findById(inviterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", inviterId));
         List<CommunityInviteResponse> result = new ArrayList<>();
         for (UUID inviteeId : request.getUserIds()) {
             if (inviteeId.equals(inviterId)) continue;
@@ -212,9 +215,17 @@ public class CommunityService {
                     .status(CommunityInviteStatus.PENDING)
                     .build();
             invite = communityInviteRepository.save(invite);
+            // Force-load lazy associations inside transaction to avoid LazyInitializationException
+            invite.getCommunity().getName();
+            invite.getInviter().getName();
+            invite.getInvitee().getName();
             result.add(mapInviteToResponse(invite));
-            notificationService.sendNotification(invitee, inviter, NotificationType.COMMUNITY_INVITE,
-                    community.getId(), inviter.getName() + " invited you to join " + community.getName());
+            try {
+                notificationService.sendNotification(invitee, inviter, NotificationType.COMMUNITY_INVITE,
+                        community.getId(), inviter.getName() + " invited you to join " + community.getName());
+            } catch (Exception e) {
+                log.warn("Failed to send invite notification for invitee {}: {}", inviteeId, e.getMessage());
+            }
         }
         return result;
     }

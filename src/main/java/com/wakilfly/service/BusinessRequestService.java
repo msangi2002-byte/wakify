@@ -8,9 +8,11 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.Agent;
 import com.wakilfly.model.BusinessRequest;
 import com.wakilfly.model.BusinessRequestStatus;
+import com.wakilfly.model.PaymentType;
 import com.wakilfly.model.User;
 import com.wakilfly.repository.AgentRepository;
 import com.wakilfly.repository.BusinessRequestRepository;
+import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,14 +30,25 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BusinessRequestService {
 
+    private static final BigDecimal BUSINESS_ACTIVATION_FEE = new BigDecimal("10000.00");
+
     private final BusinessRequestRepository businessRequestRepository;
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
+    private final BusinessRepository businessRepository;
+    private final PaymentService paymentService;
 
+    /**
+     * User with account requests to become a business. System pushes USSD payment;
+     * after payment completes, system approves and creates the business (no agent approval).
+     */
     @Transactional
     public BusinessRequestResponse create(UUID userId, CreateBusinessRequestRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (businessRepository.findByOwnerId(user.getId()).isPresent()) {
+            throw new BadRequestException("You already have a registered business.");
+        }
         Agent agent = agentRepository.findByAgentCode(request.getAgentCode().trim())
                 .orElseThrow(() -> new BadRequestException("Invalid agent code: " + request.getAgentCode()));
         if (agent.getStatus() != com.wakilfly.model.AgentStatus.ACTIVE) {
@@ -54,8 +68,22 @@ public class BusinessRequestService {
                 .status(BusinessRequestStatus.PENDING)
                 .build();
         br = businessRequestRepository.save(br);
-        log.info("Business request {} created by user {} for agent {}", br.getId(), userId, agent.getAgentCode());
-        return mapToResponse(br);
+
+        // System completes the request: push USSD payment; after payment, system will create business and approve user
+        String phone = request.getOwnerPhone().trim();
+        String description = "Business activation: " + br.getBusinessName();
+        String orderId = paymentService.initiatePayment(
+                userId,
+                BUSINESS_ACTIVATION_FEE,
+                PaymentType.BUSINESS_ACTIVATION,
+                phone,
+                description,
+                br.getId(),
+                "BUSINESS_REQUEST");
+        log.info("Business request {} created by user {}; USSD payment initiated orderId={}", br.getId(), userId, orderId);
+        BusinessRequestResponse response = mapToResponse(br);
+        response.setPaymentOrderId(orderId);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -64,6 +92,24 @@ public class BusinessRequestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
         Page<BusinessRequest> pageResult = businessRequestRepository.findByAgentIdOrderByCreatedAtDesc(
                 agent.getId(), PageRequest.of(page, size));
+        return PagedResponse.<BusinessRequestResponse>builder()
+                .content(pageResult.getContent().stream().map(this::mapToResponse).collect(Collectors.toList()))
+                .page(pageResult.getNumber())
+                .size(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .last(pageResult.isLast())
+                .first(pageResult.isFirst())
+                .build();
+    }
+
+    /**
+     * Get current user's business requests (for "I want to be a business" status in UI).
+     */
+    @Transactional(readOnly = true)
+    public PagedResponse<BusinessRequestResponse> findMyRequests(UUID userId, int page, int size) {
+        Page<BusinessRequest> pageResult = businessRequestRepository.findByUserIdOrderByCreatedAtDesc(
+                userId, PageRequest.of(page, size));
         return PagedResponse.<BusinessRequestResponse>builder()
                 .content(pageResult.getContent().stream().map(this::mapToResponse).collect(Collectors.toList()))
                 .page(pageResult.getNumber())

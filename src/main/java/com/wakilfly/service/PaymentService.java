@@ -30,6 +30,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
     private final BusinessRepository businessRepository;
+    private final BusinessRequestRepository businessRequestRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final PromotionRepository promotionRepository;
     private final CommissionRepository commissionRepository;
@@ -56,6 +57,12 @@ public class PaymentService {
     @Transactional
     public String initiatePayment(UUID userId, BigDecimal amount, PaymentType type, String phone, String description,
             UUID relatedEntityId) {
+        return initiatePayment(userId, amount, type, phone, description, relatedEntityId, null);
+    }
+
+    @Transactional
+    public String initiatePayment(UUID userId, BigDecimal amount, PaymentType type, String phone, String description,
+            UUID relatedEntityId, String relatedEntityType) {
         User user = userRepository.findById(userId).orElseThrow();
 
         // Create payment record
@@ -68,6 +75,7 @@ public class PaymentService {
                 .paymentPhone(phone)
                 .description(description)
                 .relatedEntityId(relatedEntityId)
+                .relatedEntityType(relatedEntityType)
                 .build();
 
         payment = paymentRepository.save(payment);
@@ -307,6 +315,12 @@ public class PaymentService {
     }
 
     private void activateBusiness(Payment payment) {
+        // System flow: user with account requested business → paid via USSD → create business and approve user
+        if ("BUSINESS_REQUEST".equals(payment.getRelatedEntityType()) && payment.getRelatedEntityId() != null) {
+            activateBusinessFromRequest(payment);
+            return;
+        }
+        // Agent flow: agent registered new user (no account) and created business; payment confirms → activate business
         Business business = businessRepository.findByOwnerId(payment.getUser().getId()).orElse(null);
         if (business != null && business.getStatus() == BusinessStatus.PENDING) {
             business.setStatus(BusinessStatus.ACTIVE);
@@ -317,7 +331,6 @@ public class PaymentService {
                 Agent agent = business.getAgent();
                 BigDecimal commissionAmount = new BigDecimal("5000.00");
 
-                // Create Commission record for history tracking
                 Commission commission = Commission.builder()
                         .agent(agent)
                         .business(business)
@@ -329,7 +342,6 @@ public class PaymentService {
                         .build();
                 commissionRepository.save(commission);
 
-                // Update agent's earnings
                 agent.addEarnings(commissionAmount);
                 agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
                 agentRepository.save(agent);
@@ -338,14 +350,11 @@ public class PaymentService {
                         agent.getAgentCode(), commissionAmount, business.getName());
             }
 
-            // Pay referral commission if user was referred by an agent
             User owner = payment.getUser();
             if (owner.getReferredByAgentCode() != null && !owner.getReferredByAgentCode().isEmpty()) {
                 Agent referringAgent = agentRepository.findByAgentCode(owner.getReferredByAgentCode()).orElse(null);
-
                 if (referringAgent != null && !referringAgent.equals(business.getAgent())) {
                     BigDecimal referralBonus = new BigDecimal("2000.00");
-
                     Commission referralCommission = Commission.builder()
                             .agent(referringAgent)
                             .business(business)
@@ -357,11 +366,9 @@ public class PaymentService {
                             .paidAt(LocalDateTime.now())
                             .build();
                     commissionRepository.save(referralCommission);
-
                     referringAgent.addEarnings(referralBonus);
                     referringAgent.setTotalReferrals(referringAgent.getTotalReferrals() + 1);
                     agentRepository.save(referringAgent);
-
                     log.info("Agent {} earned {} TZS referral bonus for user {} who started business {}",
                             referringAgent.getAgentCode(), referralBonus, owner.getPhone(), business.getName());
                 }
@@ -369,6 +376,41 @@ public class PaymentService {
 
             log.info("Business {} activated after payment {}", business.getName(), payment.getTransactionId());
         }
+    }
+
+    /** After user (with account) pays business activation via USSD: create business and approve user. */
+    private void activateBusinessFromRequest(Payment payment) {
+        BusinessRequest br = businessRequestRepository.findById(payment.getRelatedEntityId()).orElse(null);
+        if (br == null || br.getStatus() != BusinessRequestStatus.PENDING) {
+            log.warn("BusinessRequest {} not found or not PENDING, skipping activateBusinessFromRequest", payment.getRelatedEntityId());
+            return;
+        }
+        User owner = br.getUser();
+        if (businessRepository.findByOwnerId(owner.getId()).isPresent()) {
+            br.setStatus(BusinessRequestStatus.CONVERTED);
+            businessRequestRepository.save(br);
+            return; // already has business
+        }
+        Business business = Business.builder()
+                .name(br.getBusinessName())
+                .description(br.getDescription())
+                .category(br.getCategory())
+                .owner(owner)
+                .agent(br.getAgent())
+                .region(br.getRegion())
+                .district(br.getDistrict())
+                .ward(br.getWard())
+                .street(br.getStreet())
+                .status(BusinessStatus.ACTIVE)
+                .isVerified(false)
+                .build();
+        business = businessRepository.save(business);
+        owner.setRole(Role.BUSINESS);
+        userRepository.save(owner);
+        br.setStatus(BusinessRequestStatus.CONVERTED);
+        businessRequestRepository.save(br);
+        log.info("Business {} created and user {} approved after USSD payment (request {})",
+                business.getName(), owner.getId(), br.getId());
     }
 
     private void activateSubscription(Payment payment) {

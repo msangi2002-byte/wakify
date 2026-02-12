@@ -8,6 +8,12 @@ import com.wakilfly.model.Visibility;
 import com.wakilfly.model.UserRestriction;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
+import com.wakilfly.model.BusinessRequestStatus;
+import com.wakilfly.model.PaymentStatus;
+import com.wakilfly.model.PaymentType;
+import com.wakilfly.repository.BusinessRepository;
+import com.wakilfly.repository.BusinessRequestRepository;
+import com.wakilfly.repository.PaymentRepository;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.repository.UserBlockRepository;
 import com.wakilfly.repository.UserRestrictionRepository;
@@ -34,15 +40,23 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
     private final UserRestrictionRepository userRestrictionRepository;
+    private final BusinessRepository businessRepository;
+    private final BusinessRequestRepository businessRequestRepository;
+    private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
 
     public UserService(UserRepository userRepository, UserBlockRepository userBlockRepository,
                        UserRestrictionRepository userRestrictionRepository,
+                       BusinessRepository businessRepository, BusinessRequestRepository businessRequestRepository,
+                       PaymentRepository paymentRepository,
                        NotificationService notificationService, FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.userBlockRepository = userBlockRepository;
         this.userRestrictionRepository = userRestrictionRepository;
+        this.businessRepository = businessRepository;
+        this.businessRequestRepository = businessRequestRepository;
+        this.paymentRepository = paymentRepository;
         this.notificationService = notificationService;
         this.fileStorageService = fileStorageService;
     }
@@ -449,6 +463,16 @@ public class UserService {
     }
 
     private UserResponse mapToUserResponse(User user, Boolean isFollowing) {
+        var business = businessRepository.findByOwnerId(user.getId());
+        boolean hasPending = businessRequestRepository.existsByUserIdAndStatus(user.getId(), BusinessRequestStatus.PENDING);
+        String pendingOrderId = null;
+        if (hasPending) {
+            pendingOrderId = paymentRepository
+                    .findFirstByUserIdAndTypeAndStatusAndRelatedEntityTypeOrderByCreatedAtDesc(
+                            user.getId(), PaymentType.BUSINESS_ACTIVATION, PaymentStatus.PENDING, "BUSINESS_REQUEST")
+                    .map(p -> p.getTransactionId())
+                    .orElse(null);
+        }
         return UserResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -462,6 +486,10 @@ public class UserService {
                 .followersCount(user.getFollowersCount())
                 .followingCount(user.getFollowingCount())
                 .postsCount(user.getPostsCount())
+                .isBusiness(business.isPresent())
+                .businessId(business.map(b -> b.getId()).orElse(null))
+                .hasPendingBusinessRequest(hasPending)
+                .pendingBusinessPaymentOrderId(pendingOrderId)
                 .isFollowing(isFollowing)
                 .work(user.getWork())
                 .education(user.getEducation())

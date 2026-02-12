@@ -136,37 +136,32 @@ public class AgentService {
                         throw new BadRequestException("Your agent account is not active. Status: " + agent.getStatus());
                 }
 
-                // Get or create business owner
-                User owner;
+                // Agents only register users who DON'T have an account. Users with an account complete payment in the app (USSD) and the system approves them.
                 if (request.getOwnerId() != null) {
-                        owner = userRepository.findById(request.getOwnerId())
-                                        .orElseThrow(() -> new ResourceNotFoundException("Owner", "id",
-                                                        request.getOwnerId()));
-                } else {
-                        // Create new user for business owner
-                        if (request.getOwnerPhone() == null || request.getOwnerName() == null) {
-                                throw new BadRequestException(
-                                                "Owner phone and name are required for new business owner");
-                        }
-
-                        // Check if phone already exists
-                        if (userRepository.existsByPhone(request.getOwnerPhone())) {
-                                throw new BadRequestException(
-                                                "Phone number already registered. Use existing user ID instead.");
-                        }
-
-                        owner = User.builder()
-                                        .name(request.getOwnerName())
-                                        .phone(request.getOwnerPhone())
-                                        .email(request.getOwnerEmail())
-                                        .password(passwordEncoder.encode("temp" + System.currentTimeMillis())) // Temp
-                                                                                                               // password
-                                        .role(Role.BUSINESS)
-                                        .isVerified(false)
-                                        .isActive(true)
-                                        .build();
-                        owner = userRepository.save(owner);
+                        throw new BadRequestException(
+                                        "Users with an account must complete business activation in the app (USSD payment). Use this flow only to register new users who do not have an account.");
                 }
+
+                // Create new user for business owner (no account)
+                if (request.getOwnerPhone() == null || request.getOwnerName() == null) {
+                        throw new BadRequestException(
+                                        "Owner phone and name are required for new business owner");
+                }
+                if (userRepository.existsByPhone(request.getOwnerPhone())) {
+                        throw new BadRequestException(
+                                        "Phone number already registered. That user should request business in the app and pay via USSD.");
+                }
+
+                User owner = User.builder()
+                                .name(request.getOwnerName())
+                                .phone(request.getOwnerPhone())
+                                .email(request.getOwnerEmail())
+                                .password(passwordEncoder.encode("temp" + System.currentTimeMillis()))
+                                .role(Role.BUSINESS)
+                                .isVerified(false)
+                                .isActive(true)
+                                .build();
+                owner = userRepository.save(owner);
 
                 // Check if owner already has a business
                 if (businessRepository.findByOwnerId(owner.getId()).isPresent()) {

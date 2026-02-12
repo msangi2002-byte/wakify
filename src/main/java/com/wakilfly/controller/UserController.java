@@ -158,7 +158,21 @@ public class UserController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         BusinessRequestResponse created = businessRequestService.create(userId, request);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
-                .body(ApiResponse.success("Request submitted. Your selected agent will contact you.", created));
+                .body(ApiResponse.success("USSD payment push sent to your phone. Complete the payment to activate your business.", created));
+    }
+
+    /**
+     * Get current user's business requests (e.g. "I want to be a business" – pending/approved status).
+     * GET /api/v1/users/me/business-requests
+     */
+    @GetMapping("/me/business-requests")
+    public ResponseEntity<ApiResponse<PagedResponse<BusinessRequestResponse>>> getMyBusinessRequests(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<BusinessRequestResponse> requests = businessRequestService.findMyRequests(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(requests));
     }
 
     @PostMapping("/me/contacts")

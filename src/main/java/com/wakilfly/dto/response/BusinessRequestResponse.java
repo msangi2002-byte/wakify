@@ -32,4 +32,6 @@ public class BusinessRequestResponse {
     private BusinessRequestStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Set when request is created and USSD payment is initiated; use to poll GET /payments/status/{orderId} */
+    private String paymentOrderId;
 }

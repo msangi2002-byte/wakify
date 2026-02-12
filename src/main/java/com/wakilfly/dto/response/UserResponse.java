@@ -33,6 +33,10 @@ public class UserResponse {
     private Boolean isFollowing; // For profile views
     private Boolean isBusiness;
     private UUID businessId;
+    /** True if the user has a pending request to become a business (awaiting payment). */
+    private Boolean hasPendingBusinessRequest;
+    /** When hasPendingBusinessRequest: order ID to poll GET /payments/status/{orderId}. */
+    private String pendingBusinessPaymentOrderId;
 
     // Extended Details
     private String work;

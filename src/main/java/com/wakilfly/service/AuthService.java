@@ -8,6 +8,11 @@ import com.wakilfly.model.Role;
 import com.wakilfly.model.User;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
+import com.wakilfly.model.BusinessRequestStatus;
+import com.wakilfly.model.PaymentType;
+import com.wakilfly.repository.BusinessRepository;
+import com.wakilfly.repository.BusinessRequestRepository;
+import com.wakilfly.repository.PaymentRepository;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.security.JwtTokenProvider;
@@ -36,6 +41,9 @@ public class AuthService {
     private boolean devMode;
 
     private final UserRepository userRepository;
+    private final BusinessRepository businessRepository;
+    private final BusinessRequestRepository businessRequestRepository;
+    private final PaymentRepository paymentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
@@ -229,6 +237,17 @@ public class AuthService {
     }
 
     private UserResponse mapToUserResponse(User user) {
+        var business = businessRepository.findByOwnerId(user.getId());
+        boolean hasPending = businessRequestRepository.existsByUserIdAndStatus(user.getId(), BusinessRequestStatus.PENDING);
+        String pendingOrderId = null;
+        if (hasPending) {
+            pendingOrderId = paymentRepository
+                    .findFirstByUserIdAndTypeAndStatusAndRelatedEntityTypeOrderByCreatedAtDesc(
+                            user.getId(), PaymentType.BUSINESS_ACTIVATION,
+                            com.wakilfly.model.PaymentStatus.PENDING, "BUSINESS_REQUEST")
+                    .map(p -> p.getTransactionId())
+                    .orElse(null);
+        }
         return UserResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -244,6 +263,10 @@ public class AuthService {
                 .postsCount(user.getPostsCount())
                 .onboardingCompleted(Boolean.TRUE.equals(user.getOnboardingCompleted()))
                 .createdAt(user.getCreatedAt())
+                .isBusiness(business.isPresent())
+                .businessId(business.map(b -> b.getId()).orElse(null))
+                .hasPendingBusinessRequest(hasPending)
+                .pendingBusinessPaymentOrderId(pendingOrderId)
                 .build();
     }
 }

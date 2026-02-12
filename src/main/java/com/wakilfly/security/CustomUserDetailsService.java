@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -46,13 +47,58 @@ public class CustomUserDetailsService implements UserDetailsService {
         return digits;
     }
 
+    /**
+     * Find user by trying original input first, then normalized versions
+     * This ensures existing users (with various phone formats) can still login
+     */
+    private Optional<User> findUserByEmailOrPhone(String input) {
+        String trimmed = input.trim();
+        
+        // If it's an email, try exact match only
+        if (trimmed.contains("@")) {
+            return userRepository.findByEmailOrPhone(trimmed);
+        }
+        
+        // For phone numbers, try multiple variations:
+        // 1. Original input (e.g., "+255787654321", "255787654321", "0787654321")
+        Optional<User> user = userRepository.findByEmailOrPhone(trimmed);
+        if (user.isPresent()) {
+            return user;
+        }
+        
+        // 2. Normalized version (e.g., "255787654321")
+        String normalized = normalizePhone(trimmed);
+        if (!normalized.equals(trimmed)) {
+            user = userRepository.findByEmailOrPhone(normalized);
+            if (user.isPresent()) {
+                return user;
+            }
+        }
+        
+        // 3. Try with + prefix if normalized doesn't have it
+        if (!normalized.startsWith("+") && normalized.startsWith("255")) {
+            user = userRepository.findByEmailOrPhone("+" + normalized);
+            if (user.isPresent()) {
+                return user;
+            }
+        }
+        
+        // 4. Try with 0 prefix (local format)
+        if (normalized.startsWith("255") && normalized.length() > 3) {
+            String localFormat = "0" + normalized.substring(3);
+            user = userRepository.findByEmailOrPhone(localFormat);
+            if (user.isPresent()) {
+                return user;
+            }
+        }
+        
+        return Optional.empty();
+    }
+
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String usernameOrPhone) throws UsernameNotFoundException {
-        // Normalize phone number if it's a phone (not an email)
-        String normalizedInput = normalizePhone(usernameOrPhone.trim());
-        
-        User user = userRepository.findByEmailOrPhone(normalizedInput)
+        User user = findUserByEmailOrPhone(usernameOrPhone)
                 .orElseThrow(
                         () -> new UsernameNotFoundException("User not found with email or phone: " + usernameOrPhone));
 
@@ -86,9 +132,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         } catch (IllegalArgumentException ignored) {
             // Not a UUID, lookup by email or phone
         }
-        // Normalize phone number if it's a phone (not an email)
-        String normalizedInput = normalizePhone(usernameOrPhoneOrId.trim());
-        return userRepository.findByEmailOrPhone(normalizedInput)
+        return findUserByEmailOrPhone(usernameOrPhoneOrId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

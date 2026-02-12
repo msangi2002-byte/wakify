@@ -151,7 +151,11 @@ public class AgentService {
                         throw new BadRequestException(
                                         "Owner password is required (min 6 characters) so they can log in after payment.");
                 }
-                if (userRepository.existsByPhone(request.getOwnerPhone())) {
+                
+                // Normalize phone number to ensure consistent format for login
+                String normalizedPhone = normalizePhone(request.getOwnerPhone().trim());
+                
+                if (userRepository.existsByPhone(normalizedPhone)) {
                         throw new BadRequestException(
                                         "Phone number already registered. That user should request business in the app and pay via USSD.");
                 }
@@ -163,11 +167,11 @@ public class AgentService {
                 String encodedPassword = passwordEncoder.encode(request.getOwnerPassword().trim());
                 User owner = User.builder()
                                 .name(request.getOwnerName())
-                                .phone(request.getOwnerPhone())
+                                .phone(normalizedPhone)
                                 .email(request.getOwnerEmail() != null ? request.getOwnerEmail().trim() : null)
                                 .password(encodedPassword)
                                 .role(Role.BUSINESS)
-                                .isVerified(false)
+                                .isVerified(true) // Auto-verify users created by agents (they can login immediately)
                                 .isActive(true)
                                 .build();
                 owner = userRepository.save(owner);
@@ -363,6 +367,29 @@ public class AgentService {
 
         private String generateTransactionId() {
                 return "TXN" + System.currentTimeMillis() + new Random().nextInt(1000);
+        }
+
+        /**
+         * Normalize phone number to consistent format (255XXXXXXXXX)
+         * Handles formats: +255..., 255..., 0...
+         */
+        private String normalizePhone(String phone) {
+                if (phone == null || phone.isBlank()) {
+                        return phone;
+                }
+                // Remove all non-digit characters
+                String digits = phone.replaceAll("[^0-9]", "");
+                
+                // Convert to international format (255XXXXXXXXX)
+                if (digits.startsWith("0") && digits.length() > 1) {
+                        return "255" + digits.substring(1);
+                } else if (digits.startsWith("255")) {
+                        return digits;
+                } else if (digits.length() >= 9) {
+                        // Assume it's a local number without country code
+                        return "255" + digits;
+                }
+                return digits;
         }
 
         private AgentResponse mapToAgentResponse(Agent agent) {
@@ -568,6 +595,13 @@ public class AgentService {
                 // Approve the business
                 business.setStatus(BusinessStatus.ACTIVE);
                 business = businessRepository.save(business);
+
+                // Ensure the owner user is verified so they can log in
+                User owner = business.getOwner();
+                if (owner != null && !Boolean.TRUE.equals(owner.getIsVerified())) {
+                        owner.setIsVerified(true);
+                        userRepository.save(owner);
+                }
 
                 log.info("Business {} approved manually by agent {}", business.getName(), agent.getAgentCode());
 

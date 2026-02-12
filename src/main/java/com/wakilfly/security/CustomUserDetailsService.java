@@ -19,10 +19,40 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
 
+    /**
+     * Normalize phone number to consistent format (255XXXXXXXXX)
+     * Handles formats: +255..., 255..., 0...
+     */
+    private String normalizePhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return phone;
+        }
+        // Check if it looks like an email (contains @)
+        if (phone.contains("@")) {
+            return phone.trim(); // Don't normalize emails
+        }
+        // Remove all non-digit characters
+        String digits = phone.replaceAll("[^0-9]", "");
+        
+        // Convert to international format (255XXXXXXXXX)
+        if (digits.startsWith("0") && digits.length() > 1) {
+            return "255" + digits.substring(1);
+        } else if (digits.startsWith("255")) {
+            return digits;
+        } else if (digits.length() >= 9) {
+            // Assume it's a local number without country code
+            return "255" + digits;
+        }
+        return digits;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String usernameOrPhone) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailOrPhone(usernameOrPhone)
+        // Normalize phone number if it's a phone (not an email)
+        String normalizedInput = normalizePhone(usernameOrPhone.trim());
+        
+        User user = userRepository.findByEmailOrPhone(normalizedInput)
                 .orElseThrow(
                         () -> new UsernameNotFoundException("User not found with email or phone: " + usernameOrPhone));
 
@@ -56,7 +86,9 @@ public class CustomUserDetailsService implements UserDetailsService {
         } catch (IllegalArgumentException ignored) {
             // Not a UUID, lookup by email or phone
         }
-        return userRepository.findByEmailOrPhone(usernameOrPhoneOrId.trim())
+        // Normalize phone number if it's a phone (not an email)
+        String normalizedInput = normalizePhone(usernameOrPhoneOrId.trim());
+        return userRepository.findByEmailOrPhone(normalizedInput)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

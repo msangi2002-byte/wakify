@@ -84,6 +84,10 @@ public class OrderResponse {
         private String name;
         private String logo;
         private String phone;
+        private String email;
+        private String website;
+        private String region;
+        private String district;
     }
 
     @Data

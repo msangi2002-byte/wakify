@@ -865,6 +865,7 @@ example: {
     "items": [
         { "productId": "g7ccch66-327f-9de3-1123-3114gh835g77", "quantity": 1 }
     ],
+    "deliveryName": "John Doe",
     "deliveryAddress": "Plot 42, Kijitonyama, Dar es Salaam",
     "deliveryPhone": "+255712345678"
 }

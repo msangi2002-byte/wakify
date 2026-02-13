@@ -334,24 +334,37 @@ public class AgentService {
                         // Create subscription (1 month free trial or based on payment)
                         // TODO: Create subscription record
 
-                        // Create commission for agent
-                        Commission commission = Commission.builder()
-                                        .agent(business.getAgent())
-                                        .business(business)
-                                        .amount(AGENT_COMMISSION)
-                                        .type(CommissionType.ACTIVATION)
-                                        .status(CommissionStatus.PENDING)
-                                        .description("Commission for activating business: " + business.getName())
-                                        .build();
-                        commissionRepository.save(commission);
-
-                        // Update agent earnings
+                        // Create commission for agent (check for duplicates first)
                         Agent agent = business.getAgent();
-                        agent.addEarnings(AGENT_COMMISSION);
-                        agentRepository.save(agent);
+                        if (agent != null) {
+                                // Check if commission already exists for this business and agent
+                                boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), PageRequest.of(0, 100))
+                                                .getContent()
+                                                .stream()
+                                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                                                        && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
 
-                        log.info("Business {} activated, commission {} created for agent {}",
-                                        business.getName(), AGENT_COMMISSION, agent.getAgentCode());
+                                if (!commissionExists) {
+                                        Commission commission = Commission.builder()
+                                                        .agent(agent)
+                                                        .business(business)
+                                                        .amount(AGENT_COMMISSION)
+                                                        .type(CommissionType.ACTIVATION)
+                                                        .status(CommissionStatus.PENDING)
+                                                        .description("Commission for activating business: " + business.getName())
+                                                        .build();
+                                        commissionRepository.save(commission);
+
+                                        // Update agent earnings
+                                        agent.addEarnings(AGENT_COMMISSION);
+                                        agentRepository.save(agent);
+
+                                        log.info("Business {} activated, commission {} created for agent {}",
+                                                        business.getName(), AGENT_COMMISSION, agent.getAgentCode());
+                                } else {
+                                        log.info("Commission already exists for business {}, skipping commission creation", business.getName());
+                                }
+                        }
                 }
         }
 
@@ -601,6 +614,38 @@ public class AgentService {
                 if (owner != null && !Boolean.TRUE.equals(owner.getIsVerified())) {
                         owner.setIsVerified(true);
                         userRepository.save(owner);
+                }
+
+                // Create commission for agent if not already created (e.g., from payment)
+                // Check if commission already exists for this business and agent
+                boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), PageRequest.of(0, 100))
+                                .getContent()
+                                .stream()
+                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                                        && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
+
+                if (!commissionExists) {
+                        // Create commission for agent who activated the business
+                        Commission commission = Commission.builder()
+                                        .agent(agent)
+                                        .business(business)
+                                        .amount(AGENT_COMMISSION)
+                                        .type(CommissionType.BUSINESS_ACTIVATION)
+                                        .description("Commission for manually approving business: " + business.getName())
+                                        .status(CommissionStatus.PAID)
+                                        .paidAt(LocalDateTime.now())
+                                        .build();
+                        commissionRepository.save(commission);
+
+                        // Update agent earnings and business count
+                        agent.addEarnings(AGENT_COMMISSION);
+                        agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
+                        agentRepository.save(agent);
+
+                        log.info("Agent {} earned {} TZS commission for manually approving business {}",
+                                        agent.getAgentCode(), AGENT_COMMISSION, business.getName());
+                } else {
+                        log.info("Commission already exists for business {}, skipping commission creation", business.getName());
                 }
 
                 log.info("Business {} approved manually by agent {}", business.getName(), agent.getAgentCode());

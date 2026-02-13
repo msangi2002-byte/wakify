@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -331,23 +332,35 @@ public class PaymentService {
                 Agent agent = business.getAgent();
                 BigDecimal commissionAmount = new BigDecimal("5000.00");
 
-                Commission commission = Commission.builder()
-                        .agent(agent)
-                        .business(business)
-                        .amount(commissionAmount)
-                        .type(CommissionType.BUSINESS_ACTIVATION)
-                        .description("Commission for activating business: " + business.getName())
-                        .status(CommissionStatus.PAID)
-                        .paidAt(LocalDateTime.now())
-                        .build();
-                commissionRepository.save(commission);
+                // Check if commission already exists for this business and agent
+                boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), 
+                        PageRequest.of(0, 100))
+                        .getContent()
+                        .stream()
+                        .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                                && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
 
-                agent.addEarnings(commissionAmount);
-                agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
-                agentRepository.save(agent);
+                if (!commissionExists) {
+                    Commission commission = Commission.builder()
+                            .agent(agent)
+                            .business(business)
+                            .amount(commissionAmount)
+                            .type(CommissionType.BUSINESS_ACTIVATION)
+                            .description("Commission for activating business: " + business.getName())
+                            .status(CommissionStatus.PAID)
+                            .paidAt(LocalDateTime.now())
+                            .build();
+                    commissionRepository.save(commission);
 
-                log.info("Agent {} earned {} TZS commission for business {}",
-                        agent.getAgentCode(), commissionAmount, business.getName());
+                    agent.addEarnings(commissionAmount);
+                    agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
+                    agentRepository.save(agent);
+
+                    log.info("Agent {} earned {} TZS commission for business {}",
+                            agent.getAgentCode(), commissionAmount, business.getName());
+                } else {
+                    log.info("Commission already exists for business {}, skipping commission creation", business.getName());
+                }
             }
 
             User owner = payment.getUser();
@@ -409,6 +422,67 @@ public class PaymentService {
         userRepository.save(owner);
         br.setStatus(BusinessRequestStatus.CONVERTED);
         businessRequestRepository.save(br);
+
+        // Create commission for agent who activated the business
+        if (business.getAgent() != null) {
+            Agent agent = business.getAgent();
+            BigDecimal commissionAmount = new BigDecimal("5000.00");
+
+            // Check if commission already exists for this business and agent
+            boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), 
+                    PageRequest.of(0, 100))
+                    .getContent()
+                    .stream()
+                    .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                            && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
+
+            if (!commissionExists) {
+                Commission commission = Commission.builder()
+                        .agent(agent)
+                        .business(business)
+                        .amount(commissionAmount)
+                        .type(CommissionType.BUSINESS_ACTIVATION)
+                        .description("Commission for activating business from request: " + business.getName())
+                        .status(CommissionStatus.PAID)
+                        .paidAt(LocalDateTime.now())
+                        .build();
+                commissionRepository.save(commission);
+
+                agent.addEarnings(commissionAmount);
+                agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
+                agentRepository.save(agent);
+
+                log.info("Agent {} earned {} TZS commission for business {} (from request)",
+                        agent.getAgentCode(), commissionAmount, business.getName());
+            } else {
+                log.info("Commission already exists for business {}, skipping commission creation", business.getName());
+            }
+
+            // Handle referral bonus if applicable
+            if (owner.getReferredByAgentCode() != null && !owner.getReferredByAgentCode().isEmpty()) {
+                Agent referringAgent = agentRepository.findByAgentCode(owner.getReferredByAgentCode()).orElse(null);
+                if (referringAgent != null && !referringAgent.equals(business.getAgent())) {
+                    BigDecimal referralBonus = new BigDecimal("2000.00");
+                    Commission referralCommission = Commission.builder()
+                            .agent(referringAgent)
+                            .business(business)
+                            .amount(referralBonus)
+                            .type(CommissionType.REFERRAL)
+                            .description("Referral bonus for user " + owner.getPhone() + " starting business: "
+                                    + business.getName())
+                            .status(CommissionStatus.PAID)
+                            .paidAt(LocalDateTime.now())
+                            .build();
+                    commissionRepository.save(referralCommission);
+                    referringAgent.addEarnings(referralBonus);
+                    referringAgent.setTotalReferrals(referringAgent.getTotalReferrals() + 1);
+                    agentRepository.save(referringAgent);
+                    log.info("Agent {} earned {} TZS referral bonus for user {} who started business {}",
+                            referringAgent.getAgentCode(), referralBonus, owner.getPhone(), business.getName());
+                }
+            }
+        }
+
         log.info("Business {} created and user {} approved after USSD payment (request {})",
                 business.getName(), owner.getId(), br.getId());
     }

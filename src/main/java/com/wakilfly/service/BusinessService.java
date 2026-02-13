@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,7 @@ public class BusinessService {
     private final BusinessFollowRepository businessFollowRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final OrderRepository orderRepository;
 
     /**
@@ -289,6 +291,16 @@ public class BusinessService {
     }
 
     private ProductResponse mapToProductResponse(Product product) {
+        // Fetch product images
+        List<ProductImage> images = productImageRepository.findByProductIdOrderByDisplayOrderAsc(product.getId());
+        Business business = product.getBusiness();
+
+        // Get thumbnail - use product.thumbnail if set, otherwise use first image
+        String thumbnail = product.getThumbnail();
+        if (thumbnail == null && !images.isEmpty()) {
+            thumbnail = images.get(0).getUrl();
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -298,6 +310,22 @@ public class BusinessService {
                 .stockQuantity(product.getStockQuantity())
                 .category(product.getCategory())
                 .isActive(product.getIsActive())
+                .thumbnail(thumbnail)
+                .images(images.stream()
+                        .map(img -> ProductResponse.ImageResponse.builder()
+                                .id(img.getId())
+                                .url(img.getUrl())
+                                .isPrimary(img.getIsPrimary())
+                                .displayOrder(img.getDisplayOrder())
+                                .build())
+                        .collect(Collectors.toList()))
+                .business(ProductResponse.BusinessSummary.builder()
+                        .id(business.getId())
+                        .name(business.getName())
+                        .logo(business.getLogo())
+                        .region(business.getRegion())
+                        .isVerified(business.getIsVerified())
+                        .build())
                 .viewsCount(product.getViewsCount())
                 .ordersCount(product.getOrdersCount())
                 .rating(product.getRating())

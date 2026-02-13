@@ -616,12 +616,14 @@ public class AgentService {
                         userRepository.save(owner);
                 }
 
+                final Business savedBusiness = business;
+
                 // Create commission for agent if not already created (e.g., from payment)
                 // Check if commission already exists for this business and agent
                 boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), PageRequest.of(0, 100))
                                 .getContent()
                                 .stream()
-                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(savedBusiness.getId()) 
                                         && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
 
                 if (!commissionExists) {

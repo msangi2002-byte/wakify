@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -433,13 +434,31 @@ public class PostService {
                 return tagToWeight;
         }
 
+        /** Parse UUID from native query result (can be UUID, byte[] from BINARY(16), or String). */
+        private UUID parseUuidFromRow(Object value) {
+                if (value == null) return null;
+                if (value instanceof UUID) return (UUID) value;
+                if (value instanceof byte[]) {
+                        byte[] bytes = (byte[]) value;
+                        if (bytes.length != 16) return null;
+                        ByteBuffer bb = ByteBuffer.wrap(bytes);
+                        return new UUID(bb.getLong(), bb.getLong());
+                }
+                try {
+                        return UUID.fromString(value.toString().trim());
+                } catch (IllegalArgumentException e) {
+                        return null;
+                }
+        }
+
         private Map<UUID, Set<String>> buildPostHashtagsMap(List<UUID> postIds) {
                 if (postIds.isEmpty()) return new HashMap<>();
                 List<Object[]> rows = postRepository.findPostIdAndHashtagNameByPostIdIn(postIds);
                 Map<UUID, Set<String>> map = new HashMap<>();
                 for (Object[] row : rows) {
                         if (row.length < 2) continue;
-                        UUID postId = row[0] instanceof UUID ? (UUID) row[0] : UUID.fromString(row[0].toString());
+                        UUID postId = parseUuidFromRow(row[0]);
+                        if (postId == null) continue;
                         String tag = row[1] != null ? row[1].toString().toLowerCase() : null;
                         if (tag == null || tag.isBlank()) continue;
                         map.computeIfAbsent(postId, k -> new java.util.HashSet<>()).add(tag);
@@ -467,7 +486,8 @@ public class PostService {
                 Map<UUID, ReelViewStats> map = new HashMap<>();
                 for (Object[] row : rows) {
                         if (row.length < 3) continue;
-                        UUID postId = row[0] instanceof UUID ? (UUID) row[0] : UUID.fromString(row[0].toString());
+                        UUID postId = parseUuidFromRow(row[0]);
+                        if (postId == null) continue;
                         double avgWatch = row[1] instanceof Number ? ((Number) row[1]).doubleValue() : 0;
                         double completionRate = row[2] instanceof Number ? ((Number) row[2]).doubleValue() : 0;
                         map.put(postId, new ReelViewStats(avgWatch, completionRate));

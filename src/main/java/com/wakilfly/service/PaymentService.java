@@ -427,13 +427,14 @@ public class PaymentService {
         if (business.getAgent() != null) {
             Agent agent = business.getAgent();
             BigDecimal commissionAmount = new BigDecimal("5000.00");
+            final Business savedBusiness = business;
 
             // Check if commission already exists for this business and agent
             boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), 
                     PageRequest.of(0, 100))
                     .getContent()
                     .stream()
-                    .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
+                    .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(savedBusiness.getId()) 
                             && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
 
             if (!commissionExists) {

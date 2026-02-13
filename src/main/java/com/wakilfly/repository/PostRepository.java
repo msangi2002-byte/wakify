@@ -66,6 +66,10 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
             "ORDER BY p.createdAt DESC")
     List<Post> findReelsCandidatesForUser(@Param("userId") UUID userId, Pageable pageable);
 
+    /** (postId, hashtagName) for given posts (for Reels personalization). */
+    @Query("SELECT p.id, h.name FROM Post p JOIN p.hashtags h WHERE p.id IN :postIds")
+    List<Object[]> findPostIdAndHashtagNameByPostIdIn(@Param("postIds") List<UUID> postIds);
+
     // Trending posts (by reactions + comments)
     @Query("SELECT p FROM Post p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' ORDER BY SIZE(p.reactions) DESC, SIZE(p.comments) DESC")
     Page<Post> findTrending(Pageable pageable);

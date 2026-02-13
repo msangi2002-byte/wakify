@@ -61,10 +61,12 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    public PagedResponse<NotificationResponse> getUserNotifications(UUID userId, int page, int size) {
+    public PagedResponse<NotificationResponse> getUserNotifications(UUID userId, int page, int size, NotificationType typeFilter) {
         User user = userRepository.getReferenceById(userId);
         Pageable pageable = PageRequest.of(page, size);
-        Page<Notification> notifications = notificationRepository.findByRecipientOrderByCreatedAtDesc(user, pageable);
+        Page<Notification> notifications = typeFilter != null
+                ? notificationRepository.findByRecipientAndTypeOrderByCreatedAtDesc(user, typeFilter, pageable)
+                : notificationRepository.findByRecipientOrderByCreatedAtDesc(user, pageable);
 
         return PagedResponse.<NotificationResponse>builder()
                 .content(notifications.getContent().stream()

@@ -25,6 +25,8 @@ public class PostResponse {
     private List<MediaResponse> media;
     private List<ProductSummary> productTags;
     private Integer reactionsCount;
+    /** First 2–3 users who reacted (for "X and Y others" in feed). */
+    private List<UserSummary> topReactors;
     private Integer commentsCount;
     private Integer sharesCount;
     private Integer viewsCount;

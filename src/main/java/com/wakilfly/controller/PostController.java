@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.CreateCommentRequest;
 import com.wakilfly.dto.request.CreatePostRequest;
+import com.wakilfly.dto.request.ReelViewRequest;
 import com.wakilfly.dto.request.UpdatePostRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -72,7 +73,9 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PagedResponse<PostResponse> feed = postService.getPublicFeed(page, size);
-        return ResponseEntity.ok(ApiResponse.success(feed));
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(60, java.util.concurrent.TimeUnit.SECONDS).cachePublic())
+                .body(ApiResponse.success(feed));
     }
 
     @GetMapping("/trending")
@@ -80,7 +83,9 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PagedResponse<PostResponse> trending = postService.getTrending(page, size);
-        return ResponseEntity.ok(ApiResponse.success(trending));
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(60, java.util.concurrent.TimeUnit.SECONDS).cachePublic())
+                .body(ApiResponse.success(trending));
     }
 
     @GetMapping("/reels")
@@ -143,6 +148,15 @@ public class PostController {
         }
         PostResponse post = postService.getPostById(postId, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(post));
+    }
+
+    @GetMapping("/{postId}/insights")
+    public ResponseEntity<ApiResponse<PostInsightsResponse>> getPostInsights(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PostInsightsResponse insights = postService.getPostInsights(postId, userId);
+        return ResponseEntity.ok(ApiResponse.success(insights));
     }
 
     @PutMapping("/{postId}")
@@ -355,6 +369,20 @@ public class PostController {
         String caption = body != null ? body.get("caption") : null;
         PostResponse story = postService.sharePostToStory(postId, userId, caption);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Shared to story", story));
+    }
+
+    /**
+     * Record reel watch: watch time and completion (for algorithm scoring).
+     * POST /api/v1/posts/{postId}/reel-view
+     */
+    @PostMapping("/{postId}/reel-view")
+    public ResponseEntity<ApiResponse<Void>> recordReelView(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ReelViewRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        postService.recordReelView(postId, userId, request.getWatchTimeSeconds(), request.getCompleted());
+        return ResponseEntity.ok(ApiResponse.success("Reel view recorded"));
     }
 
     /**

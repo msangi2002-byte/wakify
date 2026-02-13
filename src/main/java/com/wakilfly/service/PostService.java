@@ -5,6 +5,7 @@ import com.wakilfly.dto.request.CreatePostRequest;
 import com.wakilfly.dto.request.UpdatePostRequest;
 import com.wakilfly.dto.response.CommentResponse;
 import com.wakilfly.dto.response.PagedResponse;
+import com.wakilfly.dto.response.PostInsightsResponse;
 import com.wakilfly.dto.response.PostResponse;
 import com.wakilfly.model.*;
 import com.wakilfly.model.SavedPost;
@@ -25,12 +26,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.HashMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import com.wakilfly.model.Community;
 import com.wakilfly.repository.CommentLikeRepository;
@@ -38,6 +41,7 @@ import com.wakilfly.repository.CommunityRepository;
 import com.wakilfly.repository.CommunityMemberRepository;
 import com.wakilfly.repository.SavedPostRepository;
 import com.wakilfly.repository.HashtagRepository;
+import com.wakilfly.repository.ReelViewRepository;
 import com.wakilfly.repository.StoryViewRepository;
 import com.wakilfly.repository.UserBlockRepository;
 import com.wakilfly.model.NotificationType;
@@ -62,6 +66,7 @@ public class PostService {
         private final HashtagRepository hashtagRepository;
         private final StoryViewRepository storyViewRepository;
         private final UserBlockRepository userBlockRepository;
+        private final ReelViewRepository reelViewRepository;
 
         private static final Pattern HASHTAG_PATTERN = Pattern.compile("#([\\w\\u0080-\\uFFFF]+)");
 
@@ -343,12 +348,12 @@ public class PostService {
                                 .build();
         }
 
-        /** Reels feed: from following + public; ranked by engagement (likes, comments, views) + recency (algorithm-based, not chronological). */
+        /** Reels feed: from following + public; ranked by watch time, completion, shares, comments, likes + recency (algorithm-based). */
         public PagedResponse<PostResponse> getReels(int page, int size, UUID currentUserId) {
                 List<Post> candidates = currentUserId != null
                         ? postRepository.findReelsCandidatesForUser(currentUserId, PageRequest.of(0, 300))
                         : postRepository.findByPostType(PostType.REEL, PageRequest.of(0, 300)).getContent();
-                List<Post> scored = scoreAndSortReels(candidates);
+                List<Post> scored = scoreAndSortReels(candidates, currentUserId);
                 int total = scored.size();
                 int from = page * size;
                 int to = Math.min(from + size, total);
@@ -361,22 +366,142 @@ public class PostService {
                                 .build();
         }
 
-        /** Score reels by engagement (reactions, comments, views) + recency; trending gets boost. */
-        private List<Post> scoreAndSortReels(List<Post> candidates) {
+        /**
+         * Score reels by: Watch time (0.4) + Completion (0.3) + Shares (0.2) + Comments (0.05) + Likes (0.05), recency boost, then personalization (interest match).
+         */
+        private List<Post> scoreAndSortReels(List<Post> candidates, UUID currentUserId) {
+                if (candidates.isEmpty()) return List.of();
+                List<UUID> postIds = candidates.stream().map(Post::getId).collect(Collectors.toList());
+                Map<UUID, ReelViewStats> statsMap = getReelViewStatsMap(postIds);
+                Map<String, Double> userInterest = currentUserId != null ? getUserInterestHashtags(currentUserId) : new HashMap<>();
+                Map<UUID, Set<String>> postTags = buildPostHashtagsMap(postIds);
+                Map<UUID, Long> authorReelCount = candidates.stream()
+                                .collect(Collectors.groupingBy(p -> p.getAuthor().getId(), Collectors.counting()));
+
+                int maxReactions = candidates.stream().mapToInt(Post::getReactionsCount).max().orElse(1);
+                int maxComments = candidates.stream().mapToInt(Post::getCommentsCount).max().orElse(1);
+                int maxShares = candidates.stream().mapToInt(p -> p.getSharesCount() != null ? p.getSharesCount() : 0).max().orElse(1);
+
+                final int maxR = Math.max(maxReactions, 1);
+                final int maxC = Math.max(maxComments, 1);
+                final int maxS = Math.max(maxShares, 1);
+
                 return candidates.stream()
                                 .map(post -> {
+                                        ReelViewStats stats = statsMap.getOrDefault(post.getId(), new ReelViewStats(0.0, 0.0));
                                         long hoursAgo = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
                                         double recency = 1.0 / (1.0 + hoursAgo / 72.0);
+
+                                        double watchTimeNorm = Math.min(1.0, stats.avgWatchTimeSeconds / 60.0);
+                                        double completionNorm = Math.min(1.0, Math.max(0.0, stats.completionRate));
+                                        int shares = post.getSharesCount() != null ? post.getSharesCount() : 0;
                                         int reactions = post.getReactionsCount();
                                         int comments = post.getCommentsCount();
-                                        int views = post.getViewsCount() != null ? post.getViewsCount() : 0;
-                                        double engagement = Math.log(1.0 + reactions * 2.0 + comments + views * 0.5);
-                                        double score = 1.5 * recency + engagement;
+                                        double sharesNorm = Math.min(1.0, (double) shares / maxS);
+                                        double likesNorm = Math.min(1.0, (double) reactions / maxR);
+                                        double commentsNorm = Math.min(1.0, (double) comments / maxC);
+
+                                        double score = (watchTimeNorm * 0.4 + completionNorm * 0.3 + sharesNorm * 0.2 + commentsNorm * 0.05 + likesNorm * 0.05) * (0.5 + recency);
+                                        double similarity = cosineSimilarity(userInterest, postTags.getOrDefault(post.getId(), Set.of()));
+                                        score *= (1.0 + 0.4 * similarity);
+                                        long authorCount = authorReelCount.getOrDefault(post.getAuthor().getId(), 1L);
+                                        if (authorCount >= 2) score *= (1.0 + 0.05 * Math.min(2, authorCount - 1));
                                         return new ScoredPost(post, score);
                                 })
                                 .sorted(Comparator.comparingDouble((ScoredPost sp) -> sp.score).reversed())
                                 .map(sp -> sp.post)
                                 .collect(Collectors.toList());
+        }
+
+        private Map<String, Double> getUserInterestHashtags(UUID userId) {
+                List<UUID> fromReactions = postReactionRepository.findPostIdsByUserId(userId);
+                List<UUID> fromSaved = savedPostRepository.findPostIdsByUserId(userId);
+                List<UUID> fromCompletedReels = reelViewRepository.findPostIdsByUserIdAndCompletedTrue(userId);
+                Set<UUID> allIds = new java.util.LinkedHashSet<>();
+                allIds.addAll(fromReactions);
+                allIds.addAll(fromSaved);
+                allIds.addAll(fromCompletedReels);
+                if (allIds.isEmpty()) return new HashMap<>();
+                List<Object[]> rows = postRepository.findPostIdAndHashtagNameByPostIdIn(List.copyOf(allIds));
+                Map<String, Double> tagToWeight = new HashMap<>();
+                for (Object[] row : rows) {
+                        if (row.length < 2) continue;
+                        String tag = row[1] != null ? row[1].toString().toLowerCase() : null;
+                        if (tag == null || tag.isBlank()) continue;
+                        tagToWeight.merge(tag, 1.0, Double::sum);
+                }
+                return tagToWeight;
+        }
+
+        private Map<UUID, Set<String>> buildPostHashtagsMap(List<UUID> postIds) {
+                if (postIds.isEmpty()) return new HashMap<>();
+                List<Object[]> rows = postRepository.findPostIdAndHashtagNameByPostIdIn(postIds);
+                Map<UUID, Set<String>> map = new HashMap<>();
+                for (Object[] row : rows) {
+                        if (row.length < 2) continue;
+                        UUID postId = row[0] instanceof UUID ? (UUID) row[0] : UUID.fromString(row[0].toString());
+                        String tag = row[1] != null ? row[1].toString().toLowerCase() : null;
+                        if (tag == null || tag.isBlank()) continue;
+                        map.computeIfAbsent(postId, k -> new java.util.HashSet<>()).add(tag);
+                }
+                return map;
+        }
+
+        private double cosineSimilarity(Map<String, Double> userVec, Set<String> postTags) {
+                if (userVec.isEmpty() || postTags.isEmpty()) return 0;
+                double dot = 0;
+                for (String tag : postTags) {
+                        dot += userVec.getOrDefault(tag, 0.0);
+                }
+                double normUser = 0;
+                for (double v : userVec.values()) normUser += v * v;
+                normUser = Math.sqrt(normUser);
+                double normPost = Math.sqrt(postTags.size());
+                if (normUser < 1e-9 || normPost < 1e-9) return 0;
+                return Math.min(1.0, dot / (normUser * normPost));
+        }
+
+        private Map<UUID, ReelViewStats> getReelViewStatsMap(List<UUID> postIds) {
+                if (postIds.isEmpty()) return new HashMap<>();
+                List<Object[]> rows = reelViewRepository.getReelStatsByPostIds(postIds);
+                Map<UUID, ReelViewStats> map = new HashMap<>();
+                for (Object[] row : rows) {
+                        if (row.length < 3) continue;
+                        UUID postId = row[0] instanceof UUID ? (UUID) row[0] : UUID.fromString(row[0].toString());
+                        double avgWatch = row[1] instanceof Number ? ((Number) row[1]).doubleValue() : 0;
+                        double completionRate = row[2] instanceof Number ? ((Number) row[2]).doubleValue() : 0;
+                        map.put(postId, new ReelViewStats(avgWatch, completionRate));
+                }
+                return map;
+        }
+
+        @Transactional
+        public void recordReelView(UUID postId, UUID userId, int watchTimeSeconds, boolean completed) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                if (post.getPostType() != PostType.REEL) {
+                        throw new BadRequestException("Only reel posts can record reel views");
+                }
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                ReelView rv = ReelView.builder()
+                                .post(post)
+                                .user(user)
+                                .watchTimeSeconds(watchTimeSeconds)
+                                .completed(completed)
+                                .build();
+                reelViewRepository.save(rv);
+                post.setViewsCount((post.getViewsCount() != null ? post.getViewsCount() : 0) + 1);
+                postRepository.save(post);
+        }
+
+        private static class ReelViewStats {
+                final double avgWatchTimeSeconds;
+                final double completionRate;
+                ReelViewStats(double avgWatchTimeSeconds, double completionRate) {
+                        this.avgWatchTimeSeconds = avgWatchTimeSeconds;
+                        this.completionRate = completionRate;
+                }
         }
 
         /** Stories ordered by closeness (how often I viewed this author's stories) then recency (latest first). */
@@ -403,6 +528,34 @@ public class PostService {
                 }
 
                 return mapToPostResponse(post, currentUserId);
+        }
+
+        /** Insights for a post/reel (author only). For reels includes watch time and completion rate. */
+        public PostInsightsResponse getPostInsights(UUID postId, UUID currentUserId) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+                if (!post.getAuthor().getId().equals(currentUserId)) {
+                        throw new BadRequestException("Only the author can view post insights");
+                }
+                int views = post.getViewsCount() != null ? post.getViewsCount() : 0;
+                double avgWatch = 0;
+                double completionRate = 0;
+                if (post.getPostType() == PostType.REEL) {
+                        Map<UUID, ReelViewStats> stats = getReelViewStatsMap(List.of(postId));
+                        ReelViewStats s = stats.get(postId);
+                        if (s != null) {
+                                avgWatch = s.avgWatchTimeSeconds;
+                                completionRate = s.completionRate;
+                        }
+                }
+                return PostInsightsResponse.builder()
+                                .viewsCount(views)
+                                .avgWatchTimeSeconds(avgWatch)
+                                .completionRate(completionRate)
+                                .likesCount(post.getReactionsCount())
+                                .commentsCount(post.getCommentsCount())
+                                .sharesCount(post.getSharesCount() != null ? post.getSharesCount() : 0)
+                                .build();
         }
 
         public PagedResponse<PostResponse> getPostsByCommunity(UUID communityId, int page, int size, UUID currentUserId) {
@@ -657,6 +810,15 @@ public class PostService {
                         }
                 }
 
+                List<PostReaction> topReactions = postReactionRepository.findTopByPostIdWithUser(post.getId(), PageRequest.of(0, 3));
+                List<PostResponse.UserSummary> topReactors = topReactions.stream()
+                                .map(pr -> PostResponse.UserSummary.builder()
+                                                .id(pr.getUser().getId())
+                                                .name(pr.getUser().getName())
+                                                .profilePic(pr.getUser().getProfilePic())
+                                                .build())
+                                .collect(Collectors.toList());
+
                 List<PostMedia> mediaList = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId());
 
                 // Recursively map original post if exists (1 level deep to avoid cycles/heavy
@@ -693,6 +855,7 @@ public class PostService {
                                                                 .build())
                                                 .collect(Collectors.toList()))
                                 .reactionsCount(reactionsCount)
+                                .topReactors(topReactors)
                                 .commentsCount(post.getCommentsCount())
                                 .sharesCount(post.getSharesCount())
                                 .viewsCount(post.getViewsCount())

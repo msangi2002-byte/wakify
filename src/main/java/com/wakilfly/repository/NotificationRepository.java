@@ -17,6 +17,8 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     Page<Notification> findByRecipientOrderByCreatedAtDesc(User recipient, Pageable pageable);
 
+    Page<Notification> findByRecipientAndTypeOrderByCreatedAtDesc(User recipient, com.wakilfly.model.NotificationType type, Pageable pageable);
+
     long countByRecipientAndIsReadFalse(User recipient);
 
     @Modifying

@@ -29,10 +29,17 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<PagedResponse<NotificationResponse>>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String type,
             @AuthenticationPrincipal UserDetails userDetails) {
 
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        PagedResponse<NotificationResponse> response = notificationService.getUserNotifications(userId, page, size);
+        NotificationType typeFilter = null;
+        if (type != null && !type.isBlank()) {
+            try {
+                typeFilter = NotificationType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException ignored) { }
+        }
+        PagedResponse<NotificationResponse> response = notificationService.getUserNotifications(userId, page, size, typeFilter);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

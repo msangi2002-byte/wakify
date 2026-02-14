@@ -2085,6 +2085,80 @@ output: {
 }
 ----------------------
 
+route: /api/v1/admin/agent-packages
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Orodha ya agent packages zote
+example: {}
+output: {
+    "success": true,
+    "data": [
+        {
+            "id": "uuid",
+            "name": "Starter Package",
+            "description": "Package for new agents",
+            "price": 50000.00,
+            "numberOfBusinesses": 5,
+            "isActive": true,
+            "isPopular": false,
+            "sortOrder": 1,
+            "createdAt": "2026-02-06T10:00:00"
+        }
+    ]
+}
+----------------------
+
+route: /api/v1/admin/agent-packages
+method: POST
+auth: Bearer Token (Required, ADMIN only)
+description: Unda agent package mpya
+example: {
+    "name": "Starter Package",
+    "description": "Package for new agents",
+    "price": 50000.00,
+    "numberOfBusinesses": 5,
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 1
+}
+output: {
+    "success": true,
+    "message": "Agent package created successfully",
+    "data": {
+        "id": "uuid",
+        "name": "Starter Package",
+        "price": 50000.00,
+        "numberOfBusinesses": 5
+    }
+}
+----------------------
+
+route: /api/v1/admin/agent-packages/{id}
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha agent package
+example: {
+    "name": "Updated Package",
+    "price": 60000.00,
+    "numberOfBusinesses": 6
+}
+output: {
+    "success": true,
+    "message": "Agent package updated successfully"
+}
+----------------------
+
+route: /api/v1/admin/agent-packages/{id}
+method: DELETE
+auth: Bearer Token (Required, ADMIN only)
+description: Futa agent package
+example: {}
+output: {
+    "success": true,
+    "message": "Agent package deleted successfully"
+}
+----------------------
+
 # 📢 Report Routes
 
 route: /api/v1/reports

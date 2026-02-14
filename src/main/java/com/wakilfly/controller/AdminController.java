@@ -371,4 +371,59 @@ public class AdminController {
         PagedResponse<AuditLogResponse> logs = auditLogService.getLogsByDateRange(startDate, endDate, page, size);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
+
+    // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+    /**
+     * Get all agent packages
+     * GET /api/v1/admin/agent-packages
+     */
+    @GetMapping("/agent-packages")
+    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAgentPackages() {
+        java.util.List<AgentPackageResponse> packages = adminService.getAllAgentPackages();
+        return ResponseEntity.ok(ApiResponse.success(packages));
+    }
+
+    /**
+     * Create agent package
+     * POST /api/v1/admin/agent-packages
+     */
+    @PostMapping("/agent-packages")
+    public ResponseEntity<ApiResponse<AgentPackageResponse>> createAgentPackage(
+            @RequestBody com.wakilfly.dto.request.CreateAgentPackageRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        AgentPackageResponse agentPackage = adminService.createAgentPackage(request);
+        auditLogService.log(adminId, "AGENT_PACKAGE_CREATED", "AgentPackage", agentPackage.getId(), "Created package: " + request.getName(), null, null, null);
+        return ResponseEntity.ok(ApiResponse.success("Agent package created successfully", agentPackage));
+    }
+
+    /**
+     * Update agent package
+     * PUT /api/v1/admin/agent-packages/{id}
+     */
+    @PutMapping("/agent-packages/{id}")
+    public ResponseEntity<ApiResponse<AgentPackageResponse>> updateAgentPackage(
+            @PathVariable UUID id,
+            @RequestBody com.wakilfly.dto.request.CreateAgentPackageRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        AgentPackageResponse agentPackage = adminService.updateAgentPackage(id, request);
+        auditLogService.log(adminId, "AGENT_PACKAGE_UPDATED", "AgentPackage", id, "Updated package: " + request.getName(), null, null, null);
+        return ResponseEntity.ok(ApiResponse.success("Agent package updated successfully", agentPackage));
+    }
+
+    /**
+     * Delete agent package
+     * DELETE /api/v1/admin/agent-packages/{id}
+     */
+    @DeleteMapping("/agent-packages/{id}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deleteAgentPackage(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        adminService.deleteAgentPackage(id);
+        auditLogService.log(adminId, "AGENT_PACKAGE_DELETED", "AgentPackage", id, "Deleted agent package", null, null, null);
+        return ResponseEntity.ok(ApiResponse.success("Agent package deleted successfully"));
+    }
 }

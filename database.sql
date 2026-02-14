@@ -1368,6 +1368,25 @@ CREATE TABLE `promotion_packages` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `agent_packages`
+--
+
+CREATE TABLE `agent_packages` (
+  `id` binary(16) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text,
+  `price` decimal(12,2) NOT NULL,
+  `number_of_businesses` int NOT NULL,
+  `is_active` bit(1) DEFAULT NULL,
+  `is_popular` bit(1) DEFAULT NULL,
+  `sort_order` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `reports`
 --
 

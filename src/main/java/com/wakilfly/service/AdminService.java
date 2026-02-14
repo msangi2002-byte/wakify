@@ -38,6 +38,7 @@ public class AdminService {
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentRepository paymentRepository;
     private final AuditLogService auditLogService;
+    private final AgentPackageRepository agentPackageRepository;
 
     /**
      * Get dashboard statistics
@@ -479,6 +480,81 @@ public class AdminService {
                 .totalReferrals(agent.getTotalReferrals())
                 .registeredAt(agent.getCreatedAt())
                 .approvedAt(agent.getApprovedAt())
+                .build();
+    }
+
+    // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+    /**
+     * Get all agent packages
+     */
+    public java.util.List<AgentPackageResponse> getAllAgentPackages() {
+        return agentPackageRepository.findAll().stream()
+                .map(this::mapAgentPackageToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Create agent package
+     */
+    @Transactional
+    public AgentPackageResponse createAgentPackage(com.wakilfly.dto.request.CreateAgentPackageRequest request) {
+        AgentPackage agentPackage = AgentPackage.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .numberOfBusinesses(request.getNumberOfBusinesses())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .isPopular(request.getIsPopular() != null ? request.getIsPopular() : false)
+                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
+                .build();
+
+        agentPackage = agentPackageRepository.save(agentPackage);
+        return mapAgentPackageToResponse(agentPackage);
+    }
+
+    /**
+     * Update agent package
+     */
+    @Transactional
+    public AgentPackageResponse updateAgentPackage(UUID packageId, com.wakilfly.dto.request.CreateAgentPackageRequest request) {
+        AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                .orElseThrow(() -> new ResourceNotFoundException("AgentPackage", "id", packageId));
+
+        agentPackage.setName(request.getName());
+        if (request.getDescription() != null) agentPackage.setDescription(request.getDescription());
+        agentPackage.setPrice(request.getPrice());
+        agentPackage.setNumberOfBusinesses(request.getNumberOfBusinesses());
+        if (request.getIsActive() != null) agentPackage.setIsActive(request.getIsActive());
+        if (request.getIsPopular() != null) agentPackage.setIsPopular(request.getIsPopular());
+        if (request.getSortOrder() != null) agentPackage.setSortOrder(request.getSortOrder());
+
+        agentPackage = agentPackageRepository.save(agentPackage);
+        return mapAgentPackageToResponse(agentPackage);
+    }
+
+    /**
+     * Delete agent package
+     */
+    @Transactional
+    public void deleteAgentPackage(UUID packageId) {
+        AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                .orElseThrow(() -> new ResourceNotFoundException("AgentPackage", "id", packageId));
+        agentPackageRepository.delete(agentPackage);
+    }
+
+    private AgentPackageResponse mapAgentPackageToResponse(AgentPackage agentPackage) {
+        return AgentPackageResponse.builder()
+                .id(agentPackage.getId())
+                .name(agentPackage.getName())
+                .description(agentPackage.getDescription())
+                .price(agentPackage.getPrice())
+                .numberOfBusinesses(agentPackage.getNumberOfBusinesses())
+                .isActive(agentPackage.getIsActive())
+                .isPopular(agentPackage.getIsPopular())
+                .sortOrder(agentPackage.getSortOrder())
+                .createdAt(agentPackage.getCreatedAt())
+                .updatedAt(agentPackage.getUpdatedAt())
                 .build();
     }
 }

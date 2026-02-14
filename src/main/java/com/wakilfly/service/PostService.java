@@ -114,7 +114,8 @@ public class PostService {
                                                 : Visibility.PUBLIC)
                                 .postType(request.getPostType() != null ? request.getPostType() : PostType.POST)
                                 .location(request.getLocation())
-                                .feelingActivity(request.getFeelingActivity());
+                                .feelingActivity(request.getFeelingActivity())
+                                .storyGradient(request.getStoryGradient());
 
                 // Handle Shared Post (Repost - Facebook Repost feature)
                 if (request.getOriginalPostId() != null) {
@@ -941,6 +942,7 @@ public class PostService {
                                 .hashtags(post.getHashtags() != null ? post.getHashtags().stream().map(Hashtag::getName).collect(Collectors.toList()) : List.of())
                                 .location(post.getLocation())
                                 .feelingActivity(post.getFeelingActivity())
+                                .storyGradient(post.getStoryGradient())
                                 .taggedUsers(post.getTaggedUsers() != null ? post.getTaggedUsers().stream()
                                                 .map(u -> PostResponse.UserSummary.builder()
                                                                 .id(u.getId())
@@ -981,6 +983,7 @@ public class PostService {
                                                 .collect(Collectors.toList()))
                                 .location(post.getLocation())
                                 .feelingActivity(post.getFeelingActivity())
+                                .storyGradient(post.getStoryGradient())
                                 .createdAt(post.getCreatedAt())
                                 .build();
         }

@@ -39,6 +39,8 @@ public class PostResponse {
     private List<UserSummary> taggedUsers; // Tagged/mentioned users
     private PostResponse originalPost; // For shared posts
     private Boolean isPinned; // In group: admin pinned (shown first)
+    /** Text story gradient (e.g. linear-gradient(...)). Shown on story card for text stories. */
+    private String storyGradient;
     private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;
 

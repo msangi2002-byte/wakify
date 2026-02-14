@@ -196,7 +196,7 @@ public class ChunkUploadService {
         }
 
         try {
-            File mergedFile = mergeChunks(dir, uploadId);
+            File mergedFile = mergeChunks(dir, uploadId, filename);
             try {
                 String url = fileStorageService.storeFile(mergedFile, filename, subdirectory);
 
@@ -239,8 +239,9 @@ public class ChunkUploadService {
 
     /**
      * Merge chunk files in order into a single file.
+     * Uses original filename extension so FFmpeg can detect video format.
      */
-    private File mergeChunks(Path chunksDir, String uploadId) throws IOException {
+    private File mergeChunks(Path chunksDir, String uploadId, String originalFilename) throws IOException {
         var chunkFiles = Files.list(chunksDir)
                 .filter(p -> p.getFileName().toString().startsWith("chunk_"))
                 .sorted(Comparator.comparingInt(p -> {
@@ -253,7 +254,11 @@ public class ChunkUploadService {
             throw new BadRequestException("No chunk files found for uploadId: " + uploadId);
         }
 
-        Path mergedPath = Files.createTempFile("wakilfy-merged-", null);
+        String suffix = ".tmp";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            suffix = originalFilename.substring(originalFilename.lastIndexOf('.'));
+        }
+        Path mergedPath = Files.createTempFile("wakilfy-merged-", suffix);
         try (OutputStream out = new FileOutputStream(mergedPath.toFile())) {
             for (Path chunkPath : chunkFiles) {
                 Files.copy(chunkPath, out);

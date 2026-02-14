@@ -53,4 +53,7 @@ public class CreatePostRequest {
      * upload returns thumbnailUrl, pass it here so video story cards show the cover.
      */
     private List<String> thumbnailUrls;
+
+    /** Text story background gradient CSS (e.g. linear-gradient(...)). For Create Text Story. */
+    private String storyGradient;
 }

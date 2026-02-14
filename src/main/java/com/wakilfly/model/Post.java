@@ -85,6 +85,10 @@ public class Post {
     @Column(name = "feeling_activity", length = 200)
     private String feelingActivity;
 
+    /** Text story gradient CSS (e.g. linear-gradient(135deg, #6366f1, #7c3aed)). For STORY with no media. */
+    @Column(name = "story_gradient", length = 500)
+    private String storyGradient;
+
     /** Tagged/mentioned users in this post */
     @ManyToMany
     @JoinTable(name = "post_tagged_users", joinColumns = @JoinColumn(name = "post_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))

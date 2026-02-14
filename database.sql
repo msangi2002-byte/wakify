@@ -95,7 +95,8 @@ CREATE TABLE `agents` (
   `total_referrals` int DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   `ward` varchar(255) DEFAULT NULL,
-  `user_id` binary(16) NOT NULL
+  `user_id` binary(16) NOT NULL,
+  `agent_package_id` binary(16) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -1761,7 +1762,8 @@ ALTER TABLE `ads`
 ALTER TABLE `agents`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `UK_ica2nnf6jymrt09bvuv7e4mai` (`user_id`),
-  ADD UNIQUE KEY `UK_cu2bnqu9g7y26c0937qafj0hx` (`agent_code`);
+  ADD UNIQUE KEY `UK_cu2bnqu9g7y26c0937qafj0hx` (`agent_code`),
+  ADD KEY `FK_agent_package` (`agent_package_id`);
 
 --
 -- Indexes for table `audit_logs`
@@ -2246,7 +2248,8 @@ ALTER TABLE `ads`
 -- Constraints for table `agents`
 --
 ALTER TABLE `agents`
-  ADD CONSTRAINT `FK2vh8rg4inh3scgcguimya35my` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+  ADD CONSTRAINT `FK2vh8rg4inh3scgcguimya35my` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `FK_agent_package` FOREIGN KEY (`agent_package_id`) REFERENCES `agent_packages` (`id`);
 
 --
 -- Constraints for table `audit_logs`

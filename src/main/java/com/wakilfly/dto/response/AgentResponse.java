@@ -40,4 +40,8 @@ public class AgentResponse {
 
     private LocalDateTime registeredAt;
     private LocalDateTime approvedAt;
+
+    // Package information
+    private UUID packageId;
+    private String packageName;
 }

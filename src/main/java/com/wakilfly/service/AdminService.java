@@ -460,7 +460,7 @@ public class AdminService {
     }
 
     private AgentResponse mapAgentToResponse(Agent agent) {
-        return AgentResponse.builder()
+        AgentResponse.AgentResponseBuilder builder = AgentResponse.builder()
                 .id(agent.getId())
                 .userId(agent.getUser().getId())
                 .name(agent.getUser().getName())
@@ -479,8 +479,15 @@ public class AdminService {
                 .businessesActivated(agent.getBusinessesActivated())
                 .totalReferrals(agent.getTotalReferrals())
                 .registeredAt(agent.getCreatedAt())
-                .approvedAt(agent.getApprovedAt())
-                .build();
+                .approvedAt(agent.getApprovedAt());
+
+        // Include package information if available
+        if (agent.getAgentPackage() != null) {
+            builder.packageId(agent.getAgentPackage().getId())
+                   .packageName(agent.getAgentPackage().getName());
+        }
+
+        return builder.build();
     }
 
     // ==================== AGENT PACKAGE MANAGEMENT ====================

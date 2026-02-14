@@ -28,6 +28,10 @@ public class Agent {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agent_package_id")
+    private AgentPackage agentPackage;
+
     @Column(name = "agent_code", unique = true)
     private String agentCode;
 

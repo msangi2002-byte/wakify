@@ -13,4 +13,7 @@ public class ChunkCompleteResponse {
 
     /** Final public URL of the merged file (e.g. https://storage.wakilfy.com/posts/xxx.mp4) */
     private String url;
+
+    /** Thumbnail URL for videos (e.g. https://storage.wakilfy.com/posts/xxx_thumb.jpg). Null for images. */
+    private String thumbnailUrl;
 }

@@ -21,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -68,6 +71,7 @@ public class PostService {
         private final StoryViewRepository storyViewRepository;
         private final UserBlockRepository userBlockRepository;
         private final ReelViewRepository reelViewRepository;
+        private final VideoThumbnailService videoThumbnailService;
 
         private static final Pattern HASHTAG_PATTERN = Pattern.compile("#([\\w\\u0080-\\uFFFF]+)");
 
@@ -156,14 +160,20 @@ public class PostService {
 
                 // Save media files: either from pre-uploaded URLs (chunked) or from multipart files
                 if (request.getMediaUrls() != null && !request.getMediaUrls().isEmpty()) {
+                        var thumbnailUrls = request.getThumbnailUrls();
                         int order = 0;
-                        for (String url : request.getMediaUrls()) {
+                        for (int i = 0; i < request.getMediaUrls().size(); i++) {
+                                String url = request.getMediaUrls().get(i);
                                 if (url == null || url.isBlank()) continue;
                                 MediaType type = isVideoUrl(url) ? MediaType.VIDEO : MediaType.IMAGE;
+                                String thumbUrl = (thumbnailUrls != null && i < thumbnailUrls.size())
+                                                ? thumbnailUrls.get(i)
+                                                : null;
                                 PostMedia media = PostMedia.builder()
                                                 .post(post)
                                                 .url(url.trim())
                                                 .type(type)
+                                                .thumbnailUrl(thumbUrl)
                                                 .displayOrder(order++)
                                                 .build();
                                 postMediaRepository.save(media);
@@ -172,16 +182,51 @@ public class PostService {
                 } else if (files != null && !files.isEmpty()) {
                         int order = 0;
                         for (MultipartFile file : files) {
-                                String url = fileStorageService.storeFile(file, "posts");
                                 MediaType type = file.getContentType() != null
                                                 && file.getContentType().startsWith("video")
                                                                 ? MediaType.VIDEO
                                                                 : MediaType.IMAGE;
 
+                                String url;
+                                String thumbUrl = null;
+                                if (type == MediaType.VIDEO) {
+                                        // Save to temp, upload video + generate thumbnail
+                                        Path tempPath = null;
+                                        try {
+                                                String ext = extension(file.getOriginalFilename());
+                                                tempPath = Files.createTempFile("wakilfy-video-", ext != null ? "." + ext : ".mp4");
+                                                file.transferTo(tempPath.toFile());
+                                                url = fileStorageService.storeFile(tempPath.toFile(),
+                                                                file.getOriginalFilename(), "posts");
+                                                Path thumbPath = videoThumbnailService.extractThumbnail(tempPath.toFile());
+                                                if (thumbPath != null) {
+                                                        try {
+                                                                String thumbName = baseName(file.getOriginalFilename()) + "_thumb.jpg";
+                                                                thumbUrl = fileStorageService.storeFile(thumbPath.toFile(), thumbName, "posts");
+                                                        } finally {
+                                                                Files.deleteIfExists(thumbPath);
+                                                        }
+                                                }
+                                        } catch (IOException e) {
+                                                log.warn("Video thumbnail extraction failed, using video URL only: {}", e.getMessage());
+                                                url = fileStorageService.storeFile(file, "posts");
+                                        } finally {
+                                                if (tempPath != null) {
+                                                        try {
+                                                                Files.deleteIfExists(tempPath);
+                                                        } catch (IOException ignored) {
+                                                        }
+                                                }
+                                        }
+                                } else {
+                                        url = fileStorageService.storeFile(file, "posts");
+                                }
+
                                 PostMedia media = PostMedia.builder()
                                                 .post(post)
                                                 .url(url)
                                                 .type(type)
+                                                .thumbnailUrl(thumbUrl)
                                                 .displayOrder(order++)
                                                 .build();
                                 postMediaRepository.save(media);
@@ -219,6 +264,16 @@ public class PostService {
                 String lower = url.toLowerCase();
                 return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm")
                                 || lower.endsWith(".m4v") || lower.endsWith(".avi") || lower.contains(".mp4?");
+        }
+
+        private static String baseName(String filename) {
+                if (filename == null || !filename.contains(".")) return filename != null ? filename : "file";
+                return filename.substring(0, filename.lastIndexOf('.'));
+        }
+
+        private static String extension(String filename) {
+                if (filename == null || !filename.contains(".")) return null;
+                return filename.substring(filename.lastIndexOf('.') + 1);
         }
 
         private Set<String> parseHashtagsFromCaption(String caption) {

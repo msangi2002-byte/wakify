@@ -47,4 +47,10 @@ public class CreatePostRequest {
      * If provided, "files" in create post are ignored.
      */
     private List<String> mediaUrls;
+
+    /**
+     * Thumbnail URLs (same order as mediaUrls). Used for video media - when chunked
+     * upload returns thumbnailUrl, pass it here so video story cards show the cover.
+     */
+    private List<String> thumbnailUrls;
 }

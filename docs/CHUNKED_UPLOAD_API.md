@@ -100,10 +100,12 @@ Baada ya kutuma chunks zote, tuma request hii kuunganisha na kupata URL.
   "success": true,
   "message": "Upload complete",
   "data": {
-    "url": "https://storage.wakilfy.com/posts/abc-123.mp4"
+    "url": "https://storage.wakilfy.com/posts/abc-123.mp4",
+    "thumbnailUrl": "https://storage.wakilfy.com/posts/abc-123_thumb.jpg"
   }
 }
 ```
+For videos, `thumbnailUrl` is also returned (FFmpeg extracts a frame). Pass it as `thumbnailUrls` when creating a post so story cards show the cover.
 
 ---
 

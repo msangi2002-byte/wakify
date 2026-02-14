@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChunkUploadService {
 
     private final FileStorageService fileStorageService;
+    private final VideoThumbnailService videoThumbnailService;
 
     @Value("${upload.path:uploads}")
     private String uploadPath;
@@ -199,6 +200,23 @@ public class ChunkUploadService {
             try {
                 String url = fileStorageService.storeFile(mergedFile, filename, subdirectory);
 
+                // Generate thumbnail for video
+                String thumbnailUrl = null;
+                if (isVideoFile(filename)) {
+                    Path thumbPath = videoThumbnailService.extractThumbnail(mergedFile);
+                    if (thumbPath != null) {
+                        try {
+                            String thumbFilename = filenameWithoutExt(filename) + "_thumb.jpg";
+                            thumbnailUrl = fileStorageService.storeFile(thumbPath.toFile(), thumbFilename, subdirectory);
+                        } finally {
+                            try {
+                                Files.deleteIfExists(thumbPath);
+                            } catch (IOException ignored) {
+                            }
+                        }
+                    }
+                }
+
                 // Cleanup temp files and ticket
                 deleteChunkDir(dir);
                 mergedFile.delete();
@@ -207,6 +225,7 @@ public class ChunkUploadService {
 
                 return ChunkCompleteResponse.builder()
                         .url(url)
+                        .thumbnailUrl(thumbnailUrl)
                         .build();
             } finally {
                 if (mergedFile.exists()) mergedFile.delete();
@@ -265,6 +284,18 @@ public class ChunkUploadService {
             initChunksDirectory();
         }
         return chunksBasePath.resolve(uploadId);
+    }
+
+    private static boolean isVideoFile(String filename) {
+        if (filename == null) return false;
+        String lower = filename.toLowerCase();
+        return lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm")
+                || lower.endsWith(".m4v") || lower.endsWith(".avi");
+    }
+
+    private static String filenameWithoutExt(String filename) {
+        if (filename == null || !filename.contains(".")) return filename;
+        return filename.substring(0, filename.lastIndexOf('.'));
     }
 
     private void validateChunkParams(String uploadId, int chunkIndex, int totalChunks,

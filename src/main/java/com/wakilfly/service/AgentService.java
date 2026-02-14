@@ -33,7 +33,9 @@ public class AgentService {
         private final BusinessRepository businessRepository;
         private final CommissionRepository commissionRepository;
         private final PaymentRepository paymentRepository;
+        private final PaymentService paymentService;
         private final WithdrawalRepository withdrawalRepository;
+        private final AgentPackageRepository agentPackageRepository;
         private final PasswordEncoder passwordEncoder;
 
         // Constants
@@ -134,6 +136,18 @@ public class AgentService {
                 // Verify agent is active
                 if (agent.getStatus() != AgentStatus.ACTIVE) {
                         throw new BadRequestException("Your agent account is not active. Status: " + agent.getStatus());
+                }
+
+                // Check package limit
+                if (agent.getAgentPackage() != null) {
+                        Integer maxBusinesses = agent.getAgentPackage().getNumberOfBusinesses();
+                        Integer currentCount = agent.getBusinessesActivated() != null ? agent.getBusinessesActivated() : 0;
+                        if (currentCount >= maxBusinesses) {
+                                throw new BadRequestException(
+                                                String.format("You have reached your package limit of %d businesses. Please upgrade your package to activate more businesses.", maxBusinesses));
+                        }
+                } else {
+                        throw new BadRequestException("You need to purchase an agent package to activate businesses. Please visit the Packages section to purchase a package.");
                 }
 
                 // Agents only register users who DON'T have an account. Users with an account complete payment in the app (USSD) and the system approves them.
@@ -727,13 +741,90 @@ public class AgentService {
                 BigDecimal pendingWithdrawals = withdrawalRepository.sumAmountByAgentIdAndStatus(
                                 agent.getId(), WithdrawalStatus.PENDING);
 
-                return AgentDashboardResponse.builder()
+                AgentDashboardResponse.AgentDashboardResponseBuilder builder = AgentDashboardResponse.builder()
                                 .currentBalance(agent.getAvailableBalance())
                                 .totalEarnings(agent.getTotalEarnings())
                                 .todayEarnings(todayEarnings != null ? todayEarnings : BigDecimal.ZERO)
                                 .pendingWithdrawals(pendingWithdrawals != null ? pendingWithdrawals : BigDecimal.ZERO)
                                 .totalBusinessesActivated(agent.getBusinessesActivated())
-                                .totalReferrals(agent.getTotalReferrals())
+                                .totalReferrals(agent.getTotalReferrals());
+
+                // Include package information
+                if (agent.getAgentPackage() != null) {
+                        Integer currentCount = agent.getBusinessesActivated() != null ? agent.getBusinessesActivated() : 0;
+                        Integer maxBusinesses = agent.getAgentPackage().getNumberOfBusinesses();
+                        builder.packageId(agent.getAgentPackage().getId())
+                                .packageName(agent.getAgentPackage().getName())
+                                .packageMaxBusinesses(maxBusinesses)
+                                .packageRemainingBusinesses(Math.max(0, maxBusinesses - currentCount));
+                }
+
+                return builder.build();
+        }
+
+        // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+        /**
+         * Get all available agent packages
+         */
+        public java.util.List<AgentPackageResponse> getAvailablePackages() {
+                return agentPackageRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
+                                .map(this::mapAgentPackageToResponse)
+                                .collect(Collectors.toList());
+        }
+
+        /**
+         * Initiate package purchase/upgrade payment
+         */
+        @Transactional
+        public String initiatePackagePurchase(UUID agentUserId, UUID packageId, String paymentPhone) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
+
+                if (agent.getStatus() != AgentStatus.ACTIVE) {
+                        throw new BadRequestException("Your agent account is not active. Status: " + agent.getStatus());
+                }
+
+                AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent package not found"));
+
+                if (!agentPackage.getIsActive()) {
+                        throw new BadRequestException("This package is not available");
+                }
+
+                // Check if agent already has this package
+                if (agent.getAgentPackage() != null && agent.getAgentPackage().getId().equals(packageId)) {
+                        throw new BadRequestException("You already have this package");
+                }
+
+                // Create payment via PaymentService
+                String orderId = paymentService.initiatePayment(
+                                agentUserId,
+                                agentPackage.getPrice(),
+                                PaymentType.AGENT_PACKAGE,
+                                paymentPhone,
+                                "Agent Package: " + agentPackage.getName(),
+                                packageId,
+                                "AGENT_PACKAGE");
+
+                log.info("Agent {} initiated package purchase {} - payment orderId: {}", 
+                                agent.getAgentCode(), agentPackage.getName(), orderId);
+
+                return orderId;
+        }
+
+        private AgentPackageResponse mapAgentPackageToResponse(AgentPackage agentPackage) {
+                return AgentPackageResponse.builder()
+                                .id(agentPackage.getId())
+                                .name(agentPackage.getName())
+                                .description(agentPackage.getDescription())
+                                .price(agentPackage.getPrice())
+                                .numberOfBusinesses(agentPackage.getNumberOfBusinesses())
+                                .isActive(agentPackage.getIsActive())
+                                .isPopular(agentPackage.getIsPopular())
+                                .sortOrder(agentPackage.getSortOrder())
+                                .createdAt(agentPackage.getCreatedAt())
+                                .updatedAt(agentPackage.getUpdatedAt())
                                 .build();
         }
 }

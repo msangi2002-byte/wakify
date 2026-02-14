@@ -30,6 +30,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
+    private final AgentPackageRepository agentPackageRepository;
     private final BusinessRepository businessRepository;
     private final BusinessRequestRepository businessRequestRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -312,6 +313,41 @@ public class PaymentService {
             agent.setApprovedAt(LocalDateTime.now());
             agentRepository.save(agent);
             log.info("Agent {} activated after payment {}", agent.getAgentCode(), payment.getTransactionId());
+        }
+    }
+
+    private void activateAgentPackage(Payment payment) {
+        if (payment.getRelatedEntityId() == null) {
+            log.warn("Agent package payment {} has no related entity ID", payment.getId());
+            return;
+        }
+
+        Agent agent = agentRepository.findByUserId(payment.getUser().getId()).orElse(null);
+        if (agent == null) {
+            log.warn("Agent not found for user {} in payment {}", payment.getUser().getId(), payment.getId());
+            return;
+        }
+
+        try {
+            AgentPackage agentPackage = agentPackageRepository.findById(payment.getRelatedEntityId()).orElse(null);
+            if (agentPackage == null) {
+                log.warn("Agent package {} not found for payment {}", payment.getRelatedEntityId(), payment.getId());
+                return;
+            }
+
+            if (!agentPackage.getIsActive()) {
+                log.warn("Agent package {} is not active, cannot assign to agent {}", agentPackage.getId(), agent.getAgentCode());
+                return;
+            }
+
+            // Assign package to agent
+            agent.setAgentPackage(agentPackage);
+            agentRepository.save(agent);
+
+            log.info("Agent {} purchased/upgraded to package {} after payment {}", 
+                    agent.getAgentCode(), agentPackage.getName(), payment.getTransactionId());
+        } catch (Exception e) {
+            log.error("Failed to activate agent package for payment {}: {}", payment.getId(), e.getMessage(), e);
         }
     }
 

@@ -15,4 +15,9 @@ public class AgentDashboardResponse {
     private BigDecimal pendingWithdrawals;
     private Integer totalBusinessesActivated;
     private Integer totalReferrals;
+    // Package information
+    private UUID packageId;
+    private String packageName;
+    private Integer packageMaxBusinesses;
+    private Integer packageRemainingBusinesses;
 }

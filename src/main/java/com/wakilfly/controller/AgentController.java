@@ -241,4 +241,45 @@ public class AgentController {
 
         return ResponseEntity.ok(ApiResponse.success("Callback received"));
     }
+
+    // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+    /**
+     * Get all available agent packages
+     * GET /api/v1/agent/packages
+     */
+    @GetMapping("/packages")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAvailablePackages() {
+        java.util.List<AgentPackageResponse> packages = agentService.getAvailablePackages();
+        return ResponseEntity.ok(ApiResponse.success(packages));
+    }
+
+    /**
+     * Initiate package purchase/upgrade payment
+     * POST /api/v1/agent/packages/{packageId}/purchase
+     */
+    @PostMapping("/packages/{packageId}/purchase")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> purchasePackage(
+            @PathVariable UUID packageId,
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        String paymentPhone = request.get("paymentPhone");
+        
+        if (paymentPhone == null || paymentPhone.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Payment phone number is required"));
+        }
+
+        String orderId = agentService.initiatePackagePurchase(userId, packageId, paymentPhone.trim());
+        
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("orderId", orderId);
+        response.put("message", "USSD push imetumwa kwa simu yako. Fuata maelekezo kukamilisha malipo.");
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payment initiated", response));
+    }
 }

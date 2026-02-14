@@ -464,14 +464,25 @@ output: {
 
 route: /api/v1/agent/activate-business
 method: POST
+auth: Bearer Token (Required, AGENT role)
+description: Activate a business (agent only – for new users without an account)
 example: {
     "businessName": "Mama Ntilie Food",
+    "ownerName": "John Mwangi",
     "ownerPhone": "+255787654321",
-    "category": "Food & Beverage"
+    "ownerEmail": "owner@example.com",
+    "ownerPassword": "password123",
+    "category": "Food & Beverage",
+    "region": "Dar es Salaam",
+    "district": "Temeke",
+    "paymentPhone": "+255712345678",
+    "ward": "Kurasini",
+    "street": "Street name",
+    "description": "Business description"
 }
 output: {
     "success": true,
-    "message": "Business activation initiated",
+    "message": "Business activation initiated. Awaiting payment confirmation.",
     "data": {
         "id": "e5aaaf44-105d-7bc1-ff01-1ff2ef613e55",
         "name": "Mama Ntilie Food",
@@ -479,6 +490,14 @@ output: {
         "ownerPhone": "+255787654321"
     }
 }
+notes: |
+    - Agent must have an active package assigned
+    - Agent cannot activate more businesses than their package limit allows
+    - Returns error if package limit is reached: "You have reached your package limit of X businesses. Please upgrade your package to activate more businesses."
+    - Returns error if no package assigned: "You need to purchase an agent package to activate businesses. Please visit the Packages section to purchase a package."
+    - Owner must not have an existing account (users with accounts use app flow)
+    - Creates new user account for owner with BUSINESS role
+    - Creates payment record for 10,000 TZS activation fee
 ----------------------
 
 route: /api/v1/agent/businesses
@@ -590,6 +609,53 @@ output: {
     "message": "Withdrawal request submitted",
     "data": { "id": "uuid", "amount": 50000.00, "status": "PENDING" }
 }
+----------------------
+
+route: /api/v1/agent/packages
+method: GET
+auth: Bearer Token (Required, AGENT role)
+description: Get all available agent packages
+example: {}
+output: {
+    "success": true,
+    "data": [
+        {
+            "id": "uuid",
+            "name": "Starter Package",
+            "description": "Package for new agents",
+            "price": 50000.00,
+            "numberOfBusinesses": 10,
+            "isActive": true,
+            "isPopular": false,
+            "sortOrder": 1,
+            "createdAt": "2026-01-15T10:00:00",
+            "updatedAt": "2026-01-15T10:00:00"
+        }
+    ]
+}
+----------------------
+
+route: /api/v1/agent/packages/{packageId}/purchase
+method: POST
+auth: Bearer Token (Required, AGENT role)
+description: Initiate package purchase/upgrade payment via USSD
+example: {
+    "paymentPhone": "+255712345678"
+}
+output: {
+    "success": true,
+    "message": "Payment initiated",
+    "data": {
+        "orderId": "HP1706123456789",
+        "message": "USSD push imetumwa kwa simu yako. Fuata maelekezo kukamilisha malipo."
+    }
+}
+notes: |
+    - Agent can purchase or upgrade to any available package
+    - Payment is initiated via HarakaPay USSD gateway
+    - Package is assigned to agent automatically after payment is confirmed
+    - Agent can activate businesses up to the package limit
+    - Use GET /api/v1/payments/status/{orderId} to check payment status
 ----------------------
 
 route: /api/v1/agent/withdrawals
@@ -1654,13 +1720,15 @@ output: {
 }
 notes: |
     Payment Types:
-    - AGENT_REGISTRATION: Ada ya kusajili agent (TZS 10,000)
-    - BUSINESS_ACTIVATION: Ada ya kuanzisha biashara (TZS 20,000)
+    - AGENT_REGISTRATION: Ada ya kusajili agent (TZS 20,000)
+    - BUSINESS_ACTIVATION: Ada ya kuanzisha biashara (TZS 10,000)
     - SUBSCRIPTION: Ada ya subscription (kulingana na plan)
     - PROMOTION: Ada ya kutangaza/boost
     - ORDER: Malipo ya order
+    - AGENT_PACKAGE: Ada ya kununua/upgrade agent package (kulingana na package)
+    - COIN_PURCHASE: Kununua virtual coins
     
-    Baada ya malipo kukamilika, mfumo unaaktivisha agent/business/subscription automatically
+    Baada ya malipo kukamilika, mfumo unaaktivisha agent/business/subscription/package automatically
 ----------------------
 
 route: /api/v1/payments/status/{orderId}
@@ -2510,9 +2578,16 @@ output: {
         "todayEarnings": 25000.00,
         "pendingWithdrawals": 50000.00,
         "totalBusinessesActivated": 15,
-        "totalReferrals": 8
+        "totalReferrals": 8,
+        "packageId": "uuid",
+        "packageName": "Pro Package",
+        "packageMaxBusinesses": 50,
+        "packageRemainingBusinesses": 35
     }
 }
+notes: |
+    - packageId, packageName, packageMaxBusinesses, packageRemainingBusinesses are included if agent has a package assigned
+    - packageRemainingBusinesses = packageMaxBusinesses - totalBusinessesActivated
 ----------------------
 
 # 📞 Voice & Video Calls API

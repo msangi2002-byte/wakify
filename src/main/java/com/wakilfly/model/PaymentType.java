@@ -7,5 +7,6 @@ public enum PaymentType {
     PROMOTION, // Ad/boost payment
     ORDER, // Order payment
     WITHDRAWAL, // Agent withdrawal
-    COIN_PURCHASE // Virtual coins purchase
+    COIN_PURCHASE, // Virtual coins purchase
+    AGENT_PACKAGE // Agent package purchase/upgrade
 }

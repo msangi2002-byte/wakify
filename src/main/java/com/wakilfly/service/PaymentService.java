@@ -289,6 +289,7 @@ public class PaymentService {
             case PROMOTION -> activatePromotion(payment);
             case ORDER -> processOrderPayment(payment);
             case COIN_PURCHASE -> processCoinPurchase(payment);
+            case AGENT_PACKAGE -> activateAgentPackage(payment);
             default -> log.info("Payment type {} does not require additional processing", payment.getType());
         }
     }

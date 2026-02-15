@@ -132,6 +132,7 @@ Baada ya chunked upload, tumia **POST /api/v1/posts** na `Content-Type: applicat
 
 ## Frontend – JavaScript/TypeScript Example
 
+
 ```javascript
 const CHUNK_SIZE = 1024 * 1024; // 1MB (au 512 * 1024 kwa 500KB)
 

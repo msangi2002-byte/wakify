@@ -67,7 +67,7 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     List<Post> findReelsCandidatesForUser(@Param("userId") UUID userId, Pageable pageable);
 
     /** (postId, hashtagName) for given posts (for Reels personalization). */
-    @Query("SELECT p.id, h.name FROM Post p JOIN p.hashtags h WHERE p.id IN :postIds")
+    @Query(value = "SELECT ph.post_id AS id, h.name FROM post_hashtags ph INNER JOIN hashtags h ON h.id = ph.hashtag_id WHERE ph.post_id IN (:postIds)", nativeQuery = true)
     List<Object[]> findPostIdAndHashtagNameByPostIdIn(@Param("postIds") List<UUID> postIds);
 
     // Trending posts (by reactions + comments)

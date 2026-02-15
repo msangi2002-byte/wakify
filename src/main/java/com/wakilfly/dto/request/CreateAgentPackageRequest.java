@@ -29,9 +29,12 @@ public class CreateAgentPackageRequest {
     @Min(value = 1, message = "Number of businesses must be at least 1")
     private Integer numberOfBusinesses;
 
+    @Builder.Default
     private Boolean isActive = true;
 
+    @Builder.Default
     private Boolean isPopular = false;
 
+    @Builder.Default
     private Integer sortOrder = 0;
 }

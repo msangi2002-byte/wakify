@@ -2242,6 +2242,43 @@ output: {
 }
 ----------------------
 
+route: /api/v1/admin/payments
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Pata malipo yote na filters (kwa ajili ya monitoring)
+params: page=0, size=20, status=SUCCESS, type=AGENT_REGISTRATION, userId=uuid, startDate=2024-01-01T00:00:00, endDate=2024-12-31T23:59:59
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "transactionId": "HP1706123456789",
+                "amount": 20000.00,
+                "type": "AGENT_REGISTRATION",
+                "status": "SUCCESS",
+                "method": "MPESA",
+                "paymentPhone": "255712345678",
+                "description": "Agent registration fee",
+                "paidAt": "2024-01-15T10:35:00",
+                "createdAt": "2024-01-15T10:30:00"
+            }
+        ],
+        "page": 0,
+        "size": 20,
+        "totalElements": 150,
+        "totalPages": 8,
+        "last": false,
+        "first": true
+    }
+}
+notes: |
+    - Allows filtering by status, type, userId, and date range
+    - Returns paginated list of all payments
+    - Useful for monitoring payments from agents, users, and businesses
+----------------------
+
 route: /api/v1/admin/settings
 method: PUT
 auth: Bearer Token (Required, ADMIN only)
@@ -2354,6 +2391,131 @@ output: { "success": true }
 ----------------------
 
 # Ads API
+
+route: /api/v1/ads/posts/my
+method: GET
+auth: Bearer Token (Required)
+description: Get my posts for boosting
+params: page=0, size=20
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "content": [
+            {
+                "id": "uuid",
+                "caption": "My post",
+                "likesCount": 10,
+                "commentsCount": 2
+            }
+        ],
+        "totalPages": 1,
+        "totalElements": 5
+    }
+}
+----------------------
+
+route: /api/v1/ads/calculate-price
+method: GET
+auth: Bearer Token (Required)
+description: Calculate ad price based on target reach
+params: targetReach=1000
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "targetReach": 1000,
+        "pricePerPerson": 2.00,
+        "totalPrice": 2000.00
+    }
+}
+notes: |
+    - pricePerPerson is retrieved from system_settings with key 'ads_price_per_person'
+    - totalPrice = pricePerPerson * targetReach
+----------------------
+
+route: /api/v1/ads/boost-post
+method: POST
+auth: Bearer Token (Required)
+description: Boost a post - create promotion and initiate USSD payment
+example: {
+    "postId": "uuid",
+    "targetReach": 1000,
+    "paymentPhone": "+255712345678"
+}
+output: {
+    "success": true,
+    "message": "Post boost created. Payment initiated.",
+    "data": {
+        "promotionId": "uuid",
+        "orderId": "HP1706123456789",
+        "targetReach": 1000,
+        "totalPrice": 2000.00,
+        "pricePerPerson": 2.00,
+        "message": "USSD push imetumwa kwa simu yako. Fuata maelekezo kukamilisha malipo."
+    }
+}
+notes: |
+    - Creates a promotion with type POST
+    - Calculates price automatically based on targetReach and ads_price_per_person
+    - Initiates USSD payment via HarakaPay
+    - After payment is completed, promotion is activated automatically
+    - Use GET /api/v1/payments/status/{orderId} to check payment status
+----------------------
+
+route: /api/v1/ads/analytics
+method: GET
+auth: Bearer Token (Required)
+description: Get boost analytics for current user
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "totalPromotions": 5,
+        "activePromotions": 2,
+        "totalImpressions": 15000,
+        "totalClicks": 450,
+        "totalReach": 5000,
+        "totalSpent": 10000.00,
+        "totalBudget": 15000.00,
+        "overallCtr": 3.0,
+        "promotions": [
+            {
+                "id": "uuid",
+                "postId": "uuid",
+                "title": "Boost Post: My awesome post",
+                "status": "ACTIVE",
+                "targetReach": 1000,
+                "impressions": 850,
+                "clicks": 25,
+                "conversions": 5,
+                "budget": 2000.00,
+                "spentAmount": 1700.00,
+                "ctr": 2.94,
+                "startDate": "2024-01-15T10:00:00",
+                "endDate": "2024-02-14T10:00:00",
+                "createdAt": "2024-01-15T10:00:00"
+            }
+        ]
+    }
+}
+notes: |
+    - Returns aggregated statistics and individual promotion performance
+    - CTR (Click-Through Rate) is calculated as (clicks / impressions) * 100
+    - Only includes POST type promotions
+----------------------
+
+# Boosted Posts Distribution
+notes: |
+    Boosted posts are distributed to users like sponsored content on social media platforms:
+    - Boosted posts appear in user feeds regardless of following status (if post is PUBLIC)
+    - They are marked with "Sponsored" label in the UI
+    - Boosted posts get 5x priority multiplier in feed algorithm
+    - They are naturally mixed into feeds (every 3-5 regular posts)
+    - Impressions are automatically tracked when boosted posts are shown
+    - Boosted posts stop appearing once target reach is achieved
+    - PostResponse includes isSponsored and promotionId fields for boosted posts
+----------------------
 
 route: /api/v1/ads/active
 method: GET

@@ -498,4 +498,48 @@ public class AdminService {
                 .approvedAt(agent.getApprovedAt())
                 .build();
     }
+
+    // ==================== PAYMENT MONITORING ====================
+
+    /**
+     * Get all payments with filters (for admin monitoring)
+     */
+    public PagedResponse<PaymentHistoryResponse> getAllPayments(
+            int page, int size,
+            PaymentStatus status,
+            PaymentType type,
+            UUID userId,
+            LocalDateTime startDate,
+            LocalDateTime endDate) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Payment> payments = paymentRepository.findAllWithFilters(
+                status, type, userId, startDate, endDate, pageable);
+
+        return PagedResponse.<PaymentHistoryResponse>builder()
+                .content(payments.getContent().stream()
+                        .map(this::mapPaymentToHistoryResponse)
+                        .collect(Collectors.toList()))
+                .page(payments.getNumber())
+                .size(payments.getSize())
+                .totalElements(payments.getTotalElements())
+                .totalPages(payments.getTotalPages())
+                .last(payments.isLast())
+                .first(payments.isFirst())
+                .build();
+    }
+
+    private PaymentHistoryResponse mapPaymentToHistoryResponse(Payment payment) {
+        return PaymentHistoryResponse.builder()
+                .id(payment.getId())
+                .transactionId(payment.getTransactionId())
+                .amount(payment.getAmount())
+                .type(payment.getType())
+                .status(payment.getStatus())
+                .method(payment.getMethod())
+                .paymentPhone(payment.getPaymentPhone())
+                .description(payment.getDescription())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .build();
+    }
 }

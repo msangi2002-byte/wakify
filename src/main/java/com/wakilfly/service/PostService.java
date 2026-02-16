@@ -72,6 +72,8 @@ public class PostService {
         private final UserBlockRepository userBlockRepository;
         private final ReelViewRepository reelViewRepository;
         private final VideoThumbnailService videoThumbnailService;
+        private final PromotionRepository promotionRepository;
+        private final PromotionService promotionService;
 
         private static final Pattern HASHTAG_PATTERN = Pattern.compile("#([\\w\\u0080-\\uFFFF]+)");
 
@@ -291,6 +293,41 @@ public class PostService {
         public PagedResponse<PostResponse> getFeed(UUID userId, int page, int size) {
                 LocalDateTime since = LocalDateTime.now().minusDays(14);
                 List<Post> candidates = postRepository.findFeedCandidatesSince(userId, since, PageRequest.of(0, 500));
+                
+                // Get active boosted posts to include in feed (like Facebook/Instagram sponsored posts)
+                LocalDateTime now = LocalDateTime.now();
+                List<Promotion> activePromotions = promotionRepository.findActivePromotions(now).stream()
+                        .filter(p -> p.getType() == PromotionType.POST 
+                                && p.getTargetId() != null
+                                && !p.getUser().getId().equals(userId) // Don't show user's own boosted posts
+                                && p.getReach() != null 
+                                && (p.getImpressions() == null || p.getImpressions() < p.getReach())) // Haven't reached target yet
+                        .collect(Collectors.toList());
+                
+                // Create a map of promotion ID to promotion for quick lookup
+                Map<UUID, Promotion> promotionMap = activePromotions.stream()
+                        .collect(Collectors.toMap(Promotion::getId, p -> p, (p1, p2) -> p1));
+                
+                // Get boosted posts - show to ALL users (like sponsored content), not just followers
+                // This is how social media platforms work - sponsored posts appear regardless of following status
+                Set<UUID> candidatePostIds = candidates.stream().map(Post::getId).collect(Collectors.toSet());
+                List<Post> boostedPosts = activePromotions.stream()
+                        .map(p -> {
+                            try {
+                                return postRepository.findById(p.getTargetId()).orElse(null);
+                            } catch (Exception e) {
+                                return null;
+                            }
+                        })
+                        .filter(post -> post != null 
+                                && !post.getIsDeleted()
+                                && !post.getAuthor().getId().equals(userId)
+                                && post.getVisibility() == Visibility.PUBLIC) // Only public posts can be boosted to non-followers
+                        .collect(Collectors.toList());
+                
+                // Add boosted posts to candidates (they'll get higher priority in scoring)
+                candidates.addAll(boostedPosts);
+                
                 if (candidates.isEmpty() && page == 0) {
                         // New users (no following): show public feed
                         Page<Post> publicPage = postRepository.findByVisibility(Visibility.PUBLIC, PageRequest.of(0, size));
@@ -301,21 +338,57 @@ public class PostService {
                                         .totalPages(publicPage.getTotalPages()).last(publicPage.isLast()).first(true)
                                         .build();
                 }
-                List<Post> scored = scoreAndSortFeedPosts(candidates, userId);
-                int total = scored.size();
+                List<Post> scored = scoreAndSortFeedPosts(candidates, userId, boostedPosts);
+                
+                // Mix boosted posts more naturally into feed (like Facebook/Instagram)
+                // Insert boosted posts every 3-5 regular posts for better distribution
+                List<Post> mixedFeed = mixBoostedPosts(scored, boostedPosts, 3, 5);
+                
+                int total = mixedFeed.size();
                 int from = page * size;
                 int to = Math.min(from + size, total);
-                List<Post> pageContent = from < total ? scored.subList(from, to) : List.of();
+                List<Post> pageContent = from < total ? mixedFeed.subList(from, to) : List.of();
+                
+                // Track impressions for boosted posts shown in this page
+                pageContent.forEach(post -> {
+                    activePromotions.stream()
+                            .filter(p -> p.getTargetId() != null && p.getTargetId().equals(post.getId()))
+                            .findFirst()
+                            .ifPresent(promotion -> {
+                                try {
+                                    promotionService.trackImpression(promotion.getId());
+                                } catch (Exception e) {
+                                    log.warn("Failed to track impression for promotion {}: {}", promotion.getId(), e.getMessage());
+                                }
+                            });
+                });
+                
                 int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
+                
+                // Create promotion lookup map for posts
+                Map<UUID, Promotion> postPromotionMap = activePromotions.stream()
+                        .filter(p -> p.getTargetId() != null)
+                        .collect(Collectors.toMap(Promotion::getTargetId, p -> p, (p1, p2) -> p1));
+                
                 return PagedResponse.<PostResponse>builder()
-                                .content(pageContent.stream().map(post -> mapToPostResponse(post, userId)).collect(Collectors.toList()))
+                                .content(pageContent.stream().map(post -> {
+                                    PostResponse response = mapToPostResponse(post, userId);
+                                    // Mark if post is sponsored/boosted
+                                    Promotion promotion = postPromotionMap.get(post.getId());
+                                    if (promotion != null) {
+                                        response.setIsSponsored(true);
+                                        response.setPromotionId(promotion.getId());
+                                    }
+                                    return response;
+                                }).collect(Collectors.toList()))
                                 .page(page).size(size).totalElements((long) total).totalPages(totalPages)
                                 .last(to >= total).first(page == 0)
                                 .build();
         }
 
-        /** Score = recency decay + engagement (reactions, comments, shares) + relationship (mutual follows, my reactions/comments on author). */
-        private List<Post> scoreAndSortFeedPosts(List<Post> candidates, UUID currentUserId) {
+        /** Score = recency decay + engagement (reactions, comments, shares) + relationship (mutual follows, my reactions/comments on author) + boost priority. */
+        private List<Post> scoreAndSortFeedPosts(List<Post> candidates, UUID currentUserId, List<Post> boostedPosts) {
+                Set<UUID> boostedPostIds = boostedPosts.stream().map(Post::getId).collect(Collectors.toSet());
                 return candidates.stream()
                                 .map(post -> {
                                         long hoursAgo = ChronoUnit.HOURS.between(post.getCreatedAt(), LocalDateTime.now());
@@ -329,7 +402,17 @@ public class PostService {
                                         long myReactions = postReactionRepository.countByUser_IdAndPost_Author_Id(currentUserId, authorId);
                                         long myComments = commentRepository.countByAuthor_IdAndPost_Author_Id(currentUserId, authorId);
                                         double relationship = 0.5 * mutual + 0.3 * myReactions + 0.3 * myComments;
-                                        double score = 2.0 * recency + engagement + 0.5 * relationship;
+                                        
+                                        // Boost priority: boosted posts get much higher score (like sponsored content)
+                                        // This ensures they appear prominently in feeds, similar to Facebook/Instagram
+                                        double boostMultiplier = boostedPostIds.contains(post.getId()) ? 5.0 : 1.0;
+                                        
+                                        // Boosted posts get priority even if relationship is weak (they're sponsored)
+                                        double relationshipScore = boostedPostIds.contains(post.getId()) 
+                                                ? Math.max(relationship, 1.0) // Minimum relationship score for boosted
+                                                : relationship;
+                                        
+                                        double score = (2.0 * recency + engagement + 0.5 * relationshipScore) * boostMultiplier;
                                         return new ScoredPost(post, score);
                                 })
                                 .sorted(Comparator.comparingDouble((ScoredPost sp) -> sp.score).reversed())
@@ -343,13 +426,74 @@ public class PostService {
                 ScoredPost(Post post, double score) { this.post = post; this.score = score; }
         }
 
+        /**
+         * Mix boosted posts naturally into feed (like Facebook/Instagram sponsored posts)
+         * Inserts boosted posts every N-M regular posts for better distribution
+         */
+        private List<Post> mixBoostedPosts(List<Post> regularPosts, List<Post> boostedPosts, int minInterval, int maxInterval) {
+                if (boostedPosts.isEmpty()) {
+                        return regularPosts;
+                }
+                
+                Set<UUID> boostedIds = boostedPosts.stream().map(Post::getId).collect(Collectors.toSet());
+                List<Post> regularOnly = regularPosts.stream()
+                        .filter(p -> !boostedIds.contains(p.getId()))
+                        .collect(Collectors.toList());
+                
+                List<Post> result = new java.util.ArrayList<>();
+                java.util.Collections.shuffle(boostedPosts); // Randomize which boosted posts appear first
+                
+                int boostedIndex = 0;
+                int regularIndex = 0;
+                int postsSinceBoost = 0;
+                int nextBoostInterval = minInterval + (int)(Math.random() * (maxInterval - minInterval + 1));
+                
+                while (regularIndex < regularOnly.size() || boostedIndex < boostedPosts.size()) {
+                        // Insert boosted post if interval reached and we have boosted posts left
+                        if (boostedIndex < boostedPosts.size() && postsSinceBoost >= nextBoostInterval) {
+                                result.add(boostedPosts.get(boostedIndex++));
+                                postsSinceBoost = 0;
+                                nextBoostInterval = minInterval + (int)(Math.random() * (maxInterval - minInterval + 1));
+                        } else if (regularIndex < regularOnly.size()) {
+                                result.add(regularOnly.get(regularIndex++));
+                                postsSinceBoost++;
+                        } else if (boostedIndex < boostedPosts.size()) {
+                                // Add remaining boosted posts at the end
+                                result.add(boostedPosts.get(boostedIndex++));
+                        }
+                }
+                
+                return result;
+        }
+
         public PagedResponse<PostResponse> getPublicFeed(int page, int size) {
                 Pageable pageable = PageRequest.of(page, size);
                 Page<Post> posts = postRepository.findByVisibility(Visibility.PUBLIC, pageable);
+                
+                // Get active boosted posts for public feed too
+                LocalDateTime now = LocalDateTime.now();
+                List<Promotion> activePromotions = promotionRepository.findActivePromotions(now).stream()
+                        .filter(p -> p.getType() == PromotionType.POST 
+                                && p.getTargetId() != null
+                                && p.getReach() != null 
+                                && (p.getImpressions() == null || p.getImpressions() < p.getReach()))
+                        .collect(Collectors.toList());
+                
+                Map<UUID, Promotion> postPromotionMap = activePromotions.stream()
+                        .filter(p -> p.getTargetId() != null)
+                        .collect(Collectors.toMap(Promotion::getTargetId, p -> p, (p1, p2) -> p1));
 
                 return PagedResponse.<PostResponse>builder()
                                 .content(posts.getContent().stream()
-                                                .map(post -> mapToPostResponse(post, null))
+                                                .map(post -> {
+                                                    PostResponse response = mapToPostResponse(post, null);
+                                                    Promotion promotion = postPromotionMap.get(post.getId());
+                                                    if (promotion != null) {
+                                                        response.setIsSponsored(true);
+                                                        response.setPromotionId(promotion.getId());
+                                                    }
+                                                    return response;
+                                                })
                                                 .collect(Collectors.toList()))
                                 .page(posts.getNumber())
                                 .size(posts.getSize())

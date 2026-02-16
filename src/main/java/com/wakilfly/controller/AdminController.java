@@ -399,33 +399,10 @@ public class AdminController {
     @GetMapping("/settings")
     public ResponseEntity<ApiResponse<AdminSettingsResponse>> getSettings() {
         AdminSettingsResponse settings = adminService.getSettings();
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         return ResponseEntity.ok(ApiResponse.success(settings));
     }
 
     /**
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-     * Update fee amounts (agent register, business activation)
-     * PUT /api/v1/admin/settings
-     * Body: { "agentRegisterAmount": 20000, "businessActivationAmount": 10000 }
-     */
-    @PutMapping("/settings")
-    public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> updateSettings(
-            @RequestBody Map<String, Object> request) {
-        BigDecimal agentRegisterAmount = request.get("agentRegisterAmount") != null
-                ? new BigDecimal(request.get("agentRegisterAmount").toString()) : null;
-        BigDecimal businessActivationAmount = request.get("businessActivationAmount") != null
-                ? new BigDecimal(request.get("businessActivationAmount").toString()) : null;
-        systemConfigService.updateFeeAmounts(agentRegisterAmount, businessActivationAmount);
-        Map<String, BigDecimal> updated = systemConfigService.getFeeAmounts();
-        return ResponseEntity.ok(ApiResponse.success("Settings updated", updated));
-=======
-=======
->>>>>>> Stashed changes
      * Update admin settings
      * PUT /api/v1/admin/settings
      */
@@ -434,9 +411,25 @@ public class AdminController {
             @RequestBody AdminSettingsUpdateRequest request) {
         AdminSettingsResponse settings = adminService.updateSettings(request);
         return ResponseEntity.ok(ApiResponse.success("Settings updated", settings));
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+    }
+
+    // ==================== PAYMENT MONITORING ====================
+
+    /**
+     * Get all payments with filters (for admin monitoring)
+     * GET /api/v1/admin/payments
+     */
+    @GetMapping("/payments")
+    public ResponseEntity<ApiResponse<PagedResponse<PaymentHistoryResponse>>> getAllPayments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) PaymentType type,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        PagedResponse<PaymentHistoryResponse> payments = adminService.getAllPayments(
+                page, size, status, type, userId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponse.success(payments));
     }
 }

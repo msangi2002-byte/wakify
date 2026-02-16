@@ -43,6 +43,10 @@ public class PostResponse {
     private String storyGradient;
     private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;
+    /** Indicates if this post is sponsored/promoted (boosted) */
+    private Boolean isSponsored;
+    /** Promotion ID if this post is sponsored */
+    private UUID promotionId;
 
     @Data
     @Builder

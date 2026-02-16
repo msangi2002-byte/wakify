@@ -43,4 +43,20 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status AND p.createdAt >= :date")
     BigDecimal sumByStatusAndDateAfter(@Param("status") PaymentStatus status, @Param("date") LocalDateTime date);
+
+    // Admin: Get all payments with filters
+    @Query("SELECT p FROM Payment p WHERE " +
+            "(:status IS NULL OR p.status = :status) AND " +
+            "(:type IS NULL OR p.type = :type) AND " +
+            "(:userId IS NULL OR p.user.id = :userId) AND " +
+            "(:startDate IS NULL OR p.createdAt >= :startDate) AND " +
+            "(:endDate IS NULL OR p.createdAt <= :endDate) " +
+            "ORDER BY p.createdAt DESC")
+    Page<Payment> findAllWithFilters(
+            @Param("status") PaymentStatus status,
+            @Param("type") PaymentType type,
+            @Param("userId") UUID userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 }

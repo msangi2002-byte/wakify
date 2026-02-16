@@ -56,6 +56,11 @@ public class SystemSettingsService {
         return getAmount(KEY_TO_BE_BUSINESS_AMOUNT, DEFAULT_TO_BE_BUSINESS);
     }
 
+    /** Used by PostBoostService for ads price per person. */
+    public BigDecimal getAdsPricePerPerson() {
+        return getAmount(KEY_ADS_PRICE_PER_PERSON, DEFAULT_ADS_PRICE_PER_PERSON);
+    }
+
     private BigDecimal getAmount(String key, BigDecimal defaultValue) {
         return systemSettingsRepository.findByKey(key)
                 .map(s -> {

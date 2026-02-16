@@ -1515,6 +1515,19 @@ CREATE TABLE `subscriptions` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `system_config`
+--
+
+CREATE TABLE `system_config` (
+  `id` binary(16) NOT NULL,
+  `config_key` varchar(64) NOT NULL,
+  `config_value` varchar(255) NOT NULL,
+  UNIQUE KEY `uk_config_key` (`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -2143,6 +2156,13 @@ ALTER TABLE `story_views`
 ALTER TABLE `subscriptions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `UK_r13wticerot66fejnp4s310f3` (`business_id`);
+
+--
+-- Indexes for table `system_config`
+--
+ALTER TABLE `system_config`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_config_key` (`config_key`);
 
 --
 -- Indexes for table `users`

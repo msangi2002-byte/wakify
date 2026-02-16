@@ -7,6 +7,7 @@ import com.wakilfly.service.AdminService;
 import com.wakilfly.service.AuditLogService;
 import com.wakilfly.service.GiftService;
 import com.wakilfly.service.ReportService;
+import com.wakilfly.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +32,7 @@ public class AdminController {
     private final ReportService reportService;
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
+    private final SystemConfigService systemConfigService;
 
     // ==================== DASHBOARD ====================
 
@@ -372,58 +375,32 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
 
-    // ==================== AGENT PACKAGE MANAGEMENT ====================
+    // ==================== SETTINGS (FEE AMOUNTS) ====================
 
     /**
-     * Get all agent packages
-     * GET /api/v1/admin/agent-packages
+     * Get admin settings (agent register amount, business activation amount)
+     * GET /api/v1/admin/settings
      */
-    @GetMapping("/agent-packages")
-    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAgentPackages() {
-        java.util.List<AgentPackageResponse> packages = adminService.getAllAgentPackages();
-        return ResponseEntity.ok(ApiResponse.success(packages));
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getSettings() {
+        Map<String, BigDecimal> settings = systemConfigService.getFeeAmounts();
+        return ResponseEntity.ok(ApiResponse.success(settings));
     }
 
     /**
-     * Create agent package
-     * POST /api/v1/admin/agent-packages
+     * Update fee amounts (agent register, business activation)
+     * PUT /api/v1/admin/settings
+     * Body: { "agentRegisterAmount": 20000, "businessActivationAmount": 10000 }
      */
-    @PostMapping("/agent-packages")
-    public ResponseEntity<ApiResponse<AgentPackageResponse>> createAgentPackage(
-            @RequestBody com.wakilfly.dto.request.CreateAgentPackageRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        AgentPackageResponse agentPackage = adminService.createAgentPackage(request);
-        auditLogService.log(adminId, "AGENT_PACKAGE_CREATED", "AgentPackage", agentPackage.getId(), "Created package: " + request.getName(), null, null, null);
-        return ResponseEntity.ok(ApiResponse.success("Agent package created successfully", agentPackage));
-    }
-
-    /**
-     * Update agent package
-     * PUT /api/v1/admin/agent-packages/{id}
-     */
-    @PutMapping("/agent-packages/{id}")
-    public ResponseEntity<ApiResponse<AgentPackageResponse>> updateAgentPackage(
-            @PathVariable UUID id,
-            @RequestBody com.wakilfly.dto.request.CreateAgentPackageRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        AgentPackageResponse agentPackage = adminService.updateAgentPackage(id, request);
-        auditLogService.log(adminId, "AGENT_PACKAGE_UPDATED", "AgentPackage", id, "Updated package: " + request.getName(), null, null, null);
-        return ResponseEntity.ok(ApiResponse.success("Agent package updated successfully", agentPackage));
-    }
-
-    /**
-     * Delete agent package
-     * DELETE /api/v1/admin/agent-packages/{id}
-     */
-    @DeleteMapping("/agent-packages/{id}")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> deleteAgentPackage(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        adminService.deleteAgentPackage(id);
-        auditLogService.log(adminId, "AGENT_PACKAGE_DELETED", "AgentPackage", id, "Deleted agent package", null, null, null);
-        return ResponseEntity.ok(ApiResponse.success("Agent package deleted successfully"));
+    @PutMapping("/settings")
+    public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> updateSettings(
+            @RequestBody Map<String, Object> request) {
+        BigDecimal agentRegisterAmount = request.get("agentRegisterAmount") != null
+                ? new BigDecimal(request.get("agentRegisterAmount").toString()) : null;
+        BigDecimal businessActivationAmount = request.get("businessActivationAmount") != null
+                ? new BigDecimal(request.get("businessActivationAmount").toString()) : null;
+        systemConfigService.updateFeeAmounts(agentRegisterAmount, businessActivationAmount);
+        Map<String, BigDecimal> updated = systemConfigService.getFeeAmounts();
+        return ResponseEntity.ok(ApiResponse.success("Settings updated", updated));
     }
 }

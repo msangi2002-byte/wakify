@@ -30,9 +30,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BusinessRequestService {
 
-    private static final BigDecimal BUSINESS_ACTIVATION_FEE = new BigDecimal("10000.00");
-
     private final BusinessRequestRepository businessRequestRepository;
+    private final SystemConfigService systemConfigService;
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
     private final BusinessRepository businessRepository;
@@ -73,11 +72,12 @@ public class BusinessRequestService {
         br = businessRequestRepository.save(br);
 
         // System completes the request: push USSD payment; after payment, system will create business and approve user
+        BigDecimal businessActivationFee = systemConfigService.getBusinessActivationAmount();
         String phone = request.getOwnerPhone().trim();
         String description = "Business activation: " + br.getBusinessName();
         String orderId = paymentService.initiatePayment(
                 userId,
-                BUSINESS_ACTIVATION_FEE,
+                businessActivationFee,
                 PaymentType.BUSINESS_ACTIVATION,
                 phone,
                 description,

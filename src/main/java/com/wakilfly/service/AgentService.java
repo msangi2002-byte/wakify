@@ -8,6 +8,7 @@ import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;
+import com.wakilfly.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,7 +27,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@SuppressWarnings("null")
 public class AgentService {
 
         private final AgentRepository agentRepository;
@@ -34,14 +34,10 @@ public class AgentService {
         private final BusinessRepository businessRepository;
         private final CommissionRepository commissionRepository;
         private final PaymentRepository paymentRepository;
-        private final PaymentService paymentService;
         private final WithdrawalRepository withdrawalRepository;
-        private final AgentPackageRepository agentPackageRepository;
         private final PasswordEncoder passwordEncoder;
+        private final SystemConfigService systemConfigService;
 
-        // Constants
-        private static final BigDecimal AGENT_REGISTRATION_FEE = new BigDecimal("20000.00");
-        private static final BigDecimal BUSINESS_ACTIVATION_FEE = new BigDecimal("10000.00");
         private static final BigDecimal AGENT_COMMISSION = new BigDecimal("5000.00");
 
         /**
@@ -83,10 +79,11 @@ public class AgentService {
 
                 agent = agentRepository.save(agent);
 
+                BigDecimal agentRegistrationFee = systemConfigService.getAgentRegisterAmount();
                 // Create payment record for registration fee
                 Payment payment = Payment.builder()
                                 .user(user)
-                                .amount(AGENT_REGISTRATION_FEE)
+                                .amount(agentRegistrationFee)
                                 .type(PaymentType.AGENT_REGISTRATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Agent registration fee")
@@ -139,18 +136,6 @@ public class AgentService {
                         throw new BadRequestException("Your agent account is not active. Status: " + agent.getStatus());
                 }
 
-                // Check package limit
-                if (agent.getAgentPackage() != null) {
-                        Integer maxBusinesses = agent.getAgentPackage().getNumberOfBusinesses();
-                        Integer currentCount = agent.getBusinessesActivated() != null ? agent.getBusinessesActivated() : 0;
-                        if (currentCount >= maxBusinesses) {
-                                throw new BadRequestException(
-                                                String.format("You have reached your package limit of %d businesses. Please upgrade your package to activate more businesses.", maxBusinesses));
-                        }
-                } else {
-                        throw new BadRequestException("You need to purchase an agent package to activate businesses. Please visit the Packages section to purchase a package.");
-                }
-
                 // Agents only register users who DON'T have an account. Users with an account complete payment in the app (USSD) and the system approves them.
                 if (request.getOwnerId() != null) {
                         throw new BadRequestException(
@@ -166,11 +151,7 @@ public class AgentService {
                         throw new BadRequestException(
                                         "Owner password is required (min 6 characters) so they can log in after payment.");
                 }
-                
-                // Normalize phone number to ensure consistent format for login
-                String normalizedPhone = normalizePhone(request.getOwnerPhone().trim());
-                
-                if (userRepository.existsByPhone(normalizedPhone)) {
+                if (userRepository.existsByPhone(request.getOwnerPhone())) {
                         throw new BadRequestException(
                                         "Phone number already registered. That user should request business in the app and pay via USSD.");
                 }
@@ -182,11 +163,11 @@ public class AgentService {
                 String encodedPassword = passwordEncoder.encode(request.getOwnerPassword().trim());
                 User owner = User.builder()
                                 .name(request.getOwnerName())
-                                .phone(normalizedPhone)
+                                .phone(request.getOwnerPhone())
                                 .email(request.getOwnerEmail() != null ? request.getOwnerEmail().trim() : null)
                                 .password(encodedPassword)
                                 .role(Role.BUSINESS)
-                                .isVerified(true) // Auto-verify users created by agents (they can login immediately)
+                                .isVerified(false)
                                 .isActive(true)
                                 .build();
                 owner = userRepository.save(owner);
@@ -213,10 +194,11 @@ public class AgentService {
 
                 business = businessRepository.save(business);
 
+                BigDecimal businessActivationFee = systemConfigService.getBusinessActivationAmount();
                 // Create payment record for activation fee
                 Payment payment = Payment.builder()
                                 .user(owner)
-                                .amount(BUSINESS_ACTIVATION_FEE)
+                                .amount(businessActivationFee)
                                 .type(PaymentType.BUSINESS_ACTIVATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Business activation fee for " + request.getBusinessName())
@@ -349,37 +331,24 @@ public class AgentService {
                         // Create subscription (1 month free trial or based on payment)
                         // TODO: Create subscription record
 
-                        // Create commission for agent (check for duplicates first)
+                        // Create commission for agent
+                        Commission commission = Commission.builder()
+                                        .agent(business.getAgent())
+                                        .business(business)
+                                        .amount(AGENT_COMMISSION)
+                                        .type(CommissionType.ACTIVATION)
+                                        .status(CommissionStatus.PENDING)
+                                        .description("Commission for activating business: " + business.getName())
+                                        .build();
+                        commissionRepository.save(commission);
+
+                        // Update agent earnings
                         Agent agent = business.getAgent();
-                        if (agent != null) {
-                                // Check if commission already exists for this business and agent
-                                boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), PageRequest.of(0, 100))
-                                                .getContent()
-                                                .stream()
-                                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(business.getId()) 
-                                                        && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
+                        agent.addEarnings(AGENT_COMMISSION);
+                        agentRepository.save(agent);
 
-                                if (!commissionExists) {
-                                        Commission commission = Commission.builder()
-                                                        .agent(agent)
-                                                        .business(business)
-                                                        .amount(AGENT_COMMISSION)
-                                                        .type(CommissionType.ACTIVATION)
-                                                        .status(CommissionStatus.PENDING)
-                                                        .description("Commission for activating business: " + business.getName())
-                                                        .build();
-                                        commissionRepository.save(commission);
-
-                                        // Update agent earnings
-                                        agent.addEarnings(AGENT_COMMISSION);
-                                        agentRepository.save(agent);
-
-                                        log.info("Business {} activated, commission {} created for agent {}",
-                                                        business.getName(), AGENT_COMMISSION, agent.getAgentCode());
-                                } else {
-                                        log.info("Commission already exists for business {}, skipping commission creation", business.getName());
-                                }
-                        }
+                        log.info("Business {} activated, commission {} created for agent {}",
+                                        business.getName(), AGENT_COMMISSION, agent.getAgentCode());
                 }
         }
 
@@ -395,29 +364,6 @@ public class AgentService {
 
         private String generateTransactionId() {
                 return "TXN" + System.currentTimeMillis() + new Random().nextInt(1000);
-        }
-
-        /**
-         * Normalize phone number to consistent format (255XXXXXXXXX)
-         * Handles formats: +255..., 255..., 0...
-         */
-        private String normalizePhone(String phone) {
-                if (phone == null || phone.isBlank()) {
-                        return phone;
-                }
-                // Remove all non-digit characters
-                String digits = phone.replaceAll("[^0-9]", "");
-                
-                // Convert to international format (255XXXXXXXXX)
-                if (digits.startsWith("0") && digits.length() > 1) {
-                        return "255" + digits.substring(1);
-                } else if (digits.startsWith("255")) {
-                        return digits;
-                } else if (digits.length() >= 9) {
-                        // Assume it's a local number without country code
-                        return "255" + digits;
-                }
-                return digits;
         }
 
         private AgentResponse mapToAgentResponse(Agent agent) {
@@ -598,114 +544,6 @@ public class AgentService {
                 log.info("Withdrawal {} cancelled by agent {}", withdrawalId, agent.getAgentCode());
         }
 
-        /**
-         * Approve/Verify a business activation manually (agent can approve businesses they activated)
-         * POST /api/v1/agent/businesses/{id}/approve
-         */
-        @Transactional
-        public BusinessResponse approveBusiness(UUID businessId, UUID agentUserId) {
-                Agent agent = agentRepository.findByUserId(agentUserId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
-
-                Business business = businessRepository.findById(businessId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
-
-                // Verify the business belongs to this agent
-                if (business.getAgent() == null || !business.getAgent().getId().equals(agent.getId())) {
-                        throw new BadRequestException("You can only approve businesses that you activated");
-                }
-
-                // Can only approve pending businesses
-                if (business.getStatus() != BusinessStatus.PENDING) {
-                        throw new BadRequestException("Only pending businesses can be approved. Current status: " + business.getStatus());
-                }
-
-                // Approve the business
-                business.setStatus(BusinessStatus.ACTIVE);
-                business = businessRepository.save(business);
-
-                // Ensure the owner user is verified so they can log in
-                User owner = business.getOwner();
-                if (owner != null && !Boolean.TRUE.equals(owner.getIsVerified())) {
-                        owner.setIsVerified(true);
-                        userRepository.save(owner);
-                }
-
-                final Business savedBusiness = business;
-
-                // Create commission for agent if not already created (e.g., from payment)
-                // Check if commission already exists for this business and agent
-                boolean commissionExists = commissionRepository.findByAgentIdOrderByCreatedAtDesc(agent.getId(), PageRequest.of(0, 100))
-                                .getContent()
-                                .stream()
-                                .anyMatch(c -> c.getBusiness() != null && c.getBusiness().getId().equals(savedBusiness.getId()) 
-                                        && (c.getType() == CommissionType.BUSINESS_ACTIVATION || c.getType() == CommissionType.ACTIVATION));
-
-                if (!commissionExists) {
-                        // Create commission for agent who activated the business
-                        Commission commission = Commission.builder()
-                                        .agent(agent)
-                                        .business(business)
-                                        .amount(AGENT_COMMISSION)
-                                        .type(CommissionType.BUSINESS_ACTIVATION)
-                                        .description("Commission for manually approving business: " + business.getName())
-                                        .status(CommissionStatus.PAID)
-                                        .paidAt(LocalDateTime.now())
-                                        .build();
-                        commissionRepository.save(commission);
-
-                        // Update agent earnings and business count
-                        agent.addEarnings(AGENT_COMMISSION);
-                        agent.setBusinessesActivated(agent.getBusinessesActivated() + 1);
-                        agentRepository.save(agent);
-
-                        log.info("Agent {} earned {} TZS commission for manually approving business {}",
-                                        agent.getAgentCode(), AGENT_COMMISSION, business.getName());
-                } else {
-                        log.info("Commission already exists for business {}, skipping commission creation", business.getName());
-                }
-
-                log.info("Business {} approved manually by agent {}", business.getName(), agent.getAgentCode());
-
-                return mapToBusinessResponse(business);
-        }
-
-        /**
-         * Cancel a business activation (agent can cancel businesses they activated that are still pending)
-         * DELETE /api/v1/agent/businesses/{id}
-         */
-        @Transactional
-        public void cancelBusiness(UUID businessId, UUID agentUserId) {
-                Agent agent = agentRepository.findByUserId(agentUserId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
-
-                Business business = businessRepository.findById(businessId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
-
-                // Verify the business belongs to this agent
-                if (business.getAgent() == null || !business.getAgent().getId().equals(agent.getId())) {
-                        throw new BadRequestException("You can only cancel businesses that you activated");
-                }
-
-                // Can only cancel pending businesses (not active or already cancelled)
-                if (business.getStatus() != BusinessStatus.PENDING) {
-                        throw new BadRequestException("Only pending businesses can be cancelled. Current status: " + business.getStatus());
-                }
-
-                // Check if payment has been made
-                Payment payment = paymentRepository.findByRelatedEntityTypeAndRelatedEntityId("BUSINESS", businessId)
-                                .orElse(null);
-                if (payment != null && payment.getStatus() == PaymentStatus.SUCCESS) {
-                        throw new BadRequestException("Cannot cancel business that has already been paid. Please contact admin.");
-                }
-
-                // Set status to INACTIVE instead of deleting (to maintain audit trail)
-                business.setStatus(BusinessStatus.INACTIVE);
-                businessRepository.save(business);
-
-                log.info("Business {} cancelled by agent {}", business.getName(), agent.getAgentCode());
-        }
-
         private WithdrawalResponse mapToWithdrawalResponse(Withdrawal withdrawal) {
                 return WithdrawalResponse.builder()
                                 .id(withdrawal.getId())
@@ -742,90 +580,13 @@ public class AgentService {
                 BigDecimal pendingWithdrawals = withdrawalRepository.sumAmountByAgentIdAndStatus(
                                 agent.getId(), WithdrawalStatus.PENDING);
 
-                AgentDashboardResponse.AgentDashboardResponseBuilder builder = AgentDashboardResponse.builder()
+                return AgentDashboardResponse.builder()
                                 .currentBalance(agent.getAvailableBalance())
                                 .totalEarnings(agent.getTotalEarnings())
                                 .todayEarnings(todayEarnings != null ? todayEarnings : BigDecimal.ZERO)
                                 .pendingWithdrawals(pendingWithdrawals != null ? pendingWithdrawals : BigDecimal.ZERO)
                                 .totalBusinessesActivated(agent.getBusinessesActivated())
-                                .totalReferrals(agent.getTotalReferrals());
-
-                // Include package information
-                if (agent.getAgentPackage() != null) {
-                        Integer currentCount = agent.getBusinessesActivated() != null ? agent.getBusinessesActivated() : 0;
-                        Integer maxBusinesses = agent.getAgentPackage().getNumberOfBusinesses();
-                        builder.packageId(agent.getAgentPackage().getId())
-                                .packageName(agent.getAgentPackage().getName())
-                                .packageMaxBusinesses(maxBusinesses)
-                                .packageRemainingBusinesses(Math.max(0, maxBusinesses - currentCount));
-                }
-
-                return builder.build();
-        }
-
-        // ==================== AGENT PACKAGE MANAGEMENT ====================
-
-        /**
-         * Get all available agent packages
-         */
-        public java.util.List<AgentPackageResponse> getAvailablePackages() {
-                return agentPackageRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
-                                .map(this::mapAgentPackageToResponse)
-                                .collect(Collectors.toList());
-        }
-
-        /**
-         * Initiate package purchase/upgrade payment
-         */
-        @Transactional
-        public String initiatePackagePurchase(UUID agentUserId, UUID packageId, String paymentPhone) {
-                Agent agent = agentRepository.findByUserId(agentUserId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
-
-                if (agent.getStatus() != AgentStatus.ACTIVE) {
-                        throw new BadRequestException("Your agent account is not active. Status: " + agent.getStatus());
-                }
-
-                AgentPackage agentPackage = agentPackageRepository.findById(packageId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Agent package not found"));
-
-                if (!agentPackage.getIsActive()) {
-                        throw new BadRequestException("This package is not available");
-                }
-
-                // Check if agent already has this package
-                if (agent.getAgentPackage() != null && agent.getAgentPackage().getId().equals(packageId)) {
-                        throw new BadRequestException("You already have this package");
-                }
-
-                // Create payment via PaymentService
-                String orderId = paymentService.initiatePayment(
-                                agentUserId,
-                                agentPackage.getPrice(),
-                                PaymentType.AGENT_PACKAGE,
-                                paymentPhone,
-                                "Agent Package: " + agentPackage.getName(),
-                                packageId,
-                                "AGENT_PACKAGE");
-
-                log.info("Agent {} initiated package purchase {} - payment orderId: {}", 
-                                agent.getAgentCode(), agentPackage.getName(), orderId);
-
-                return orderId;
-        }
-
-        private AgentPackageResponse mapAgentPackageToResponse(AgentPackage agentPackage) {
-                return AgentPackageResponse.builder()
-                                .id(agentPackage.getId())
-                                .name(agentPackage.getName())
-                                .description(agentPackage.getDescription())
-                                .price(agentPackage.getPrice())
-                                .numberOfBusinesses(agentPackage.getNumberOfBusinesses())
-                                .isActive(agentPackage.getIsActive())
-                                .isPopular(agentPackage.getIsPopular())
-                                .sortOrder(agentPackage.getSortOrder())
-                                .createdAt(agentPackage.getCreatedAt())
-                                .updatedAt(agentPackage.getUpdatedAt())
+                                .totalReferrals(agent.getTotalReferrals())
                                 .build();
         }
 }

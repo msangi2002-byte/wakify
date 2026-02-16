@@ -2,9 +2,11 @@ package com.wakilfly.config;
 
 import com.wakilfly.model.CoinPackage;
 import com.wakilfly.model.Role;
+import com.wakilfly.model.SystemConfig;
 import com.wakilfly.model.User;
 import com.wakilfly.model.VirtualGift;
 import com.wakilfly.repository.CoinPackageRepository;
+import com.wakilfly.repository.SystemConfigRepository;
 import com.wakilfly.repository.UserRepository;
 import com.wakilfly.repository.VirtualGiftRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class DataInitializer implements CommandLineRunner {
     private final CoinPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SystemConfigRepository systemConfigRepository;
 
     @Override
     public void run(String... args) {
@@ -32,7 +35,23 @@ public class DataInitializer implements CommandLineRunner {
         if (packageRepository.count() == 0) {
             seedPackages();
         }
+        seedSystemConfigIfMissing();
         seedTestUserIfMissing();
+    }
+
+    private void seedSystemConfigIfMissing() {
+        if (systemConfigRepository.findByConfigKey(SystemConfig.KEY_AGENT_REGISTER_AMOUNT).isEmpty()) {
+            systemConfigRepository.save(SystemConfig.builder()
+                    .configKey(SystemConfig.KEY_AGENT_REGISTER_AMOUNT)
+                    .configValue(SystemConfig.DEFAULT_AGENT_REGISTER_AMOUNT)
+                    .build());
+        }
+        if (systemConfigRepository.findByConfigKey(SystemConfig.KEY_BUSINESS_ACTIVATION_AMOUNT).isEmpty()) {
+            systemConfigRepository.save(SystemConfig.builder()
+                    .configKey(SystemConfig.KEY_BUSINESS_ACTIVATION_AMOUNT)
+                    .configValue(SystemConfig.DEFAULT_BUSINESS_ACTIVATION_AMOUNT)
+                    .build());
+        }
     }
 
     /** Test user for login API testing: phone 255712000000, password test123 (or email test@wakilfy.com) */

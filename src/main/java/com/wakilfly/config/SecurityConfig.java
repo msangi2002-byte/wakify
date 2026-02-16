@@ -57,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/code/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/config/fees").permitAll()
                         // Agent registration - any authenticated user can register
                         .requestMatchers(HttpMethod.POST, "/api/v1/agent/register").authenticated()
                         // Other Agent endpoints - require AGENT role

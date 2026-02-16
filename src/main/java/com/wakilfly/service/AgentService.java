@@ -37,8 +37,14 @@ public class AgentService {
         private final WithdrawalRepository withdrawalRepository;
         private final PasswordEncoder passwordEncoder;
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         private final SystemConfigService systemConfigService;
 
+=======
+        private final SystemSettingsService systemSettingsService;
+
+        // Commission per business activation (fixed for now)
+>>>>>>> Stashed changes
 =======
         private final SystemSettingsService systemSettingsService;
 
@@ -91,7 +97,11 @@ public class AgentService {
                 Payment payment = Payment.builder()
                                 .user(user)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                                 .amount(agentRegistrationFee)
+=======
+                                .amount(registrationFee)
+>>>>>>> Stashed changes
 =======
                                 .amount(registrationFee)
 >>>>>>> Stashed changes
@@ -211,7 +221,11 @@ public class AgentService {
                 Payment payment = Payment.builder()
                                 .user(owner)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                                 .amount(businessActivationFee)
+=======
+                                .amount(activationFee)
+>>>>>>> Stashed changes
 =======
                                 .amount(activationFee)
 >>>>>>> Stashed changes

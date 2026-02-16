@@ -377,6 +377,7 @@ public class AdminController {
     }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     // ==================== SETTINGS (FEE AMOUNTS) ====================
 
     /**
@@ -387,6 +388,8 @@ public class AdminController {
     public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getSettings() {
         Map<String, BigDecimal> settings = systemConfigService.getFeeAmounts();
 =======
+=======
+>>>>>>> Stashed changes
     // ==================== SETTINGS ====================
 
     /**
@@ -396,11 +399,15 @@ public class AdminController {
     @GetMapping("/settings")
     public ResponseEntity<ApiResponse<AdminSettingsResponse>> getSettings() {
         AdminSettingsResponse settings = adminService.getSettings();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         return ResponseEntity.ok(ApiResponse.success(settings));
     }
 
     /**
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
      * Update fee amounts (agent register, business activation)
      * PUT /api/v1/admin/settings
@@ -417,6 +424,8 @@ public class AdminController {
         Map<String, BigDecimal> updated = systemConfigService.getFeeAmounts();
         return ResponseEntity.ok(ApiResponse.success("Settings updated", updated));
 =======
+=======
+>>>>>>> Stashed changes
      * Update admin settings
      * PUT /api/v1/admin/settings
      */
@@ -425,6 +434,9 @@ public class AdminController {
             @RequestBody AdminSettingsUpdateRequest request) {
         AdminSettingsResponse settings = adminService.updateSettings(request);
         return ResponseEntity.ok(ApiResponse.success("Settings updated", settings));
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     }
 }

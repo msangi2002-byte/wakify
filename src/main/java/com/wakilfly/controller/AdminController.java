@@ -1,6 +1,7 @@
 package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
+import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.model.*;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -431,5 +432,50 @@ public class AdminController {
         PagedResponse<PaymentHistoryResponse> payments = adminService.getAllPayments(
                 page, size, status, type, userId, startDate, endDate);
         return ResponseEntity.ok(ApiResponse.success(payments));
+    }
+
+    // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+    /**
+     * Get all agent packages
+     * GET /api/v1/admin/agent-packages
+     */
+    @GetMapping("/agent-packages")
+    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAgentPackages() {
+        java.util.List<AgentPackageResponse> packages = adminService.getAllAgentPackages();
+        return ResponseEntity.ok(ApiResponse.success(packages));
+    }
+
+    /**
+     * Create a new agent package
+     * POST /api/v1/admin/agent-packages
+     */
+    @PostMapping("/agent-packages")
+    public ResponseEntity<ApiResponse<AgentPackageResponse>> createAgentPackage(
+            @RequestBody CreateAgentPackageRequest request) {
+        AgentPackageResponse packageResponse = adminService.createAgentPackage(request);
+        return ResponseEntity.ok(ApiResponse.success("Agent package created successfully", packageResponse));
+    }
+
+    /**
+     * Update an agent package
+     * PUT /api/v1/admin/agent-packages/{id}
+     */
+    @PutMapping("/agent-packages/{id}")
+    public ResponseEntity<ApiResponse<AgentPackageResponse>> updateAgentPackage(
+            @PathVariable UUID id,
+            @RequestBody CreateAgentPackageRequest request) {
+        AgentPackageResponse packageResponse = adminService.updateAgentPackage(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Agent package updated successfully", packageResponse));
+    }
+
+    /**
+     * Delete an agent package
+     * DELETE /api/v1/admin/agent-packages/{id}
+     */
+    @DeleteMapping("/agent-packages/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteAgentPackage(@PathVariable UUID id) {
+        adminService.deleteAgentPackage(id);
+        return ResponseEntity.ok(ApiResponse.success("Agent package deleted successfully"));
     }
 }

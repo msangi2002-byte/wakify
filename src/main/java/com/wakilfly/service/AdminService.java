@@ -1,6 +1,7 @@
 package com.wakilfly.service;
 
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
+import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
@@ -38,6 +39,7 @@ public class AdminService {
     private final PromotionRepository promotionRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentRepository paymentRepository;
+    private final AgentPackageRepository agentPackageRepository;
     private final AuditLogService auditLogService;
     private final SystemSettingsService systemSettingsService;
 
@@ -540,6 +542,110 @@ public class AdminService {
                 .description(payment.getDescription())
                 .paidAt(payment.getPaidAt())
                 .createdAt(payment.getCreatedAt())
+                .build();
+    }
+
+    // ==================== AGENT PACKAGE MANAGEMENT ====================
+
+    /**
+     * Get all agent packages
+     */
+    public java.util.List<AgentPackageResponse> getAllAgentPackages() {
+        return agentPackageRepository.findAll().stream()
+                .map(this::mapAgentPackageToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Create a new agent package
+     */
+    @Transactional
+    public AgentPackageResponse createAgentPackage(CreateAgentPackageRequest request) {
+        AgentPackage agentPackage = AgentPackage.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .numberOfBusinesses(request.getNumberOfBusinesses())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .isPopular(request.getIsPopular() != null ? request.getIsPopular() : false)
+                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
+                .build();
+
+        agentPackage = agentPackageRepository.save(agentPackage);
+        log.info("Agent package created: {}", agentPackage.getId());
+
+        return mapAgentPackageToResponse(agentPackage);
+    }
+
+    /**
+     * Update an agent package
+     */
+    @Transactional
+    public AgentPackageResponse updateAgentPackage(UUID packageId, CreateAgentPackageRequest request) {
+        AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent Package", "id", packageId));
+
+        if (request.getName() != null) {
+            agentPackage.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            agentPackage.setDescription(request.getDescription());
+        }
+        if (request.getPrice() != null) {
+            agentPackage.setPrice(request.getPrice());
+        }
+        if (request.getNumberOfBusinesses() != null) {
+            agentPackage.setNumberOfBusinesses(request.getNumberOfBusinesses());
+        }
+        if (request.getIsActive() != null) {
+            agentPackage.setIsActive(request.getIsActive());
+        }
+        if (request.getIsPopular() != null) {
+            agentPackage.setIsPopular(request.getIsPopular());
+        }
+        if (request.getSortOrder() != null) {
+            agentPackage.setSortOrder(request.getSortOrder());
+        }
+
+        agentPackage = agentPackageRepository.save(agentPackage);
+        log.info("Agent package updated: {}", agentPackage.getId());
+
+        return mapAgentPackageToResponse(agentPackage);
+    }
+
+    /**
+     * Delete an agent package
+     */
+    @Transactional
+    public void deleteAgentPackage(UUID packageId) {
+        AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent Package", "id", packageId));
+
+        // Check if any agents are using this package
+        long agentsUsingPackage = agentRepository.findAll().stream()
+                .filter(agent -> agent.getAgentPackage() != null && agent.getAgentPackage().getId().equals(packageId))
+                .count();
+        if (agentsUsingPackage > 0) {
+            throw new BadRequestException(
+                    String.format("Cannot delete package. %d agent(s) are currently using this package.", agentsUsingPackage));
+        }
+
+        agentPackageRepository.delete(agentPackage);
+        log.info("Agent package deleted: {}", packageId);
+    }
+
+    private AgentPackageResponse mapAgentPackageToResponse(AgentPackage agentPackage) {
+        return AgentPackageResponse.builder()
+                .id(agentPackage.getId())
+                .name(agentPackage.getName())
+                .description(agentPackage.getDescription())
+                .price(agentPackage.getPrice())
+                .numberOfBusinesses(agentPackage.getNumberOfBusinesses())
+                .isActive(agentPackage.getIsActive())
+                .isPopular(agentPackage.getIsPopular())
+                .sortOrder(agentPackage.getSortOrder())
+                .createdAt(agentPackage.getCreatedAt())
+                .updatedAt(agentPackage.getUpdatedAt())
                 .build();
     }
 }

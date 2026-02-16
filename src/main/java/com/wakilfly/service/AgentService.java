@@ -36,8 +36,14 @@ public class AgentService {
         private final PaymentRepository paymentRepository;
         private final WithdrawalRepository withdrawalRepository;
         private final PasswordEncoder passwordEncoder;
+<<<<<<< Updated upstream
         private final SystemConfigService systemConfigService;
 
+=======
+        private final SystemSettingsService systemSettingsService;
+
+        // Commission per business activation (fixed for now)
+>>>>>>> Stashed changes
         private static final BigDecimal AGENT_COMMISSION = new BigDecimal("5000.00");
 
         /**
@@ -81,9 +87,14 @@ public class AgentService {
 
                 BigDecimal agentRegistrationFee = systemConfigService.getAgentRegisterAmount();
                 // Create payment record for registration fee
+                BigDecimal registrationFee = systemSettingsService.getAgentRegisterAmount();
                 Payment payment = Payment.builder()
                                 .user(user)
+<<<<<<< Updated upstream
                                 .amount(agentRegistrationFee)
+=======
+                                .amount(registrationFee)
+>>>>>>> Stashed changes
                                 .type(PaymentType.AGENT_REGISTRATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Agent registration fee")
@@ -196,9 +207,14 @@ public class AgentService {
 
                 BigDecimal businessActivationFee = systemConfigService.getBusinessActivationAmount();
                 // Create payment record for activation fee
+                BigDecimal activationFee = systemSettingsService.getToBeBusinessAmount();
                 Payment payment = Payment.builder()
                                 .user(owner)
+<<<<<<< Updated upstream
                                 .amount(businessActivationFee)
+=======
+                                .amount(activationFee)
+>>>>>>> Stashed changes
                                 .type(PaymentType.BUSINESS_ACTIVATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Business activation fee for " + request.getBusinessName())

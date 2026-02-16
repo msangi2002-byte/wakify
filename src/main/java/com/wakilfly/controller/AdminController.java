@@ -1,5 +1,6 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.model.*;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -375,6 +376,7 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
 
+<<<<<<< Updated upstream
     // ==================== SETTINGS (FEE AMOUNTS) ====================
 
     /**
@@ -384,10 +386,22 @@ public class AdminController {
     @GetMapping("/settings")
     public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getSettings() {
         Map<String, BigDecimal> settings = systemConfigService.getFeeAmounts();
+=======
+    // ==================== SETTINGS ====================
+
+    /**
+     * Get admin settings (agent register amount, to-be-business amount)
+     * GET /api/v1/admin/settings
+     */
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<AdminSettingsResponse>> getSettings() {
+        AdminSettingsResponse settings = adminService.getSettings();
+>>>>>>> Stashed changes
         return ResponseEntity.ok(ApiResponse.success(settings));
     }
 
     /**
+<<<<<<< Updated upstream
      * Update fee amounts (agent register, business activation)
      * PUT /api/v1/admin/settings
      * Body: { "agentRegisterAmount": 20000, "businessActivationAmount": 10000 }
@@ -402,5 +416,15 @@ public class AdminController {
         systemConfigService.updateFeeAmounts(agentRegisterAmount, businessActivationAmount);
         Map<String, BigDecimal> updated = systemConfigService.getFeeAmounts();
         return ResponseEntity.ok(ApiResponse.success("Settings updated", updated));
+=======
+     * Update admin settings
+     * PUT /api/v1/admin/settings
+     */
+    @PutMapping("/settings")
+    public ResponseEntity<ApiResponse<AdminSettingsResponse>> updateSettings(
+            @RequestBody AdminSettingsUpdateRequest request) {
+        AdminSettingsResponse settings = adminService.updateSettings(request);
+        return ResponseEntity.ok(ApiResponse.success("Settings updated", settings));
+>>>>>>> Stashed changes
     }
 }

@@ -1,5 +1,6 @@
 package com.wakilfly.service;
 
+import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
@@ -38,6 +39,7 @@ public class AdminService {
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentRepository paymentRepository;
     private final AuditLogService auditLogService;
+    private final SystemSettingsService systemSettingsService;
 
     /**
      * Get dashboard statistics
@@ -96,6 +98,21 @@ public class AdminService {
                 .usersByRole(getUsersByRole())
                 .ordersByStatus(getOrdersByStatus())
                 .build();
+    }
+
+    /**
+     * Get admin settings (agent register amount, to-be-business amount).
+     */
+    public AdminSettingsResponse getSettings() {
+        return systemSettingsService.getSettings();
+    }
+
+    /**
+     * Update admin settings.
+     */
+    @Transactional
+    public AdminSettingsResponse updateSettings(AdminSettingsUpdateRequest request) {
+        return systemSettingsService.updateSettings(request);
     }
 
     /**

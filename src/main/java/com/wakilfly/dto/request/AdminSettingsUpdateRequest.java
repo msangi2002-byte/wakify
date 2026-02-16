@@ -20,4 +20,8 @@ public class AdminSettingsUpdateRequest {
     @NotNull
     @DecimalMin("0")
     private BigDecimal toBeBusinessAmount;
+
+    @NotNull
+    @DecimalMin("0")
+    private BigDecimal adsPricePerPerson;
 }

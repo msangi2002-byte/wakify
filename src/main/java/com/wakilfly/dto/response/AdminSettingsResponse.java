@@ -17,4 +17,6 @@ public class AdminSettingsResponse {
     private BigDecimal agentRegisterAmount;
     /** To-be-business (business activation) fee (TZS). */
     private BigDecimal toBeBusinessAmount;
+    /** Ads price per person (TZS). */
+    private BigDecimal adsPricePerPerson;
 }

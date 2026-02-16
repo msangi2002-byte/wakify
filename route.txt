@@ -2227,6 +2227,45 @@ output: {
 }
 ----------------------
 
+route: /api/v1/admin/settings
+method: GET
+auth: Bearer Token (Required, ADMIN only)
+description: Pata admin settings (agent register amount, to-be-business amount, ads price per person)
+example: {}
+output: {
+    "success": true,
+    "data": {
+        "agentRegisterAmount": 20000.00,
+        "toBeBusinessAmount": 10000.00,
+        "adsPricePerPerson": 2.00
+    }
+}
+----------------------
+
+route: /api/v1/admin/settings
+method: PUT
+auth: Bearer Token (Required, ADMIN only)
+description: Badilisha admin settings
+example: {
+    "agentRegisterAmount": 20000,
+    "toBeBusinessAmount": 10000,
+    "adsPricePerPerson": 2
+}
+output: {
+    "success": true,
+    "message": "Settings updated",
+    "data": {
+        "agentRegisterAmount": 20000.00,
+        "toBeBusinessAmount": 10000.00,
+        "adsPricePerPerson": 2.00
+    }
+}
+notes: |
+    - agentRegisterAmount: Amount users pay to register as an agent (TZS)
+    - toBeBusinessAmount: Amount to be paid to activate a business (TZS)
+    - adsPricePerPerson: Price per person for ads (e.g., one person for 2 TZS)
+----------------------
+
 # 📢 Report Routes
 
 route: /api/v1/reports

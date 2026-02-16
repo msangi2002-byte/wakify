@@ -20,17 +20,21 @@ public class SystemSettingsService {
 
     public static final String KEY_AGENT_REGISTER_AMOUNT = "agent_register_amount";
     public static final String KEY_TO_BE_BUSINESS_AMOUNT = "to_be_business_amount";
+    public static final String KEY_ADS_PRICE_PER_PERSON = "ads_price_per_person";
     private static final BigDecimal DEFAULT_AGENT_REGISTER = new BigDecimal("20000.00");
     private static final BigDecimal DEFAULT_TO_BE_BUSINESS = new BigDecimal("10000.00");
+    private static final BigDecimal DEFAULT_ADS_PRICE_PER_PERSON = new BigDecimal("2.00");
 
     private final SystemSettingsRepository systemSettingsRepository;
 
     public AdminSettingsResponse getSettings() {
         BigDecimal agentAmount = getAmount(KEY_AGENT_REGISTER_AMOUNT, DEFAULT_AGENT_REGISTER);
         BigDecimal businessAmount = getAmount(KEY_TO_BE_BUSINESS_AMOUNT, DEFAULT_TO_BE_BUSINESS);
+        BigDecimal adsPrice = getAmount(KEY_ADS_PRICE_PER_PERSON, DEFAULT_ADS_PRICE_PER_PERSON);
         return AdminSettingsResponse.builder()
                 .agentRegisterAmount(agentAmount)
                 .toBeBusinessAmount(businessAmount)
+                .adsPricePerPerson(adsPrice)
                 .build();
     }
 
@@ -38,6 +42,7 @@ public class SystemSettingsService {
     public AdminSettingsResponse updateSettings(AdminSettingsUpdateRequest request) {
         setAmount(KEY_AGENT_REGISTER_AMOUNT, request.getAgentRegisterAmount());
         setAmount(KEY_TO_BE_BUSINESS_AMOUNT, request.getToBeBusinessAmount());
+        setAmount(KEY_ADS_PRICE_PER_PERSON, request.getAdsPricePerPerson());
         return getSettings();
     }
 

@@ -10,6 +10,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
 import com.wakilfly.repository.*;
 import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.util.ContinentHelper;
 import com.wakilfly.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -776,6 +777,8 @@ public class AdminService {
         // Users (location from registration or profile)
         List<User> users = userRepository.findAllWithCoordinates();
         for (User u : users) {
+            String country = u.getCountry() != null ? u.getCountry().trim() : null;
+            String continent = ContinentHelper.getContinent(country);
             out.add(MapLocationResponse.builder()
                     .id(u.getId())
                     .name(u.getName())
@@ -784,12 +787,19 @@ public class AdminService {
                     .type("USER")
                     .region(u.getRegion())
                     .category(null)
+                    .country(country)
+                    .continent(continent)
                     .build());
         }
 
         // Agents (location from agent registration)
         List<Agent> agents = agentRepository.findAllWithCoordinates();
         for (Agent a : agents) {
+            String country = null;
+            if (a.getUser() != null && a.getUser().getCountry() != null) {
+                country = a.getUser().getCountry().trim();
+            }
+            String continent = ContinentHelper.getContinent(country);
             out.add(MapLocationResponse.builder()
                     .id(a.getId())
                     .name(a.getUser() != null ? a.getUser().getName() : "Agent")
@@ -798,6 +808,8 @@ public class AdminService {
                     .type("AGENT")
                     .region(a.getRegion())
                     .category(a.getAgentCode())
+                    .country(country)
+                    .continent(continent)
                     .build());
         }
 
@@ -805,6 +817,11 @@ public class AdminService {
         List<Business> businesses = businessRepository.findAllWithCoordinates();
         for (Business b : businesses) {
             if (b.getLatitude() != null && b.getLongitude() != null) {
+                String country = null;
+                if (b.getOwner() != null && b.getOwner().getCountry() != null) {
+                    country = b.getOwner().getCountry().trim();
+                }
+                String continent = ContinentHelper.getContinent(country);
                 out.add(MapLocationResponse.builder()
                         .id(b.getId())
                         .name(b.getName())
@@ -813,11 +830,84 @@ public class AdminService {
                         .type("BUSINESS")
                         .region(b.getRegion())
                         .category(b.getCategory())
+                        .country(country)
+                        .continent(continent)
                         .build());
             }
         }
 
         return out;
+    }
+
+    /**
+     * Aggregated map stats: by continent, by country, by type (USER/AGENT/BUSINESS).
+     */
+    public MapStatsResponse getMapStats() {
+        List<MapLocationResponse> locations = getMapLocations();
+
+        Map<String, long[]> byContinent = new LinkedHashMap<>();
+        Map<String, long[]> byCountry = new LinkedHashMap<>();
+        Map<String, String> countryToContinent = new LinkedHashMap<>();
+        Map<String, Long> byType = new LinkedHashMap<>();
+        byType.put("USER", 0L);
+        byType.put("AGENT", 0L);
+        byType.put("BUSINESS", 0L);
+
+        for (MapLocationResponse loc : locations) {
+            String type = loc.getType() != null ? loc.getType().toUpperCase() : "USER";
+            if (!byType.containsKey(type)) byType.put(type, 0L);
+            byType.put(type, byType.get(type) + 1);
+
+            String continent = loc.getContinent() != null && !loc.getContinent().isBlank()
+                    ? loc.getContinent() : "Unknown";
+            String country = loc.getCountry() != null && !loc.getCountry().isBlank()
+                    ? loc.getCountry() : "Unknown";
+
+            byContinent.computeIfAbsent(continent, k -> new long[4]);
+            long[] cArr = byContinent.get(continent);
+            if ("USER".equals(type)) cArr[0]++;
+            else if ("AGENT".equals(type)) cArr[1]++;
+            else if ("BUSINESS".equals(type)) cArr[2]++;
+            cArr[3]++;
+
+            byCountry.computeIfAbsent(country, k -> new long[4]);
+            long[] coArr = byCountry.get(country);
+            if ("USER".equals(type)) coArr[0]++;
+            else if ("AGENT".equals(type)) coArr[1]++;
+            else if ("BUSINESS".equals(type)) coArr[2]++;
+            coArr[3]++;
+            countryToContinent.put(country, continent);
+        }
+
+        List<MapStatsResponse.ContinentStat> continents = byContinent.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue()[3], a.getValue()[3]))
+                .map(e -> MapStatsResponse.ContinentStat.builder()
+                        .name(e.getKey())
+                        .users(e.getValue()[0])
+                        .agents(e.getValue()[1])
+                        .businesses(e.getValue()[2])
+                        .total(e.getValue()[3])
+                        .build())
+                .toList();
+
+        List<MapStatsResponse.CountryStat> countries = byCountry.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue()[3], a.getValue()[3]))
+                .map(e -> MapStatsResponse.CountryStat.builder()
+                        .name(e.getKey())
+                        .continent(countryToContinent.getOrDefault(e.getKey(), "Unknown"))
+                        .users(e.getValue()[0])
+                        .agents(e.getValue()[1])
+                        .businesses(e.getValue()[2])
+                        .total(e.getValue()[3])
+                        .build())
+                .toList();
+
+        return MapStatsResponse.builder()
+                .continents(continents)
+                .countries(countries)
+                .byType(byType)
+                .total(locations.size())
+                .build();
     }
 
     // ==================== MEDIA STATS ====================

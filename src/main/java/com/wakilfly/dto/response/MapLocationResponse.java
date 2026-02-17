@@ -21,4 +21,8 @@ public class MapLocationResponse {
     private String type;
     private String region;
     private String category;
+    /** Country (e.g. "Tanzania"). */
+    private String country;
+    /** Continent (e.g. "Africa"). Derived from country. */
+    private String continent;
 }

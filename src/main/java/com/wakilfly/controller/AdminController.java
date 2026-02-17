@@ -83,7 +83,7 @@ public class AdminController {
     }
 
     /**
-     * Get map locations (businesses with coordinates)
+     * Get map locations (users, agents, businesses with coordinates)
      * GET /api/v1/admin/map/locations
      */
     @GetMapping("/map/locations")
@@ -92,6 +92,18 @@ public class AdminController {
         requireArea(userDetails, MAP);
         java.util.List<com.wakilfly.dto.response.MapLocationResponse> locations = adminService.getMapLocations();
         return ResponseEntity.ok(ApiResponse.success(locations));
+    }
+
+    /**
+     * Get map stats: by continent, country, and type (USER/AGENT/BUSINESS)
+     * GET /api/v1/admin/map/stats
+     */
+    @GetMapping("/map/stats")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.MapStatsResponse>> getMapStats(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, MAP);
+        com.wakilfly.dto.response.MapStatsResponse stats = adminService.getMapStats();
+        return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     /**

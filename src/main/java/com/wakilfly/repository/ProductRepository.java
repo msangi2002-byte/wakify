@@ -39,4 +39,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     long countActiveByBusinessId(@Param("businessId") UUID businessId);
 
     long countByIsActiveTrue();
+
+    @Query("SELECT p FROM Product p WHERE (:businessId IS NULL OR p.business.id = :businessId) AND (:active IS NULL OR p.isActive = :active) ORDER BY p.createdAt DESC")
+    Page<Product> findAllForAdmin(@Param("businessId") UUID businessId, @Param("active") Boolean active, Pageable pageable);
+
+    @Query("SELECT p FROM Product p WHERE (:businessId IS NULL OR p.business.id = :businessId) AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.category) LIKE LOWER(CONCAT('%', :q, '%'))) ORDER BY p.createdAt DESC")
+    Page<Product> searchForAdmin(@Param("businessId") UUID businessId, @Param("q") String q, Pageable pageable);
 }

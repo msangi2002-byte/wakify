@@ -213,6 +213,45 @@ public class ProductService {
         return buildPagedResponse(products);
     }
 
+    /**
+     * Get all products (admin) with optional filters
+     */
+    public PagedResponse<ProductResponse> getAllProductsForAdmin(UUID businessId, Boolean active, String search, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> products;
+        if (search != null && !search.trim().isEmpty()) {
+            products = productRepository.searchForAdmin(businessId, search.trim(), pageable);
+        } else {
+            products = productRepository.findAllForAdmin(businessId, active, pageable);
+        }
+        return buildPagedResponse(products);
+    }
+
+    /**
+     * Set product active status (admin)
+     */
+    @Transactional
+    public ProductResponse setProductActiveForAdmin(UUID productId, boolean isActive) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        product.setIsActive(isActive);
+        product = productRepository.save(product);
+        log.info("Admin set product {} active={}", productId, isActive);
+        return mapToProductResponse(product);
+    }
+
+    /**
+     * Delete/deactivate product (admin)
+     */
+    @Transactional
+    public void deleteProductForAdmin(UUID productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        product.setIsActive(false);
+        productRepository.save(product);
+        log.info("Admin soft-deleted product {}", productId);
+    }
+
     // Helper methods
 
     private PagedResponse<ProductResponse> buildPagedResponse(Page<Product> products) {

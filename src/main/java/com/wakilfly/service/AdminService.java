@@ -2,11 +2,14 @@ package com.wakilfly.service;
 
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
+import com.wakilfly.dto.request.UpdateOrderStatusRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
 import com.wakilfly.repository.*;
+import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +45,10 @@ public class AdminService {
     private final PostMediaRepository postMediaRepository;
     private final AuditLogService auditLogService;
     private final SystemSettingsService systemSettingsService;
+    private final OrderService orderService;
+    private final ProductService productService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
 
     /**
      * Get dashboard statistics
@@ -802,5 +809,67 @@ public class AdminService {
 
     public List<Business> getAllBusinessesForExport() {
         return businessRepository.findAll();
+    }
+
+    // ==================== IMPERSONATION ====================
+
+    // ==================== ORDERS (ADMIN) ====================
+
+    public PagedResponse<OrderResponse> getAllOrders(OrderStatus status, int page, int size) {
+        return orderService.getAllOrdersForAdmin(status, page, size);
+    }
+
+    public OrderResponse getOrderById(UUID orderId) {
+        return orderService.getOrderByIdForAdmin(orderId);
+    }
+
+    public OrderResponse updateOrderStatus(UUID orderId, UUID adminId, UpdateOrderStatusRequest request) {
+        return orderService.updateOrderStatusForAdmin(orderId, adminId, request);
+    }
+
+    // ==================== PRODUCTS (ADMIN) ====================
+
+    public PagedResponse<ProductResponse> getAllProducts(UUID businessId, Boolean active, String search, int page, int size) {
+        return productService.getAllProductsForAdmin(businessId, active, search, page, size);
+    }
+
+    public ProductResponse setProductActive(UUID productId, boolean isActive) {
+        return productService.setProductActiveForAdmin(productId, isActive);
+    }
+
+    public void deleteProduct(UUID productId) {
+        productService.deleteProductForAdmin(productId);
+    }
+
+    // ==================== IMPERSONATION ====================
+
+    /**
+     * Generate login tokens for a user (admin impersonation).
+     * Admin can use these tokens to access the app as that user.
+     */
+    public AuthResponse impersonateUser(UUID userId, UUID adminId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        String username = user.getPhone() != null && !user.getPhone().isBlank()
+                ? user.getPhone()
+                : (user.getEmail() != null && !user.getEmail().isBlank()
+                        ? user.getEmail()
+                        : user.getId().toString());
+
+        var userDetails = userDetailsService.loadUserByUsername(username);
+        String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
+
+        auditLogService.log(adminId, "IMPERSONATE", "User", userId,
+                "Admin impersonated user " + user.getName(), null, null, null);
+
+        log.warn("Admin {} impersonating user {}", adminId, userId);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(mapUserToResponse(user))
+                .build();
     }
 }

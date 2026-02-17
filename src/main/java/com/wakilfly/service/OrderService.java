@@ -166,6 +166,69 @@ public class OrderService {
     }
 
     /**
+     * Get all orders (admin)
+     */
+    public PagedResponse<OrderResponse> getAllOrdersForAdmin(OrderStatus status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Order> orders = status != null
+                ? orderRepository.findAllWithStatusFilter(status, pageable)
+                : orderRepository.findAllByOrderByCreatedAtDesc(pageable);
+        return buildPagedResponse(orders);
+    }
+
+    /**
+     * Get order by ID (admin - no ownership check)
+     */
+    public OrderResponse getOrderByIdForAdmin(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        return mapToOrderResponse(order);
+    }
+
+    /**
+     * Update order status (admin - bypasses business ownership)
+     */
+    @Transactional
+    public OrderResponse updateOrderStatusForAdmin(UUID orderId, UUID adminId, UpdateOrderStatusRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        OrderStatus newStatus = request.getStatus();
+        OrderStatus currentStatus = order.getStatus();
+        validateStatusTransition(currentStatus, newStatus);
+
+        order.setStatus(newStatus);
+        switch (newStatus) {
+            case CONFIRMED:
+                order.setConfirmedAt(LocalDateTime.now());
+                break;
+            case SHIPPED:
+                order.setShippedAt(LocalDateTime.now());
+                if (request.getTrackingNumber() != null) {
+                    order.setTrackingNumber(request.getTrackingNumber());
+                }
+                break;
+            case DELIVERED:
+            case COMPLETED:
+                order.setDeliveredAt(LocalDateTime.now());
+                break;
+            case CANCELLED:
+                order.setCancelledAt(LocalDateTime.now());
+                order.setCancellationReason(request.getCancellationReason());
+                restoreStock(order);
+                break;
+            default:
+                break;
+        }
+        if (request.getSellerNotes() != null) {
+            order.setSellerNotes(request.getSellerNotes());
+        }
+        order = orderRepository.save(order);
+        log.info("Admin {} updated order {} to {}", adminId, order.getOrderNumber(), newStatus);
+        return mapToOrderResponse(order);
+    }
+
+    /**
      * Get business orders (for seller)
      */
     public PagedResponse<OrderResponse> getBusinessOrders(UUID businessId, OrderStatus status, int page, int size) {

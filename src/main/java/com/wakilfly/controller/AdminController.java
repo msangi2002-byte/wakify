@@ -266,6 +266,76 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("User verified (Blue Tick)", result));
     }
 
+    /**
+     * Impersonate user – get tokens to access app as that user
+     * POST /api/v1/admin/users/{id}/impersonate
+     */
+    @PostMapping("/users/{id}/impersonate")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AuthResponse>> impersonateUser(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        com.wakilfly.dto.response.AuthResponse auth = adminService.impersonateUser(id, adminId);
+        return ResponseEntity.ok(ApiResponse.success("Use tokens to access as user", auth));
+    }
+
+    // ==================== ORDERS (ADMIN) ====================
+
+    @GetMapping("/orders")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.OrderResponse>>> getAllOrders(
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.OrderResponse> orders = adminService.getAllOrders(status, page, size);
+        return ResponseEntity.ok(ApiResponse.success(orders));
+    }
+
+    @GetMapping("/orders/{id}")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.OrderResponse>> getOrderById(@PathVariable UUID id) {
+        com.wakilfly.dto.response.OrderResponse order = adminService.getOrderById(id);
+        return ResponseEntity.ok(ApiResponse.success(order));
+    }
+
+    @PutMapping("/orders/{id}/status")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.OrderResponse>> updateOrderStatus(
+            @PathVariable UUID id,
+            @RequestBody com.wakilfly.dto.request.UpdateOrderStatusRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        com.wakilfly.dto.response.OrderResponse order = adminService.updateOrderStatus(id, adminId, request);
+        return ResponseEntity.ok(ApiResponse.success("Order status updated", order));
+    }
+
+    // ==================== PRODUCTS (ADMIN) ====================
+
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.ProductResponse>>> getAllProducts(
+            @RequestParam(required = false) UUID businessId,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.ProductResponse> products =
+                adminService.getAllProducts(businessId, active, search, page, size);
+        return ResponseEntity.ok(ApiResponse.success(products));
+    }
+
+    @PutMapping("/products/{id}/active")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.ProductResponse>> setProductActive(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        boolean isActive = (Boolean) body.getOrDefault("isActive", true);
+        com.wakilfly.dto.response.ProductResponse product = adminService.setProductActive(id, isActive);
+        return ResponseEntity.ok(ApiResponse.success("Product updated", product));
+    }
+
+    @DeleteMapping("/products/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable UUID id) {
+        adminService.deleteProduct(id);
+        return ResponseEntity.ok(ApiResponse.success("Product deleted"));
+    }
+
     // ==================== AGENT MANAGEMENT ====================
 
     /**

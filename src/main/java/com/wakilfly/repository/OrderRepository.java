@@ -48,4 +48,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("startDate") LocalDateTime startDate);
 
     long countByStatus(OrderStatus status);
+
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query("SELECT o FROM Order o WHERE (:status IS NULL OR o.status = :status) ORDER BY o.createdAt DESC")
+    Page<Order> findAllWithStatusFilter(@Param("status") OrderStatus status, Pageable pageable);
 }

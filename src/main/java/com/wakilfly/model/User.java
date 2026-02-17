@@ -51,6 +51,11 @@ public class User {
     @Builder.Default
     private Role role = Role.USER;
 
+    /** When role == ADMIN: granular admin role. Null = SUPER_ADMIN (full access). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "admin_role", length = 32)
+    private AdminRole adminRole;
+
     @Column(name = "is_verified")
     @Builder.Default
     private Boolean isVerified = false;

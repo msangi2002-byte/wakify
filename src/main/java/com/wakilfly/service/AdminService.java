@@ -197,6 +197,27 @@ public class AdminService {
     }
 
     /**
+     * Set admin sub-role (SUPER_ADMIN only). Target must be an ADMIN user.
+     */
+    @Transactional
+    public UserResponse setUserAdminRole(UUID userId, UUID adminId, AdminRole adminRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (user.getRole() != Role.ADMIN) {
+            throw new BadRequestException("Target user must have role ADMIN to assign admin role");
+        }
+        AdminRole oldAdminRole = user.getAdminRole();
+        user.setAdminRole(adminRole);
+        user = userRepository.save(user);
+        auditLogService.log(adminId, "ADMIN_ROLE_CHANGED", "User", userId, null,
+                oldAdminRole != null ? oldAdminRole.name() : "SUPER_ADMIN",
+                adminRole != null ? adminRole.name() : "SUPER_ADMIN",
+                null);
+        log.info("Admin {} set admin role of user {} to {}", adminId, userId, adminRole);
+        return mapUserToResponse(user);
+    }
+
+    /**
      * Get all businesses (paginated)
      */
     public PagedResponse<BusinessResponse> getAllBusinesses(int page, int size, BusinessStatus status) {
@@ -442,6 +463,7 @@ public class AdminService {
                 .profilePic(user.getProfilePic())
                 .bio(user.getBio())
                 .role(user.getRole())
+                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRole() : null)
                 .isVerified(user.getIsVerified())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())

@@ -259,6 +259,7 @@ public class AuthService {
                 .profilePic(user.getProfilePic())
                 .coverPic(user.getCoverPic())
                 .role(user.getRole())
+                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRole() : null)
                 .isVerified(user.getIsVerified())
                 .followersCount(user.getFollowersCount())
                 .followingCount(user.getFollowingCount())

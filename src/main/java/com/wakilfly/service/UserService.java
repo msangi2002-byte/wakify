@@ -4,6 +4,7 @@ import com.wakilfly.dto.request.UpdateProfileRequest;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.model.User;
+import com.wakilfly.model.Role;
 import com.wakilfly.model.Visibility;
 import com.wakilfly.model.UserRestriction;
 import com.wakilfly.exception.BadRequestException;
@@ -486,6 +487,7 @@ public class UserService {
                 .profilePic(user.getProfilePic())
                 .coverPic(user.getCoverPic())
                 .role(user.getRole())
+                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRole() : null)
                 .isVerified(user.getIsVerified())
                 .followersCount(user.getFollowersCount())
                 .followingCount(user.getFollowingCount())

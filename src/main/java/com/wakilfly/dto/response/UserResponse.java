@@ -1,5 +1,6 @@
 package com.wakilfly.dto.response;
 
+import com.wakilfly.model.AdminRole;
 import com.wakilfly.model.Role;
 import com.wakilfly.model.Visibility;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,8 @@ public class UserResponse {
     private String profilePic;
     private String coverPic;
     private Role role;
+    /** When role == ADMIN: SUPER_ADMIN, MODERATOR, SUPPORT_AGENT, FINANCE_MANAGER. Null = SUPER_ADMIN. */
+    private AdminRole adminRole;
     private Boolean isVerified;
     private Boolean isActive;
     private Boolean onboardingCompleted;

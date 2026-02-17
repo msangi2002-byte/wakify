@@ -3,8 +3,10 @@ package com.wakilfly.controller;
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
+import com.wakilfly.model.AdminRole;
 import com.wakilfly.model.*;
 import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.service.AdminAccessService;
 import com.wakilfly.service.AdminService;
 import com.wakilfly.service.AuditLogService;
 import com.wakilfly.service.GiftService;
@@ -24,6 +26,10 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+import com.wakilfly.model.AdminArea;
+
+import static com.wakilfly.model.AdminArea.*;
+
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -31,10 +37,19 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminAccessService adminAccessService;
     private final GiftService giftService;
     private final ReportService reportService;
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
+
+    private com.wakilfly.model.User getAdminUser(UserDetails userDetails) {
+        return userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
+    }
+
+    private void requireArea(UserDetails userDetails, AdminArea area) {
+        adminAccessService.requireAccess(getAdminUser(userDetails), area);
+    }
 
     // ==================== DASHBOARD ====================
 
@@ -43,7 +58,9 @@ public class AdminController {
      * GET /api/v1/admin/dashboard
      */
     @GetMapping("/dashboard")
-    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard() {
+    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, DASHBOARD);
         AdminDashboardResponse dashboard = adminService.getDashboardStats();
         return ResponseEntity.ok(ApiResponse.success(dashboard));
     }
@@ -54,7 +71,9 @@ public class AdminController {
      */
     @GetMapping("/dashboard/charts")
     public ResponseEntity<ApiResponse<com.wakilfly.dto.response.ChartDataResponse>> getChartData(
-            @RequestParam(defaultValue = "30") int days) {
+            @RequestParam(defaultValue = "30") int days,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, DASHBOARD_CHARTS);
         com.wakilfly.dto.response.ChartDataResponse chartData = adminService.getChartData(Math.min(days, 90));
         return ResponseEntity.ok(ApiResponse.success(chartData));
     }
@@ -64,7 +83,9 @@ public class AdminController {
      * GET /api/v1/admin/map/locations
      */
     @GetMapping("/map/locations")
-    public ResponseEntity<ApiResponse<java.util.List<com.wakilfly.dto.response.MapLocationResponse>>> getMapLocations() {
+    public ResponseEntity<ApiResponse<java.util.List<com.wakilfly.dto.response.MapLocationResponse>>> getMapLocations(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, MAP);
         java.util.List<com.wakilfly.dto.response.MapLocationResponse> locations = adminService.getMapLocations();
         return ResponseEntity.ok(ApiResponse.success(locations));
     }
@@ -74,7 +95,9 @@ public class AdminController {
      * GET /api/v1/admin/media-stats
      */
     @GetMapping("/media-stats")
-    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.MediaStatsResponse>> getMediaStats() {
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.MediaStatsResponse>> getMediaStats(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, MEDIA_STATS);
         com.wakilfly.dto.response.MediaStatsResponse stats = adminService.getMediaStats();
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
@@ -84,7 +107,9 @@ public class AdminController {
      * GET /api/v1/admin/transaction-reports
      */
     @GetMapping("/transaction-reports")
-    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.TransactionReportResponse>> getTransactionReports() {
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.TransactionReportResponse>> getTransactionReports(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, TRANSACTION_REPORTS);
         com.wakilfly.dto.response.TransactionReportResponse reports = adminService.getTransactionReports();
         return ResponseEntity.ok(ApiResponse.success(reports));
     }
@@ -94,7 +119,9 @@ public class AdminController {
      * GET /api/v1/admin/analytics
      */
     @GetMapping("/analytics")
-    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AnalyticsResponse>> getAnalytics() {
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AnalyticsResponse>> getAnalytics(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ANALYTICS);
         com.wakilfly.dto.response.AnalyticsResponse analytics = adminService.getAnalytics();
         return ResponseEntity.ok(ApiResponse.success(analytics));
     }
@@ -104,7 +131,8 @@ public class AdminController {
      * GET /api/v1/admin/users/export
      */
     @GetMapping(value = "/users/export", produces = "text/csv")
-    public ResponseEntity<byte[]> exportUsers() {
+    public ResponseEntity<byte[]> exportUsers(@AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, EXPORT_USERS);
         StringBuilder csv = new StringBuilder();
         csv.append("id,name,email,phone,role,isVerified,isActive,createdAt\n");
         adminService.getAllUsersForExport().forEach(u -> {
@@ -129,7 +157,8 @@ public class AdminController {
      * GET /api/v1/admin/businesses/export
      */
     @GetMapping(value = "/businesses/export", produces = "text/csv")
-    public ResponseEntity<byte[]> exportBusinesses() {
+    public ResponseEntity<byte[]> exportBusinesses(@AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, EXPORT_BUSINESSES);
         StringBuilder csv = new StringBuilder();
         csv.append("id,name,category,region,district,status,isVerified,createdAt\n");
         adminService.getAllBusinessesForExport().forEach(b -> {
@@ -169,7 +198,9 @@ public class AdminController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) Boolean isActive,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, USERS);
         PagedResponse<UserResponse> users = adminService.getAllUsers(page, size, role, isActive, search);
         return ResponseEntity.ok(ApiResponse.success(users));
     }
@@ -183,7 +214,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, USERS);
+        UUID adminId = getAdminUser(userDetails).getId();
         boolean isActive = (Boolean) request.get("isActive");
         String reason = (String) request.getOrDefault("reason", "");
 
@@ -200,7 +232,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, USERS);
+        UUID adminId = getAdminUser(userDetails).getId();
         Role role = Role.valueOf((String) request.get("role"));
         String reason = (String) request.getOrDefault("reason", "");
 
@@ -218,7 +251,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PagedResponse<BusinessResponse>>> getBusinesses(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) BusinessStatus status) {
+            @RequestParam(required = false) BusinessStatus status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, BUSINESSES);
         PagedResponse<BusinessResponse> businesses = adminService.getAllBusinesses(page, size, status);
         return ResponseEntity.ok(ApiResponse.success(businesses));
     }
@@ -232,7 +267,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, BUSINESSES);
+        UUID adminId = getAdminUser(userDetails).getId();
         BusinessStatus status = BusinessStatus.valueOf((String) request.get("status"));
         String reason = (String) request.getOrDefault("reason", "");
 
@@ -248,7 +284,8 @@ public class AdminController {
     public ResponseEntity<ApiResponse<BusinessResponse>> verifyBusiness(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, BUSINESSES);
+        UUID adminId = getAdminUser(userDetails).getId();
         BusinessResponse business = adminService.verifyBusiness(id, adminId);
         return ResponseEntity.ok(ApiResponse.success("Business verified", business));
     }
@@ -261,9 +298,25 @@ public class AdminController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyUser(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, USERS);
+        UUID adminId = getAdminUser(userDetails).getId();
         Map<String, Object> result = adminService.verifyUser(id, adminId);
         return ResponseEntity.ok(ApiResponse.success("User verified (Blue Tick)", result));
+    }
+
+    /**
+     * Set admin role (SUPER_ADMIN only). Target user must have role ADMIN.
+     * PUT /api/v1/admin/users/{id}/admin-role
+     */
+    @PutMapping("/users/{id}/admin-role")
+    public ResponseEntity<ApiResponse<UserResponse>> setUserAdminRole(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, IMPERSONATE); // only SUPER_ADMIN has IMPERSONATE
+        AdminRole adminRole = request.get("adminRole") != null ? AdminRole.valueOf(request.get("adminRole")) : null;
+        UserResponse user = adminService.setUserAdminRole(id, getAdminUser(userDetails).getId(), adminRole);
+        return ResponseEntity.ok(ApiResponse.success("Admin role updated", user));
     }
 
     /**
@@ -274,7 +327,8 @@ public class AdminController {
     public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AuthResponse>> impersonateUser(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, IMPERSONATE);
+        UUID adminId = getAdminUser(userDetails).getId();
         com.wakilfly.dto.response.AuthResponse auth = adminService.impersonateUser(id, adminId);
         return ResponseEntity.ok(ApiResponse.success("Use tokens to access as user", auth));
     }
@@ -285,13 +339,18 @@ public class AdminController {
     public ResponseEntity<ApiResponse<com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.OrderResponse>>> getAllOrders(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ORDERS);
         com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.OrderResponse> orders = adminService.getAllOrders(status, page, size);
         return ResponseEntity.ok(ApiResponse.success(orders));
     }
 
     @GetMapping("/orders/{id}")
-    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.OrderResponse>> getOrderById(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.OrderResponse>> getOrderById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ORDERS);
         com.wakilfly.dto.response.OrderResponse order = adminService.getOrderById(id);
         return ResponseEntity.ok(ApiResponse.success(order));
     }
@@ -301,7 +360,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody com.wakilfly.dto.request.UpdateOrderStatusRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, ORDERS);
+        UUID adminId = getAdminUser(userDetails).getId();
         com.wakilfly.dto.response.OrderResponse order = adminService.updateOrderStatus(id, adminId, request);
         return ResponseEntity.ok(ApiResponse.success("Order status updated", order));
     }
@@ -314,7 +374,9 @@ public class AdminController {
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PRODUCTS);
         com.wakilfly.dto.response.PagedResponse<com.wakilfly.dto.response.ProductResponse> products =
                 adminService.getAllProducts(businessId, active, search, page, size);
         return ResponseEntity.ok(ApiResponse.success(products));
@@ -325,13 +387,17 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PRODUCTS);
         boolean isActive = (Boolean) body.getOrDefault("isActive", true);
         com.wakilfly.dto.response.ProductResponse product = adminService.setProductActive(id, isActive);
         return ResponseEntity.ok(ApiResponse.success("Product updated", product));
     }
 
     @DeleteMapping("/products/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PRODUCTS);
         adminService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.success("Product deleted"));
     }
@@ -346,7 +412,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PagedResponse<AgentResponse>>> getAgents(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) AgentStatus status) {
+            @RequestParam(required = false) AgentStatus status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AGENTS);
         PagedResponse<AgentResponse> agents = adminService.getAllAgents(page, size, status);
         return ResponseEntity.ok(ApiResponse.success(agents));
     }
@@ -360,7 +428,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, AGENTS);
+        UUID adminId = getAdminUser(userDetails).getId();
         AgentStatus status = AgentStatus.valueOf((String) request.get("status"));
         String reason = (String) request.getOrDefault("reason", "");
 
@@ -376,7 +445,8 @@ public class AdminController {
     public ResponseEntity<ApiResponse<AgentResponse>> verifyAgent(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, AGENTS);
+        UUID adminId = getAdminUser(userDetails).getId();
         AgentResponse agent = adminService.verifyAgent(id, adminId);
         return ResponseEntity.ok(ApiResponse.success("Agent verified", agent));
     }
@@ -390,7 +460,9 @@ public class AdminController {
     @GetMapping("/withdrawals")
     public ResponseEntity<ApiResponse<PagedResponse<WithdrawalResponse>>> getWithdrawals(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, WITHDRAWALS);
         PagedResponse<WithdrawalResponse> withdrawals = adminService.getPendingWithdrawals(page, size);
         return ResponseEntity.ok(ApiResponse.success(withdrawals));
     }
@@ -404,7 +476,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, WITHDRAWALS);
+        UUID adminId = getAdminUser(userDetails).getId();
         boolean approve = (Boolean) request.get("approve");
         String notes = (String) request.getOrDefault("notes", "");
         String transactionId = (String) request.get("transactionId");
@@ -421,7 +494,9 @@ public class AdminController {
     @GetMapping("/user-withdrawals")
     public ResponseEntity<ApiResponse<PagedResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse>>> getUserWithdrawals(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, USER_WITHDRAWALS);
         PagedResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse> list = giftService.getPendingUserWithdrawals(page, size);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
@@ -433,7 +508,9 @@ public class AdminController {
     @PostMapping("/user-withdrawals/{id}/process")
     public ResponseEntity<ApiResponse<com.wakilfly.dto.response.UserCashWithdrawalResponse>> processUserWithdrawal(
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> request) {
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, USER_WITHDRAWALS);
         boolean approve = (Boolean) request.get("approve");
         String transactionId = (String) request.get("transactionId");
         String rejectionReason = (String) request.get("rejectionReason");
@@ -451,7 +528,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PagedResponse<ReportResponse>>> getReports(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "PENDING") ReportStatus status) {
+            @RequestParam(defaultValue = "PENDING") ReportStatus status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, REPORTS);
         PagedResponse<ReportResponse> reports = reportService.getReportsByStatus(status, page, size);
         return ResponseEntity.ok(ApiResponse.success(reports));
     }
@@ -465,7 +544,9 @@ public class AdminController {
             @PathVariable ReportType type,
             @RequestParam(defaultValue = "PENDING") ReportStatus status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, REPORTS);
         PagedResponse<ReportResponse> reports = reportService.getReportsByType(type, status, page, size);
         return ResponseEntity.ok(ApiResponse.success(reports));
     }
@@ -479,7 +560,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, REPORTS);
+        UUID adminId = getAdminUser(userDetails).getId();
         String resolutionNotes = request.getOrDefault("notes", "");
         String actionTaken = request.getOrDefault("action", "");
 
@@ -496,7 +578,8 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID adminId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        requireArea(userDetails, REPORTS);
+        UUID adminId = getAdminUser(userDetails).getId();
         String reason = request.getOrDefault("reason", "No violation found");
 
         ReportResponse report = reportService.dismissReport(id, adminId, reason);
@@ -512,7 +595,9 @@ public class AdminController {
     @GetMapping("/audit-logs")
     public ResponseEntity<ApiResponse<PagedResponse<AuditLogResponse>>> getAuditLogs(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AUDIT_LOGS);
         PagedResponse<AuditLogResponse> logs = auditLogService.getAllLogs(page, size);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
@@ -525,7 +610,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PagedResponse<AuditLogResponse>>> getAuditLogsByUser(
             @PathVariable UUID userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AUDIT_LOGS);
         PagedResponse<AuditLogResponse> logs = auditLogService.getLogsByUser(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
@@ -538,7 +625,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PagedResponse<AuditLogResponse>>> getAuditLogsByEntity(
             @PathVariable UUID entityId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AUDIT_LOGS);
         PagedResponse<AuditLogResponse> logs = auditLogService.getLogsByEntity(entityId, page, size);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
@@ -552,7 +641,9 @@ public class AdminController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AUDIT_LOGS);
         PagedResponse<AuditLogResponse> logs = auditLogService.getLogsByDateRange(startDate, endDate, page, size);
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
@@ -564,7 +655,9 @@ public class AdminController {
      * GET /api/v1/admin/settings
      */
     @GetMapping("/settings")
-    public ResponseEntity<ApiResponse<AdminSettingsResponse>> getSettings() {
+    public ResponseEntity<ApiResponse<AdminSettingsResponse>> getSettings(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, SETTINGS);
         AdminSettingsResponse settings = adminService.getSettings();
         return ResponseEntity.ok(ApiResponse.success(settings));
     }
@@ -575,7 +668,9 @@ public class AdminController {
      */
     @PutMapping("/settings")
     public ResponseEntity<ApiResponse<AdminSettingsResponse>> updateSettings(
-            @RequestBody AdminSettingsUpdateRequest request) {
+            @RequestBody AdminSettingsUpdateRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, SETTINGS);
         AdminSettingsResponse settings = adminService.updateSettings(request);
         return ResponseEntity.ok(ApiResponse.success("Settings updated", settings));
     }
@@ -594,7 +689,9 @@ public class AdminController {
             @RequestParam(required = false) PaymentType type,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PAYMENTS);
         PagedResponse<PaymentHistoryResponse> payments = adminService.getAllPayments(
                 page, size, status, type, userId, startDate, endDate);
         return ResponseEntity.ok(ApiResponse.success(payments));
@@ -607,7 +704,9 @@ public class AdminController {
      * GET /api/v1/admin/agent-packages
      */
     @GetMapping("/agent-packages")
-    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAgentPackages() {
+    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getAgentPackages(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AGENT_PACKAGES);
         java.util.List<AgentPackageResponse> packages = adminService.getAllAgentPackages();
         return ResponseEntity.ok(ApiResponse.success(packages));
     }
@@ -618,7 +717,9 @@ public class AdminController {
      */
     @PostMapping("/agent-packages")
     public ResponseEntity<ApiResponse<AgentPackageResponse>> createAgentPackage(
-            @RequestBody CreateAgentPackageRequest request) {
+            @RequestBody CreateAgentPackageRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AGENT_PACKAGES);
         AgentPackageResponse packageResponse = adminService.createAgentPackage(request);
         return ResponseEntity.ok(ApiResponse.success("Agent package created successfully", packageResponse));
     }
@@ -630,7 +731,9 @@ public class AdminController {
     @PutMapping("/agent-packages/{id}")
     public ResponseEntity<ApiResponse<AgentPackageResponse>> updateAgentPackage(
             @PathVariable UUID id,
-            @RequestBody CreateAgentPackageRequest request) {
+            @RequestBody CreateAgentPackageRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AGENT_PACKAGES);
         AgentPackageResponse packageResponse = adminService.updateAgentPackage(id, request);
         return ResponseEntity.ok(ApiResponse.success("Agent package updated successfully", packageResponse));
     }
@@ -640,7 +743,10 @@ public class AdminController {
      * DELETE /api/v1/admin/agent-packages/{id}
      */
     @DeleteMapping("/agent-packages/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteAgentPackage(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteAgentPackage(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AGENT_PACKAGES);
         adminService.deleteAgentPackage(id);
         return ResponseEntity.ok(ApiResponse.success("Agent package deleted successfully"));
     }

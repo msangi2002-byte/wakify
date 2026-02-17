@@ -103,5 +103,5 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
             "(p.author IN (SELECT f FROM User u JOIN u.following f WHERE u.id = :userId) AND " +
             "(p.visibility = 'PUBLIC' OR p.visibility = 'FRIENDS'))) " +
             "ORDER BY p.createdAt DESC")
-    java.util.List<Post> findActiveStories(@Param("userId") UUID userId, @Param("since") java.time.LocalDateTime since);
+    List<Post> findActiveStories(@Param("userId") UUID userId, @Param("since") LocalDateTime since);
 }

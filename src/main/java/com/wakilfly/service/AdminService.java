@@ -1,5 +1,6 @@
 package com.wakilfly.service;
 
+import com.wakilfly.dto.request.AdminCreateUserRequest;
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.request.UpdateOrderStatusRequest;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,7 @@ public class AdminService {
     private final ProductService productService;
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Get dashboard statistics
@@ -193,6 +196,45 @@ public class AdminService {
 
         log.info("Admin {} changed role of user {} from {} to {}", adminId, userId, oldRole, newRole);
 
+        return mapUserToResponse(user);
+    }
+
+    /**
+     * Create a new user (Super Admin only). No OTP; user can login immediately.
+     */
+    @Transactional
+    public UserResponse createUser(UUID adminId, AdminCreateUserRequest request) {
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new BadRequestException("Phone number already registered");
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank() && userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("Email already registered");
+        }
+        Role role = Role.valueOf(request.getRole());
+        AdminRole adminRole = null;
+        if (role == Role.ADMIN && request.getAdminRole() != null && !request.getAdminRole().isBlank()) {
+            adminRole = AdminRole.valueOf(request.getAdminRole());
+        }
+        if (role == Role.ADMIN && adminRole == null) {
+            adminRole = AdminRole.SUPER_ADMIN; // default for new admin
+        }
+
+        User user = User.builder()
+                .name(request.getName())
+                .phone(request.getPhone())
+                .email(request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail() : null)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(role)
+                .adminRole(role == Role.ADMIN ? adminRole : null)
+                .isVerified(true)
+                .isActive(true)
+                .onboardingCompleted(true)
+                .build();
+        user = userRepository.save(user);
+
+        auditLogService.log(adminId, "USER_CREATED", "User", user.getId(),
+                "Admin created user with role " + role.name(), null, null, null);
+        log.info("Admin {} created user {} with role {}", adminId, user.getId(), role);
         return mapUserToResponse(user);
     }
 

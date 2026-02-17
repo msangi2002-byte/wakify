@@ -1,5 +1,6 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.AdminCreateUserRequest;
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
@@ -187,6 +188,20 @@ public class AdminController {
     }
 
     // ==================== USER MANAGEMENT ====================
+
+    /**
+     * Create a new user (Super Admin only). User can login immediately.
+     * POST /api/v1/admin/users
+     */
+    @PostMapping("/users")
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(
+            @RequestBody @jakarta.validation.Valid AdminCreateUserRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, IMPERSONATE);
+        UUID adminId = getAdminUser(userDetails).getId();
+        UserResponse user = adminService.createUser(adminId, request);
+        return ResponseEntity.ok(ApiResponse.success("User created", user));
+    }
 
     /**
      * Get all users

@@ -24,4 +24,6 @@ public enum AdminArea {
     SETTINGS,
     AGENT_PACKAGES,
     IMPERSONATE,
+    /** Manage role definitions (add/edit/delete roles and their areas). Super Admin only. */
+    ROLE_DEFINITIONS,
 }

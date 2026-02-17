@@ -26,6 +26,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SystemConfigRepository systemConfigRepository;
+    private final com.wakilfly.service.AdminRoleDefinitionService adminRoleDefinitionService;
 
     @Override
     public void run(String... args) {
@@ -36,6 +37,7 @@ public class DataInitializer implements CommandLineRunner {
             seedPackages();
         }
         seedSystemConfigIfMissing();
+        adminRoleDefinitionService.seedBuiltinIfEmpty();
         seedTestUserIfMissing();
     }
 

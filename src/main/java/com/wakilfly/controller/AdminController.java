@@ -4,7 +4,6 @@ import com.wakilfly.dto.request.AdminCreateUserRequest;
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
-import com.wakilfly.model.AdminRole;
 import com.wakilfly.model.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AdminAccessService;
@@ -28,6 +27,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.wakilfly.model.AdminArea;
+import com.wakilfly.model.AdminRoleDefinition;
+import com.wakilfly.dto.response.AdminRoleDefinitionResponse;
+import com.wakilfly.service.AdminRoleDefinitionService;
 
 import static com.wakilfly.model.AdminArea.*;
 
@@ -43,6 +45,7 @@ public class AdminController {
     private final ReportService reportService;
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
+    private final AdminRoleDefinitionService roleDefinitionService;
 
     private com.wakilfly.model.User getAdminUser(UserDetails userDetails) {
         return userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
@@ -187,6 +190,70 @@ public class AdminController {
         return s;
     }
 
+    // ==================== ROLE DEFINITIONS (Super Admin only) ====================
+
+    @GetMapping("/role-definitions")
+    public ResponseEntity<ApiResponse<java.util.List<AdminRoleDefinitionResponse>>> getRoleDefinitions(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ROLE_DEFINITIONS);
+        java.util.List<AdminRoleDefinitionResponse> list = roleDefinitionService.listAll().stream()
+                .map(this::toRoleDefinitionResponse)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
+
+    @PostMapping("/role-definitions")
+    public ResponseEntity<ApiResponse<AdminRoleDefinitionResponse>> createRoleDefinition(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ROLE_DEFINITIONS);
+        String code = (String) request.get("code");
+        String displayName = (String) request.get("displayName");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> areas = (java.util.List<String>) request.get("areas");
+        AdminRoleDefinition def = roleDefinitionService.create(code, displayName, areas != null ? areas : java.util.List.of());
+        return ResponseEntity.ok(ApiResponse.success("Role created", toRoleDefinitionResponse(def)));
+    }
+
+    @PutMapping("/role-definitions/{id}")
+    public ResponseEntity<ApiResponse<AdminRoleDefinitionResponse>> updateRoleDefinition(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ROLE_DEFINITIONS);
+        String displayName = (String) request.get("displayName");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> areas = (java.util.List<String>) request.get("areas");
+        AdminRoleDefinition def = roleDefinitionService.update(id, displayName, areas);
+        return ResponseEntity.ok(ApiResponse.success("Role updated", toRoleDefinitionResponse(def)));
+    }
+
+    @DeleteMapping("/role-definitions/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteRoleDefinition(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, ROLE_DEFINITIONS);
+        roleDefinitionService.delete(id);
+        return ResponseEntity.ok(ApiResponse.success("Role deleted", null));
+    }
+
+    private AdminRoleDefinitionResponse toRoleDefinitionResponse(AdminRoleDefinition def) {
+        java.util.List<String> areas = java.util.List.of();
+        if (def.getAreasJson() != null && !def.getAreasJson().isBlank()) {
+            try {
+                areas = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                        def.getAreasJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            } catch (Exception ignored) {}
+        }
+        return AdminRoleDefinitionResponse.builder()
+                .id(def.getId())
+                .code(def.getCode())
+                .displayName(def.getDisplayName())
+                .areas(areas)
+                .isBuiltin(def.getIsBuiltin())
+                .build();
+    }
+
     // ==================== USER MANAGEMENT ====================
 
     /**
@@ -329,7 +396,7 @@ public class AdminController {
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserDetails userDetails) {
         requireArea(userDetails, IMPERSONATE); // only SUPER_ADMIN has IMPERSONATE
-        AdminRole adminRole = request.get("adminRole") != null ? AdminRole.valueOf(request.get("adminRole")) : null;
+        String adminRole = request.get("adminRole") != null ? String.valueOf(request.get("adminRole")).trim() : null;
         UserResponse user = adminService.setUserAdminRole(id, getAdminUser(userDetails).getId(), adminRole);
         return ResponseEntity.ok(ApiResponse.success("Admin role updated", user));
     }

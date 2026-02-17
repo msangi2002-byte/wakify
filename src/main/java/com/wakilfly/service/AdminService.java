@@ -52,6 +52,7 @@ public class AdminService {
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    private final AdminRoleDefinitionService roleDefinitionService;
 
     /**
      * Get dashboard statistics
@@ -211,12 +212,15 @@ public class AdminService {
             throw new BadRequestException("Email already registered");
         }
         Role role = Role.valueOf(request.getRole());
-        AdminRole adminRole = null;
+        String adminRoleCode = null;
         if (role == Role.ADMIN && request.getAdminRole() != null && !request.getAdminRole().isBlank()) {
-            adminRole = AdminRole.valueOf(request.getAdminRole());
+            adminRoleCode = request.getAdminRole().trim().toUpperCase();
+            if (!roleDefinitionService.isValidRoleCode(adminRoleCode)) {
+                throw new BadRequestException("Invalid admin role: " + adminRoleCode);
+            }
         }
-        if (role == Role.ADMIN && adminRole == null) {
-            adminRole = AdminRole.SUPER_ADMIN; // default for new admin
+        if (role == Role.ADMIN && adminRoleCode == null) {
+            adminRoleCode = "SUPER_ADMIN";
         }
 
         User user = User.builder()
@@ -225,7 +229,7 @@ public class AdminService {
                 .email(request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail() : null)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(role)
-                .adminRole(role == Role.ADMIN ? adminRole : null)
+                .adminRoleCode(role == Role.ADMIN ? adminRoleCode : null)
                 .isVerified(true)
                 .isActive(true)
                 .onboardingCompleted(true)
@@ -242,20 +246,23 @@ public class AdminService {
      * Set admin sub-role (SUPER_ADMIN only). Target must be an ADMIN user.
      */
     @Transactional
-    public UserResponse setUserAdminRole(UUID userId, UUID adminId, AdminRole adminRole) {
+    public UserResponse setUserAdminRole(UUID userId, UUID adminId, String adminRoleCode) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         if (user.getRole() != Role.ADMIN) {
             throw new BadRequestException("Target user must have role ADMIN to assign admin role");
         }
-        AdminRole oldAdminRole = user.getAdminRole();
-        user.setAdminRole(adminRole);
+        if (adminRoleCode != null && !adminRoleCode.isBlank() && !roleDefinitionService.isValidRoleCode(adminRoleCode)) {
+            throw new BadRequestException("Invalid admin role: " + adminRoleCode);
+        }
+        String oldCode = user.getAdminRoleCode();
+        user.setAdminRoleCode(adminRoleCode != null && !adminRoleCode.isBlank() ? adminRoleCode.trim().toUpperCase() : "SUPER_ADMIN");
         user = userRepository.save(user);
         auditLogService.log(adminId, "ADMIN_ROLE_CHANGED", "User", userId, null,
-                oldAdminRole != null ? oldAdminRole.name() : "SUPER_ADMIN",
-                adminRole != null ? adminRole.name() : "SUPER_ADMIN",
+                oldCode != null ? oldCode : "SUPER_ADMIN",
+                user.getAdminRoleCode(),
                 null);
-        log.info("Admin {} set admin role of user {} to {}", adminId, userId, adminRole);
+        log.info("Admin {} set admin role of user {} to {}", adminId, userId, user.getAdminRoleCode());
         return mapUserToResponse(user);
     }
 
@@ -505,7 +512,7 @@ public class AdminService {
                 .profilePic(user.getProfilePic())
                 .bio(user.getBio())
                 .role(user.getRole())
-                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRole() : null)
+                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRoleCode() : null)
                 .isVerified(user.getIsVerified())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())

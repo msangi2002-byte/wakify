@@ -32,8 +32,15 @@ public class AdminRoleDefinitionService {
         return repository.findByCode(code);
     }
 
+    private static final java.util.Map<String, java.util.Set<AdminArea>> BUILTIN_AREAS_FALLBACK = java.util.Map.of(
+            "MODERATOR", Set.of(AdminArea.DASHBOARD, AdminArea.REPORTS, AdminArea.PROMOTIONS),
+            "SUPPORT_AGENT", Set.of(AdminArea.DASHBOARD, AdminArea.USERS, AdminArea.ORDERS, AdminArea.AGENTS, AdminArea.BUSINESSES, AdminArea.PRODUCTS),
+            "FINANCE_MANAGER", Set.of(AdminArea.DASHBOARD, AdminArea.DASHBOARD_CHARTS, AdminArea.PAYMENTS, AdminArea.WITHDRAWALS, AdminArea.USER_WITHDRAWALS, AdminArea.TRANSACTION_REPORTS, AdminArea.ANALYTICS)
+    );
+
     /**
      * Get allowed areas for a role code. SUPER_ADMIN = all areas. Others from DB.
+     * Uses case-insensitive lookup and built-in fallback for robustness.
      */
     public Set<AdminArea> getAllowedAreas(String roleCode) {
         if (roleCode == null || roleCode.isBlank()) {
@@ -42,9 +49,15 @@ public class AdminRoleDefinitionService {
         if ("SUPER_ADMIN".equalsIgnoreCase(roleCode)) {
             return EnumSet.allOf(AdminArea.class);
         }
-        return repository.findByCode(roleCode)
-                .map(this::parseAreas)
-                .orElse(Set.of());
+        // Try exact match first, then case-insensitive (handles DB collation differences)
+        java.util.Optional<AdminRoleDefinition> def = repository.findByCode(roleCode)
+                .or(() -> repository.findByCodeIgnoreCase(roleCode));
+        Set<AdminArea> areas = def.map(this::parseAreas).orElse(Set.of());
+        // Fallback for built-in roles if DB returns empty (e.g. migration issues)
+        if (areas.isEmpty() && BUILTIN_AREAS_FALLBACK.containsKey(roleCode.toUpperCase())) {
+            return new java.util.HashSet<>(BUILTIN_AREAS_FALLBACK.get(roleCode.toUpperCase()));
+        }
+        return areas;
     }
 
     private Set<AdminArea> parseAreas(AdminRoleDefinition def) {
@@ -112,7 +125,8 @@ public class AdminRoleDefinitionService {
 
     public boolean isValidRoleCode(String code) {
         if (code == null || code.isBlank()) return true;
-        return BUILTIN_CODES.contains(code) || repository.existsByCode(code);
+        String upper = code.trim().toUpperCase();
+        return BUILTIN_CODES.contains(upper) || repository.existsByCode(upper) || repository.existsByCodeIgnoreCase(upper);
     }
 
     private String toJson(List<String> areas) {

@@ -55,6 +55,19 @@ public class AdminController {
         adminAccessService.requireAccess(getAdminUser(userDetails), area);
     }
 
+    /**
+     * Get current admin's allowed areas (any admin can call – no ROLE_DEFINITIONS needed).
+     * Used by frontend for routing/nav when admin lacks ROLE_DEFINITIONS.
+     * GET /api/v1/admin/me/allowed-areas
+     */
+    @GetMapping("/me/allowed-areas")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> getMyAllowedAreas(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        com.wakilfly.model.User admin = getAdminUser(userDetails);
+        java.util.List<String> areas = adminAccessService.getAllowedAreaNames(admin);
+        return ResponseEntity.ok(ApiResponse.success(areas));
+    }
+
     // ==================== DASHBOARD ====================
 
     /**

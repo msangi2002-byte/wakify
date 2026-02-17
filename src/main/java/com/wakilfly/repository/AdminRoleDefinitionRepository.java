@@ -13,7 +13,11 @@ public interface AdminRoleDefinitionRepository extends JpaRepository<AdminRoleDe
 
     Optional<AdminRoleDefinition> findByCode(String code);
 
+    Optional<AdminRoleDefinition> findByCodeIgnoreCase(String code);
+
     boolean existsByCode(String code);
+
+    boolean existsByCodeIgnoreCase(String code);
 
     List<AdminRoleDefinition> findAllByOrderByIsBuiltinDescDisplayNameAsc();
 }

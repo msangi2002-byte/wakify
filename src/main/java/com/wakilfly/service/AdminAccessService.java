@@ -10,7 +10,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * RBAC: checks if an admin user can access a given admin area.
@@ -43,6 +45,17 @@ public class AdminAccessService {
         if (roleCode == null) return false;
         Set<AdminArea> allowed = roleDefinitionService.getAllowedAreas(roleCode);
         return allowed.contains(area);
+    }
+
+    /**
+     * Returns the list of area names (e.g. DASHBOARD, MAP) the admin can access.
+     * Used by GET /admin/me/allowed-areas for frontend routing.
+     */
+    public List<String> getAllowedAreaNames(User admin) {
+        String roleCode = effectiveRoleCode(admin);
+        if (roleCode == null) return List.of();
+        Set<AdminArea> allowed = roleDefinitionService.getAllowedAreas(roleCode);
+        return allowed.stream().map(Enum::name).sorted().collect(Collectors.toList());
     }
 
     /**

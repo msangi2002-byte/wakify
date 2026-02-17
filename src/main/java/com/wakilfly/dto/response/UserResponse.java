@@ -44,6 +44,8 @@ public class UserResponse {
     private String currentCity;
     private String region;   // Mkoa
     private String country; // Taifa
+    private Double latitude;  // Map pin (from registration/profile)
+    private Double longitude;
     private String interests; // Hobbies comma-separated
     private Integer age;    // Computed from dateOfBirth
     private String hometown;

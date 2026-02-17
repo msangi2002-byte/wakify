@@ -93,4 +93,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT COUNT(DISTINCT u.id) FROM User u WHERE u.lastSeen >= :since")
     long countDistinctByLastSeenAfter(@Param("since") java.time.LocalDateTime since);
+
+    /** Users with location set (for admin map display). */
+    @Query("SELECT u FROM User u WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL AND u.isActive = true")
+    java.util.List<User> findAllWithCoordinates();
 }

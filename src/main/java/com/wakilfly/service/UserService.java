@@ -115,6 +115,10 @@ public class UserService {
             user.setRegion(request.getRegion());
         if (request.getCountry() != null)
             user.setCountry(request.getCountry());
+        if (request.getLatitude() != null)
+            user.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null)
+            user.setLongitude(request.getLongitude());
         if (request.getInterests() != null)
             user.setInterests(request.getInterests());
         if (request.getHometown() != null)
@@ -496,6 +500,8 @@ public class UserService {
                 .currentCity(user.getCurrentCity())
                 .region(user.getRegion())
                 .country(user.getCountry())
+                .latitude(user.getLatitude())
+                .longitude(user.getLongitude())
                 .interests(user.getInterests())
                 .age(computeAge(user.getDateOfBirth()))
                 .hometown(user.getHometown())

@@ -82,6 +82,10 @@ public class User {
 
     private String country; // Taifa e.g. "Tanzania"
 
+    /** Map location (e.g. from registration or profile). Used for map display. */
+    private Double latitude;
+    private Double longitude;
+
     @Column(columnDefinition = "TEXT")
     private String interests; // Hobbies/vitaka comma-separated e.g. "Music,Sports,Tech"
 

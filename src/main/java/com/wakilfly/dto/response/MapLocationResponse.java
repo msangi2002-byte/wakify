@@ -17,7 +17,8 @@ public class MapLocationResponse {
     private String name;
     private Double latitude;
     private Double longitude;
-    private String type; // BUSINESS
+    /** USER, AGENT, or BUSINESS — use for map icon (e.g. user icon, agent icon, business icon). */
+    private String type;
     private String region;
     private String category;
 }

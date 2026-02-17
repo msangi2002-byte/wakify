@@ -43,6 +43,10 @@ public class BusinessActivationRequest {
     private String ward;
     private String street;
 
+    /** Map pin (optional). Recommended: capture automatically (GPS) or from map picker when activating business. */
+    private Double latitude;
+    private Double longitude;
+
     // Payment details (for 10,000/= activation fee)
     @NotBlank(message = "Payment phone is required")
     private String paymentPhone;

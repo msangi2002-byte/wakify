@@ -25,6 +25,10 @@ public class AgentRegistrationRequest {
 
     private String street;
 
+    /** Map pin (optional). Recommended: capture automatically in background (GPS) on agent registration screen and send here. */
+    private Double latitude;
+    private Double longitude;
+
     // Payment details (for 20,000/= registration fee)
     @NotBlank(message = "Phone number for payment is required")
     private String paymentPhone;

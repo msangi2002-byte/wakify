@@ -73,6 +73,8 @@ public class AgentService {
                                 .region(request.getRegion())
                                 .district(request.getDistrict())
                                 .ward(request.getWard())
+                                .latitude(request.getLatitude())
+                                .longitude(request.getLongitude())
                                 .status(AgentStatus.PENDING) // Pending until payment is confirmed
                                 .isVerified(false)
                                 .totalEarnings(BigDecimal.ZERO)
@@ -189,6 +191,8 @@ public class AgentService {
                                 .district(request.getDistrict())
                                 .ward(request.getWard())
                                 .street(request.getStreet())
+                                .latitude(request.getLatitude())
+                                .longitude(request.getLongitude())
                                 .status(BusinessStatus.PENDING) // Pending until payment confirmed
                                 .isVerified(false)
                                 .build();

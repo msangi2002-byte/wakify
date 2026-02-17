@@ -24,6 +24,9 @@ public class UpdateProfileRequest {
     private String currentCity;
     private String region;
     private String country;
+    /** Map pin (optional). Can be set from automatic location fetch or map picker. */
+    private Double latitude;
+    private Double longitude;
     private String interests;
     private String hometown;
     private String relationshipStatus;

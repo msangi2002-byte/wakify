@@ -688,11 +688,46 @@ public class AdminService {
 
     // ==================== MAP LOCATIONS ====================
 
+    /**
+     * All map pins: users, agents, businesses that have coordinates (from registration/profile).
+     * Frontend uses type to show icon: USER, AGENT, BUSINESS.
+     */
     public List<MapLocationResponse> getMapLocations() {
+        List<MapLocationResponse> out = new ArrayList<>();
+
+        // Users (location from registration or profile)
+        List<User> users = userRepository.findAllWithCoordinates();
+        for (User u : users) {
+            out.add(MapLocationResponse.builder()
+                    .id(u.getId())
+                    .name(u.getName())
+                    .latitude(u.getLatitude())
+                    .longitude(u.getLongitude())
+                    .type("USER")
+                    .region(u.getRegion())
+                    .category(null)
+                    .build());
+        }
+
+        // Agents (location from agent registration)
+        List<Agent> agents = agentRepository.findAllWithCoordinates();
+        for (Agent a : agents) {
+            out.add(MapLocationResponse.builder()
+                    .id(a.getId())
+                    .name(a.getUser() != null ? a.getUser().getName() : "Agent")
+                    .latitude(a.getLatitude())
+                    .longitude(a.getLongitude())
+                    .type("AGENT")
+                    .region(a.getRegion())
+                    .category(a.getAgentCode())
+                    .build());
+        }
+
+        // Businesses (location from business registration)
         List<Business> businesses = businessRepository.findAllWithCoordinates();
-        return businesses.stream()
-                .filter(b -> b.getLatitude() != null && b.getLongitude() != null)
-                .map(b -> MapLocationResponse.builder()
+        for (Business b : businesses) {
+            if (b.getLatitude() != null && b.getLongitude() != null) {
+                out.add(MapLocationResponse.builder()
                         .id(b.getId())
                         .name(b.getName())
                         .latitude(b.getLatitude())
@@ -700,8 +735,11 @@ public class AdminService {
                         .type("BUSINESS")
                         .region(b.getRegion())
                         .category(b.getCategory())
-                        .build())
-                .collect(Collectors.toList());
+                        .build());
+            }
+        }
+
+        return out;
     }
 
     // ==================== MEDIA STATS ====================

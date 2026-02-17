@@ -34,6 +34,9 @@ public class RegisterRequest {
     private String currentCity; // Mji e.g. Dar es Salaam
     private String region;      // Mkoa e.g. Dar es Salaam, Mwanza
     private String country;     // Taifa e.g. Tanzania
+    /** Map pin (optional). Recommended: capture automatically in background (e.g. GPS) when user is on registration screen and send here; no user input needed. */
+    private Double latitude;
+    private Double longitude;
     private java.time.LocalDate dateOfBirth;
     private String gender;      // MALE, FEMALE, etc.
     private String interests;   // Hobbies comma-separated e.g. Music,Sports,Tech

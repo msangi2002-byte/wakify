@@ -84,6 +84,8 @@ public class AuthService {
                 .currentCity(request.getCurrentCity())
                 .region(request.getRegion())
                 .country(request.getCountry())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .dateOfBirth(request.getDateOfBirth())
                 .gender(request.getGender())
                 .interests(request.getInterests())

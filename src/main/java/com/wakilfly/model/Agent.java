@@ -54,6 +54,12 @@ public class Agent {
     @Column(name = "ward")
     private String ward;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private AgentStatus status = AgentStatus.PENDING;

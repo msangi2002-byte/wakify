@@ -45,4 +45,8 @@ public interface AgentRepository extends JpaRepository<Agent, UUID> {
         long countActiveAgents();
 
         long countByStatus(AgentStatus status);
+
+        /** Agents with location set (for admin map display). */
+        @Query("SELECT a FROM Agent a WHERE a.latitude IS NOT NULL AND a.longitude IS NOT NULL")
+        java.util.List<Agent> findAllWithCoordinates();
 }

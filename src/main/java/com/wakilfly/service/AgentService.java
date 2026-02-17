@@ -8,7 +8,6 @@ import com.wakilfly.model.*;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;
-import com.wakilfly.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,20 +36,10 @@ public class AgentService {
         private final PaymentRepository paymentRepository;
         private final WithdrawalRepository withdrawalRepository;
         private final PasswordEncoder passwordEncoder;
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        private final SystemConfigService systemConfigService;
-
-=======
         private final SystemSettingsService systemSettingsService;
+        private final AgentPackageRepository agentPackageRepository;
+        private final PaymentService paymentService;
 
-        // Commission per business activation (fixed for now)
->>>>>>> Stashed changes
-=======
-        private final SystemSettingsService systemSettingsService;
-
-        // Commission per business activation (fixed for now)
->>>>>>> Stashed changes
         private static final BigDecimal AGENT_COMMISSION = new BigDecimal("5000.00");
 
         /**
@@ -91,20 +81,10 @@ public class AgentService {
 
                 agent = agentRepository.save(agent);
 
-                BigDecimal agentRegistrationFee = systemConfigService.getAgentRegisterAmount();
-                // Create payment record for registration fee
                 BigDecimal registrationFee = systemSettingsService.getAgentRegisterAmount();
                 Payment payment = Payment.builder()
                                 .user(user)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-                                .amount(agentRegistrationFee)
-=======
                                 .amount(registrationFee)
->>>>>>> Stashed changes
-=======
-                                .amount(registrationFee)
->>>>>>> Stashed changes
                                 .type(PaymentType.AGENT_REGISTRATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Agent registration fee")
@@ -215,20 +195,10 @@ public class AgentService {
 
                 business = businessRepository.save(business);
 
-                BigDecimal businessActivationFee = systemConfigService.getBusinessActivationAmount();
-                // Create payment record for activation fee
                 BigDecimal activationFee = systemSettingsService.getToBeBusinessAmount();
                 Payment payment = Payment.builder()
                                 .user(owner)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-                                .amount(businessActivationFee)
-=======
                                 .amount(activationFee)
->>>>>>> Stashed changes
-=======
-                                .amount(activationFee)
->>>>>>> Stashed changes
                                 .type(PaymentType.BUSINESS_ACTIVATION)
                                 .status(PaymentStatus.PENDING)
                                 .description("Business activation fee for " + request.getBusinessName())
@@ -274,6 +244,60 @@ public class AgentService {
                                 .last(businesses.isLast())
                                 .first(businesses.isFirst())
                                 .build();
+        }
+
+        /**
+         * Approve/verify a business activation manually (e.g. after offline payment).
+         */
+        @Transactional
+        public BusinessResponse approveBusiness(UUID businessId, UUID agentUserId) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
+                Business business = businessRepository.findById(businessId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
+                if (!business.getAgent().getId().equals(agent.getId())) {
+                        throw new BadRequestException("You can only approve businesses you activated");
+                }
+                if (business.getStatus() != BusinessStatus.PENDING) {
+                        throw new BadRequestException("Business is not pending approval. Status: " + business.getStatus());
+                }
+                business.setStatus(BusinessStatus.ACTIVE);
+                businessRepository.save(business);
+
+                Commission commission = Commission.builder()
+                                .agent(agent)
+                                .business(business)
+                                .amount(AGENT_COMMISSION)
+                                .type(CommissionType.ACTIVATION)
+                                .status(CommissionStatus.PENDING)
+                                .description("Commission for activating business: " + business.getName())
+                                .build();
+                commissionRepository.save(commission);
+                agent.addEarnings(AGENT_COMMISSION);
+                agentRepository.save(agent);
+
+                log.info("Business {} approved by agent {}", business.getName(), agent.getAgentCode());
+                return mapToBusinessResponse(business);
+        }
+
+        /**
+         * Cancel a pending business activation.
+         */
+        @Transactional
+        public void cancelBusiness(UUID businessId, UUID agentUserId) {
+                Agent agent = agentRepository.findByUserId(agentUserId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent not found"));
+                Business business = businessRepository.findById(businessId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Business", "id", businessId));
+                if (!business.getAgent().getId().equals(agent.getId())) {
+                        throw new BadRequestException("You can only cancel businesses you activated");
+                }
+                if (business.getStatus() != BusinessStatus.PENDING) {
+                        throw new BadRequestException("Only pending business activations can be cancelled");
+                }
+                business.setStatus(BusinessStatus.INACTIVE);
+                businessRepository.save(business);
+                log.info("Business activation {} cancelled by agent {}", businessId, agent.getAgentCode());
         }
 
         /**
@@ -617,6 +641,52 @@ public class AgentService {
                                 .pendingWithdrawals(pendingWithdrawals != null ? pendingWithdrawals : BigDecimal.ZERO)
                                 .totalBusinessesActivated(agent.getBusinessesActivated())
                                 .totalReferrals(agent.getTotalReferrals())
+                                .build();
+        }
+
+        /**
+         * Get all available (active) agent packages for purchase/upgrade.
+         */
+        public List<AgentPackageResponse> getAvailablePackages() {
+                return agentPackageRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
+                                .map(this::mapAgentPackageToResponse)
+                                .collect(Collectors.toList());
+        }
+
+        /**
+         * Initiate payment for agent package purchase/upgrade.
+         * Returns order/transaction ID for USSD follow-up.
+         */
+        @Transactional
+        public String initiatePackagePurchase(UUID userId, UUID packageId, String paymentPhone) {
+                AgentPackage agentPackage = agentPackageRepository.findById(packageId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent Package", "id", packageId));
+                if (!Boolean.TRUE.equals(agentPackage.getIsActive())) {
+                        throw new BadRequestException("This package is not available for purchase");
+                }
+                String description = "Agent package: " + agentPackage.getName();
+                return paymentService.initiatePayment(
+                                userId,
+                                agentPackage.getPrice(),
+                                PaymentType.AGENT_PACKAGE,
+                                paymentPhone,
+                                description,
+                                packageId,
+                                "AGENT_PACKAGE");
+        }
+
+        private AgentPackageResponse mapAgentPackageToResponse(AgentPackage agentPackage) {
+                return AgentPackageResponse.builder()
+                                .id(agentPackage.getId())
+                                .name(agentPackage.getName())
+                                .description(agentPackage.getDescription())
+                                .price(agentPackage.getPrice())
+                                .numberOfBusinesses(agentPackage.getNumberOfBusinesses())
+                                .isActive(agentPackage.getIsActive())
+                                .isPopular(agentPackage.getIsPopular())
+                                .sortOrder(agentPackage.getSortOrder())
+                                .createdAt(agentPackage.getCreatedAt())
+                                .updatedAt(agentPackage.getUpdatedAt())
                                 .build();
         }
 }

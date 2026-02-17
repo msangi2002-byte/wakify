@@ -1,5 +1,6 @@
 package com.wakilfly.repository;
 
+import com.wakilfly.model.MediaType;
 import com.wakilfly.model.PostMedia;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -13,4 +14,6 @@ public interface PostMediaRepository extends JpaRepository<PostMedia, UUID> {
     List<PostMedia> findByPostIdOrderByDisplayOrderAsc(UUID postId);
 
     void deleteByPostId(UUID postId);
+
+    long countByType(MediaType type);
 }

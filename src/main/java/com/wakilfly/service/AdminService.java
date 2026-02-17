@@ -16,11 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +39,7 @@ public class AdminService {
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentRepository paymentRepository;
     private final AgentPackageRepository agentPackageRepository;
+    private final PostMediaRepository postMediaRepository;
     private final AuditLogService auditLogService;
     private final SystemSettingsService systemSettingsService;
 
@@ -118,13 +118,15 @@ public class AdminService {
     }
 
     /**
-     * Get all users (paginated)
+     * Get all users (paginated) with optional search by name, email, or phone.
      */
-    public PagedResponse<UserResponse> getAllUsers(int page, int size, String role, Boolean isActive) {
+    public PagedResponse<UserResponse> getAllUsers(int page, int size, String role, Boolean isActive, String search) {
         Pageable pageable = PageRequest.of(page, size);
         Page<User> users;
 
-        if (role != null && isActive != null) {
+        if (search != null && !search.trim().isEmpty()) {
+            users = userRepository.searchUsersForAdmin(search.trim(), pageable);
+        } else if (role != null && isActive != null) {
             users = userRepository.findByRoleAndIsActive(Role.valueOf(role), isActive, pageable);
         } else if (role != null) {
             users = userRepository.findByRole(Role.valueOf(role), pageable);
@@ -453,6 +455,8 @@ public class AdminService {
                 .district(business.getDistrict())
                 .ward(business.getWard())
                 .street(business.getStreet())
+                .latitude(business.getLatitude())
+                .longitude(business.getLongitude())
                 .createdAt(business.getCreatedAt())
                 .build();
     }
@@ -533,6 +537,7 @@ public class AdminService {
     private PaymentHistoryResponse mapPaymentToHistoryResponse(Payment payment) {
         return PaymentHistoryResponse.builder()
                 .id(payment.getId())
+                .userId(payment.getUser() != null ? payment.getUser().getId() : null)
                 .transactionId(payment.getTransactionId())
                 .amount(payment.getAmount())
                 .type(payment.getType())
@@ -647,5 +652,117 @@ public class AdminService {
                 .createdAt(agentPackage.getCreatedAt())
                 .updatedAt(agentPackage.getUpdatedAt())
                 .build();
+    }
+
+    // ==================== CHARTS ====================
+
+    public ChartDataResponse getChartData(int days) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = now.minusDays(days);
+        List<ChartDataResponse.DayData> revenueByDay = new ArrayList<>();
+        List<ChartDataResponse.DayData> usersByDay = new ArrayList<>();
+
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate d = LocalDate.now().minusDays(i);
+            LocalDateTime dayStart = d.atStartOfDay();
+            LocalDateTime dayEnd = d.atTime(LocalTime.MAX);
+
+            BigDecimal rev = paymentRepository.sumByStatusAndDateBetween(PaymentStatus.SUCCESS, dayStart, dayEnd);
+            long userCount = userRepository.countByCreatedAtAfter(dayStart);
+
+            revenueByDay.add(ChartDataResponse.DayData.builder()
+                    .date(d.toString())
+                    .value(rev != null ? rev : BigDecimal.ZERO)
+                    .build());
+            usersByDay.add(ChartDataResponse.DayData.builder()
+                    .date(d.toString())
+                    .count(userCount)
+                    .build());
+        }
+
+        return ChartDataResponse.builder()
+                .revenueByDay(revenueByDay)
+                .usersByDay(usersByDay)
+                .build();
+    }
+
+    // ==================== MAP LOCATIONS ====================
+
+    public List<MapLocationResponse> getMapLocations() {
+        List<Business> businesses = businessRepository.findAllWithCoordinates();
+        return businesses.stream()
+                .filter(b -> b.getLatitude() != null && b.getLongitude() != null)
+                .map(b -> MapLocationResponse.builder()
+                        .id(b.getId())
+                        .name(b.getName())
+                        .latitude(b.getLatitude())
+                        .longitude(b.getLongitude())
+                        .type("BUSINESS")
+                        .region(b.getRegion())
+                        .category(b.getCategory())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ==================== MEDIA STATS ====================
+
+    public MediaStatsResponse getMediaStats() {
+        long images = postMediaRepository.countByType(MediaType.IMAGE);
+        long videos = postMediaRepository.countByType(MediaType.VIDEO);
+        long total = images + videos;
+        return MediaStatsResponse.builder()
+                .totalImages(images)
+                .totalVideos(videos)
+                .totalMedia(total)
+                .build();
+    }
+
+    // ==================== TRANSACTION REPORTS ====================
+
+    public TransactionReportResponse getTransactionReports() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfDay = now.with(LocalTime.MIN);
+        LocalDateTime startOfWeek = now.minusDays(7);
+        LocalDateTime startOfMonth = now.minusDays(30);
+
+        BigDecimal dailyRev = paymentRepository.sumByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfDay, now);
+        BigDecimal weeklyRev = paymentRepository.sumByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfWeek, now);
+        BigDecimal monthlyRev = paymentRepository.sumByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfMonth, now);
+
+        long dailyCount = paymentRepository.countByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfDay, now);
+        long weeklyCount = paymentRepository.countByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfWeek, now);
+        long monthlyCount = paymentRepository.countByStatusAndDateBetween(PaymentStatus.SUCCESS, startOfMonth, now);
+
+        return TransactionReportResponse.builder()
+                .dailyRevenue(dailyRev != null ? dailyRev : BigDecimal.ZERO)
+                .weeklyRevenue(weeklyRev != null ? weeklyRev : BigDecimal.ZERO)
+                .monthlyRevenue(monthlyRev != null ? monthlyRev : BigDecimal.ZERO)
+                .dailyTransactionCount(dailyCount)
+                .weeklyTransactionCount(weeklyCount)
+                .monthlyTransactionCount(monthlyCount)
+                .build();
+    }
+
+    // ==================== ANALYTICS (DAU/MAU) ====================
+
+    public AnalyticsResponse getAnalytics() {
+        LocalDateTime dauSince = LocalDateTime.now().minusDays(1);
+        LocalDateTime mauSince = LocalDateTime.now().minusDays(30);
+        long dau = userRepository.countDistinctByLastSeenAfter(dauSince);
+        long mau = userRepository.countDistinctByLastSeenAfter(mauSince);
+        return AnalyticsResponse.builder()
+                .dailyActiveUsers(dau)
+                .monthlyActiveUsers(mau)
+                .build();
+    }
+
+    // ==================== EXPORT ====================
+
+    public List<User> getAllUsersForExport() {
+        return userRepository.findAll();
+    }
+
+    public List<Business> getAllBusinessesForExport() {
+        return businessRepository.findAll();
     }
 }

@@ -1,0 +1,27 @@
+WAKIFY ADMIN PANEL - JINSI YA KUPATA FAILI LA DOCX
+==================================================
+
+Faili la specifications: ADMIN_PANEL_FEATURES_SPECIFICATION.md
+
+NJIA 3 ZA KUPATA DOCX:
+
+1. MICROSOFT WORD (Rahisi zaidi)
+   - Fungua Microsoft Word
+   - File > Open
+   - Chagua: ADMIN_PANEL_FEATURES_SPECIFICATION.md
+   - Word itaifungua na ku format vizuri
+   - File > Save As > Chagua format: Word Document (*.docx)
+
+2. ONLINE CONVERTER
+   - Nenda: https://cloudconvert.com/md-to-docx
+   au: https://www.convertio.co/md-docx/
+   - Upload faili ADMIN_PANEL_FEATURES_SPECIFICATION.md
+   - Download DOCX
+
+3. PANDOC (Command line)
+   - Install: https://pandoc.org/installing.html
+   - Run: pandoc ADMIN_PANEL_FEATURES_SPECIFICATION.md -o ADMIN_PANEL_FEATURES_SPECIFICATION.docx
+
+4. PYTHON (Ikiwa una python-docx)
+   - pip install python-docx
+   - python scripts/convert_admin_doc_to_docx.py

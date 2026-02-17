@@ -21,6 +21,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class PaymentHistoryResponse {
     private UUID id;
+    private UUID userId;
     private String transactionId;
     private BigDecimal amount;
     private PaymentType type;

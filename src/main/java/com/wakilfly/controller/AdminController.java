@@ -9,16 +9,17 @@ import com.wakilfly.service.AdminService;
 import com.wakilfly.service.AuditLogService;
 import com.wakilfly.service.GiftService;
 import com.wakilfly.service.ReportService;
-import com.wakilfly.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -34,7 +35,6 @@ public class AdminController {
     private final ReportService reportService;
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
-    private final SystemConfigService systemConfigService;
 
     // ==================== DASHBOARD ====================
 
@@ -48,6 +48,115 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(dashboard));
     }
 
+    /**
+     * Get chart data for revenue and users trends
+     * GET /api/v1/admin/dashboard/charts?days=30
+     */
+    @GetMapping("/dashboard/charts")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.ChartDataResponse>> getChartData(
+            @RequestParam(defaultValue = "30") int days) {
+        com.wakilfly.dto.response.ChartDataResponse chartData = adminService.getChartData(Math.min(days, 90));
+        return ResponseEntity.ok(ApiResponse.success(chartData));
+    }
+
+    /**
+     * Get map locations (businesses with coordinates)
+     * GET /api/v1/admin/map/locations
+     */
+    @GetMapping("/map/locations")
+    public ResponseEntity<ApiResponse<java.util.List<com.wakilfly.dto.response.MapLocationResponse>>> getMapLocations() {
+        java.util.List<com.wakilfly.dto.response.MapLocationResponse> locations = adminService.getMapLocations();
+        return ResponseEntity.ok(ApiResponse.success(locations));
+    }
+
+    /**
+     * Get media stats (images, videos count)
+     * GET /api/v1/admin/media-stats
+     */
+    @GetMapping("/media-stats")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.MediaStatsResponse>> getMediaStats() {
+        com.wakilfly.dto.response.MediaStatsResponse stats = adminService.getMediaStats();
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    /**
+     * Get transaction reports (daily/weekly/monthly)
+     * GET /api/v1/admin/transaction-reports
+     */
+    @GetMapping("/transaction-reports")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.TransactionReportResponse>> getTransactionReports() {
+        com.wakilfly.dto.response.TransactionReportResponse reports = adminService.getTransactionReports();
+        return ResponseEntity.ok(ApiResponse.success(reports));
+    }
+
+    /**
+     * Get analytics (DAU, MAU)
+     * GET /api/v1/admin/analytics
+     */
+    @GetMapping("/analytics")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AnalyticsResponse>> getAnalytics() {
+        com.wakilfly.dto.response.AnalyticsResponse analytics = adminService.getAnalytics();
+        return ResponseEntity.ok(ApiResponse.success(analytics));
+    }
+
+    /**
+     * Export users as CSV
+     * GET /api/v1/admin/users/export
+     */
+    @GetMapping(value = "/users/export", produces = "text/csv")
+    public ResponseEntity<byte[]> exportUsers() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("id,name,email,phone,role,isVerified,isActive,createdAt\n");
+        adminService.getAllUsersForExport().forEach(u -> {
+            csv.append(escapeCsv(u.getId().toString())).append(",");
+            csv.append(escapeCsv(u.getName())).append(",");
+            csv.append(escapeCsv(u.getEmail())).append(",");
+            csv.append(escapeCsv(u.getPhone())).append(",");
+            csv.append(escapeCsv(u.getRole() != null ? u.getRole().name() : "")).append(",");
+            csv.append(u.getIsVerified() != null && u.getIsVerified() ? "true" : "false").append(",");
+            csv.append(u.getIsActive() != null && u.getIsActive() ? "true" : "false").append(",");
+            csv.append(u.getCreatedAt() != null ? u.getCreatedAt().toString() : "").append("\n");
+        });
+        byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "users_export.csv");
+        return ResponseEntity.ok().headers(headers).body(bytes);
+    }
+
+    /**
+     * Export businesses as CSV
+     * GET /api/v1/admin/businesses/export
+     */
+    @GetMapping(value = "/businesses/export", produces = "text/csv")
+    public ResponseEntity<byte[]> exportBusinesses() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("id,name,category,region,district,status,isVerified,createdAt\n");
+        adminService.getAllBusinessesForExport().forEach(b -> {
+            csv.append(escapeCsv(b.getId().toString())).append(",");
+            csv.append(escapeCsv(b.getName())).append(",");
+            csv.append(escapeCsv(b.getCategory())).append(",");
+            csv.append(escapeCsv(b.getRegion())).append(",");
+            csv.append(escapeCsv(b.getDistrict())).append(",");
+            csv.append(escapeCsv(b.getStatus() != null ? b.getStatus().name() : "")).append(",");
+            csv.append(b.getIsVerified() != null && b.getIsVerified() ? "true" : "false").append(",");
+            csv.append(b.getCreatedAt() != null ? b.getCreatedAt().toString() : "").append("\n");
+        });
+        byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "businesses_export.csv");
+        return ResponseEntity.ok().headers(headers).body(bytes);
+    }
+
+    private static String escapeCsv(String s) {
+        if (s == null) return "";
+        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
+    }
+
     // ==================== USER MANAGEMENT ====================
 
     /**
@@ -59,8 +168,9 @@ public class AdminController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String role,
-            @RequestParam(required = false) Boolean isActive) {
-        PagedResponse<UserResponse> users = adminService.getAllUsers(page, size, role, isActive);
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) String search) {
+        PagedResponse<UserResponse> users = adminService.getAllUsers(page, size, role, isActive, search);
         return ResponseEntity.ok(ApiResponse.success(users));
     }
 
@@ -377,20 +487,6 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(logs));
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    // ==================== SETTINGS (FEE AMOUNTS) ====================
-
-    /**
-     * Get admin settings (agent register amount, business activation amount)
-     * GET /api/v1/admin/settings
-     */
-    @GetMapping("/settings")
-    public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getSettings() {
-        Map<String, BigDecimal> settings = systemConfigService.getFeeAmounts();
-=======
-=======
->>>>>>> Stashed changes
     // ==================== SETTINGS ====================
 
     /**

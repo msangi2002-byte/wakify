@@ -31,6 +31,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.isActive = true AND (LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR (u.phone IS NOT NULL AND u.phone LIKE CONCAT('%', :query, '%'))) ORDER BY u.name ASC")
     Page<User> searchUsers(@Param("query") String query, Pageable pageable);
 
+    /** Admin search: all users (including inactive) by name, email, or phone. */
+    @Query("SELECT u FROM User u WHERE (LOWER(u.name) LIKE LOWER(CONCAT('%', :query, '%')) OR (u.email IS NOT NULL AND LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))) OR (u.phone IS NOT NULL AND u.phone LIKE CONCAT('%', :query, '%'))) ORDER BY u.createdAt DESC")
+    Page<User> searchUsersForAdmin(@Param("query") String query, Pageable pageable);
+
     /** Suggested users: not self, not already following, same region & country when set, ordered by name. */
     @Query("SELECT u FROM User u WHERE u.id <> :currentUserId AND u.isActive = true " +
             "AND u NOT IN (SELECT f FROM User me JOIN me.following f WHERE me.id = :currentUserId) " +
@@ -86,4 +90,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> findByIsActive(Boolean isActive, Pageable pageable);
 
     long countByRole(Role role);
+
+    @Query("SELECT COUNT(DISTINCT u.id) FROM User u WHERE u.lastSeen >= :since")
+    long countDistinctByLastSeenAfter(@Param("since") java.time.LocalDateTime since);
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,4 +41,7 @@ public interface BusinessRepository extends JpaRepository<Business, UUID> {
     long countActiveByAgentId(@Param("agentId") UUID agentId);
 
     long countByStatus(BusinessStatus status);
+
+    @Query("SELECT b FROM Business b WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL")
+    List<Business> findAllWithCoordinates();
 }

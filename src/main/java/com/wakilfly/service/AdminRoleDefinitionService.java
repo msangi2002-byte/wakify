@@ -58,7 +58,7 @@ public class AdminRoleDefinitionService {
                     .filter(s -> !s.isEmpty())
                     .map(s -> {
                         try {
-                            return AdminArea.valueOf(s);
+                            return AdminArea.valueOf(s.trim().toUpperCase());
                         } catch (IllegalArgumentException e) {
                             return null;
                         }

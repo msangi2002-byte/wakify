@@ -21,6 +21,7 @@ public class SystemSettingsService {
     public static final String KEY_AGENT_REGISTER_AMOUNT = "agent_register_amount";
     public static final String KEY_TO_BE_BUSINESS_AMOUNT = "to_be_business_amount";
     public static final String KEY_ADS_PRICE_PER_PERSON = "ads_price_per_person";
+    public static final String KEY_PAYMENT_DEMO_MODE = "payment_demo_mode";
     private static final BigDecimal DEFAULT_AGENT_REGISTER = new BigDecimal("20000.00");
     private static final BigDecimal DEFAULT_TO_BE_BUSINESS = new BigDecimal("10000.00");
     private static final BigDecimal DEFAULT_ADS_PRICE_PER_PERSON = new BigDecimal("2.00");
@@ -35,6 +36,7 @@ public class SystemSettingsService {
                 .agentRegisterAmount(agentAmount)
                 .toBeBusinessAmount(businessAmount)
                 .adsPricePerPerson(adsPrice)
+                .paymentDemoMode(getPaymentDemoMode())
                 .build();
     }
 
@@ -43,6 +45,9 @@ public class SystemSettingsService {
         setAmount(KEY_AGENT_REGISTER_AMOUNT, request.getAgentRegisterAmount());
         setAmount(KEY_TO_BE_BUSINESS_AMOUNT, request.getToBeBusinessAmount());
         setAmount(KEY_ADS_PRICE_PER_PERSON, request.getAdsPricePerPerson());
+        if (request.getPaymentDemoMode() != null) {
+            setBoolean(KEY_PAYMENT_DEMO_MODE, request.getPaymentDemoMode());
+        }
         return getSettings();
     }
 
@@ -59,6 +64,31 @@ public class SystemSettingsService {
     /** Used by PostBoostService for ads price per person. */
     public BigDecimal getAdsPricePerPerson() {
         return getAmount(KEY_ADS_PRICE_PER_PERSON, DEFAULT_ADS_PRICE_PER_PERSON);
+    }
+
+    /** When true, PaymentService skips HarakaPay and marks payment SUCCESS immediately (demo mode). */
+    public boolean getPaymentDemoMode() {
+        return getBoolean(KEY_PAYMENT_DEMO_MODE, false);
+    }
+
+    private boolean getBoolean(String key, boolean defaultValue) {
+        return systemSettingsRepository.findByKey(key)
+                .map(s -> "true".equalsIgnoreCase(s.getValue().trim()))
+                .orElse(defaultValue);
+    }
+
+    private void setBoolean(String key, boolean value) {
+        String valueStr = value ? "true" : "false";
+        SystemSetting setting = systemSettingsRepository.findByKey(key)
+                .orElseGet(() -> {
+                    SystemSetting s = new SystemSetting();
+                    s.setId(UUID.randomUUID());
+                    s.setKey(key);
+                    return s;
+                });
+        setting.setValue(valueStr);
+        setting.setUpdatedAt(LocalDateTime.now());
+        systemSettingsRepository.save(setting);
     }
 
     private BigDecimal getAmount(String key, BigDecimal defaultValue) {

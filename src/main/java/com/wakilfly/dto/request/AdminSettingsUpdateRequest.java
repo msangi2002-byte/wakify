@@ -24,4 +24,7 @@ public class AdminSettingsUpdateRequest {
     @NotNull
     @DecimalMin("0")
     private BigDecimal adsPricePerPerson;
+
+    /** When true, payments are simulated (no USSD; success immediately). */
+    private Boolean paymentDemoMode;
 }

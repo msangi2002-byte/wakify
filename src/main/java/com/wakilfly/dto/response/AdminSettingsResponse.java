@@ -19,4 +19,6 @@ public class AdminSettingsResponse {
     private BigDecimal toBeBusinessAmount;
     /** Ads price per person (TZS). */
     private BigDecimal adsPricePerPerson;
+    /** When true, payments are simulated (no USSD push; success immediately). */
+    private Boolean paymentDemoMode;
 }

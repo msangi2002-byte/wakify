@@ -38,6 +38,7 @@ public class PaymentService {
     private final CommissionRepository commissionRepository;
     private final GiftService giftService;
     private final AuditLogService auditLogService;
+    private final SystemSettingsService systemSettingsService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -81,6 +82,19 @@ public class PaymentService {
                 .build();
 
         payment = paymentRepository.save(payment);
+
+        // Demo mode: no USSD push; mark payment SUCCESS and process immediately
+        if (systemSettingsService.getPaymentDemoMode()) {
+            String orderId = "DEMO-" + payment.getId().toString();
+            payment.setTransactionId(orderId);
+            payment.setStatus(PaymentStatus.SUCCESS);
+            payment.setPaidAt(LocalDateTime.now());
+            payment.setProviderResponse("demo_mode=true");
+            paymentRepository.save(payment);
+            processSuccessfulPayment(payment);
+            log.info("Payment demo mode: payment {} marked SUCCESS (no USSD), orderId {}", payment.getId(), orderId);
+            return orderId;
+        }
 
         // Call HarakaPay API
         try {

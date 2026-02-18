@@ -1,16 +1,22 @@
 package com.wakilfly.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AgentRegistrationRequest {
+
+    /** When set, user registers with this package and pays package price (USSD); otherwise legacy fixed fee. */
+    private UUID packageId;
 
     @NotBlank(message = "National ID is required")
     private String nationalId;

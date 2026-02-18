@@ -341,11 +341,18 @@ public class PaymentService {
                 return;
             }
 
+            // If agent was just registered with this package (PENDING), activate them now
+            if (agent.getStatus() == AgentStatus.PENDING) {
+                agent.setStatus(AgentStatus.ACTIVE);
+                agent.setApprovedAt(LocalDateTime.now());
+                log.info("Agent {} activated after package payment {}", agent.getAgentCode(), payment.getTransactionId());
+            }
+
             // Assign package to agent
             agent.setAgentPackage(agentPackage);
             agentRepository.save(agent);
 
-            log.info("Agent {} purchased/upgraded to package {} after payment {}", 
+            log.info("Agent {} purchased/upgraded to package {} after payment {}",
                     agent.getAgentCode(), agentPackage.getName(), payment.getTransactionId());
         } catch (Exception e) {
             log.error("Failed to activate agent package for payment {}: {}", payment.getId(), e.getMessage(), e);

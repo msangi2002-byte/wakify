@@ -29,25 +29,39 @@ public class AgentController {
     private final CustomUserDetailsService userDetailsService;
 
     /**
-     * Register as an agent (any authenticated user can become an agent)
-     * POST /api/v1/agent/register
+     * List packages available for agent registration (authenticated users, no AGENT role required).
+     * GET /api/v1/agent/registration-packages
      */
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AgentResponse>> registerAsAgent(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody AgentRegistrationRequest request) {
-        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        AgentResponse agent = agentService.registerAsAgent(userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Agent registration initiated. Please complete payment.", agent));
+    @GetMapping("/registration-packages")
+    public ResponseEntity<ApiResponse<java.util.List<AgentPackageResponse>>> getRegistrationPackages() {
+        java.util.List<AgentPackageResponse> packages = agentService.getRegistrationPackages();
+        return ResponseEntity.ok(ApiResponse.success(packages));
     }
 
     /**
-     * Get my agent profile
+     * Register as an agent (any authenticated user can become an agent).
+     * If request.packageId is set: creates agent (PENDING), initiates USSD payment for package; after payment success agent becomes ACTIVE.
+     * If not set: legacy flow with fixed registration fee.
+     * POST /api/v1/agent/register
+     */
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AgentRegistrationResponse>> registerAsAgent(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody AgentRegistrationRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        AgentRegistrationResponse result = agentService.registerAsAgent(userId, request);
+        String message = result.getOrderId() != null
+                ? "USSD push sent. Complete payment on your phone to activate your agent account."
+                : "Agent registration initiated. Please complete payment.";
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(message, result));
+    }
+
+    /**
+     * Get my agent profile (any authenticated user; for polling after registration until status ACTIVE).
      * GET /api/v1/agent/me
      */
     @GetMapping("/me")
-    @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<ApiResponse<AgentResponse>> getMyAgentProfile(
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();

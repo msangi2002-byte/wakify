@@ -60,6 +60,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/config/fees").permitAll()
                         // Agent registration - any authenticated user can register
                         .requestMatchers(HttpMethod.POST, "/api/v1/agent/register").authenticated()
+                        // Packages for registration (choose package then pay) - authenticated
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/registration-packages").authenticated()
+                        // Agent profile (for polling after registration; user may not yet have AGENT in JWT)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/me").authenticated()
                         // Other Agent endpoints - require AGENT role
                         .requestMatchers("/api/v1/agent/**").hasAnyRole("AGENT", "ADMIN")
                         // Business endpoints

@@ -1,6 +1,7 @@
 package com.wakilfly.service;
 
 import com.wakilfly.dto.request.AgentRegistrationRequest;
+import com.wakilfly.dto.response.AgentRegistrationResponse;
 import com.wakilfly.dto.request.BusinessActivationRequest;
 import com.wakilfly.dto.request.WithdrawalRequest;
 import com.wakilfly.dto.response.*;
@@ -43,11 +44,12 @@ public class AgentService {
         private static final BigDecimal AGENT_COMMISSION = new BigDecimal("5000.00");
 
         /**
-         * Register a user as an Agent
-         * User pays 20,000/= to become an agent
+         * Register a user as an Agent.
+         * If request.packageId is set: create agent (PENDING), initiate USSD payment for that package; return orderId for frontend to poll until ACTIVE.
+         * Otherwise: legacy fixed fee (payment record created, no USSD push yet).
          */
         @Transactional
-        public AgentResponse registerAsAgent(UUID userId, AgentRegistrationRequest request) {
+        public AgentRegistrationResponse registerAsAgent(UUID userId, AgentRegistrationRequest request) {
                 // Check if user exists
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -83,6 +85,34 @@ public class AgentService {
 
                 agent = agentRepository.save(agent);
 
+                // Update user role to AGENT (so they can call GET /agent/me to poll status)
+                user.setRole(Role.AGENT);
+                userRepository.save(user);
+
+                if (request.getPackageId() != null) {
+                        // Package flow: initiate USSD payment; on success PaymentService will activate agent and assign package
+                        AgentPackage agentPackage = agentPackageRepository.findById(request.getPackageId())
+                                        .orElseThrow(() -> new ResourceNotFoundException("Agent Package", "id", request.getPackageId()));
+                        if (!Boolean.TRUE.equals(agentPackage.getIsActive())) {
+                                throw new BadRequestException("This package is not available for registration");
+                        }
+                        String description = "Agent package: " + agentPackage.getName();
+                        String orderId = paymentService.initiatePayment(
+                                        userId,
+                                        agentPackage.getPrice(),
+                                        PaymentType.AGENT_PACKAGE,
+                                        request.getPaymentPhone(),
+                                        description,
+                                        agentPackage.getId(),
+                                        "AGENT_PACKAGE");
+                        log.info("Agent registration with package initiated for user {} with code {}, orderId {}", userId, agentCode, orderId);
+                        return AgentRegistrationResponse.builder()
+                                        .agent(mapToAgentResponse(agent))
+                                        .orderId(orderId)
+                                        .build();
+                }
+
+                // Legacy flow: fixed registration fee (payment record only; no USSD push in this code path)
                 BigDecimal registrationFee = systemSettingsService.getAgentRegisterAmount();
                 Payment payment = Payment.builder()
                                 .user(user)
@@ -93,17 +123,21 @@ public class AgentService {
                                 .transactionId(generateTransactionId())
                                 .paymentPhone(request.getPaymentPhone())
                                 .build();
-
                 paymentRepository.save(payment);
+                log.info("Agent registration (legacy) initiated for user {} with code {}", userId, agentCode);
+                return AgentRegistrationResponse.builder()
+                                .agent(mapToAgentResponse(agent))
+                                .orderId(null)
+                                .build();
+        }
 
-                // Update user role to AGENT
-                user.setRole(Role.AGENT);
-                userRepository.save(user);
-
-                // TODO: Initiate payment via M-Pesa/Tigo Pesa
-                log.info("Agent registration initiated for user {} with code {}", userId, agentCode);
-
-                return mapToAgentResponse(agent);
+        /**
+         * Packages available for new agent registration (same as getAvailablePackages but exposed to non-AGENT users).
+         */
+        public List<AgentPackageResponse> getRegistrationPackages() {
+                return agentPackageRepository.findByIsActiveTrueOrderBySortOrderAsc().stream()
+                                .map(this::mapAgentPackageToResponse)
+                                .collect(Collectors.toList());
         }
 
         /**

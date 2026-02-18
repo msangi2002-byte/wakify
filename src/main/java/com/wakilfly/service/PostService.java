@@ -382,7 +382,6 @@ public class PostService {
                                         .totalPages(publicPage.getTotalPages()).last(publicPage.isLast()).first(true)
                                         .build();
                 }
-                activePromotions = promotionsForUser;
                 List<Post> scored = scoreAndSortFeedPosts(candidates, userId, boostedPosts);
                 
                 // Mix boosted posts more naturally into feed (like Facebook/Instagram)
@@ -396,7 +395,7 @@ public class PostService {
                 
                 // Track impressions for boosted posts shown in this page
                 pageContent.forEach(post -> {
-                    activePromotions.stream()
+                    promotionsForUser.stream()
                             .filter(p -> p.getTargetId() != null && p.getTargetId().equals(post.getId()))
                             .findFirst()
                             .ifPresent(promotion -> {
@@ -411,7 +410,7 @@ public class PostService {
                 int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
                 
                 // Create promotion lookup map for posts
-                Map<UUID, Promotion> postPromotionMap = activePromotions.stream()
+                Map<UUID, Promotion> postPromotionMap = promotionsForUser.stream()
                         .filter(p -> p.getTargetId() != null)
                         .collect(Collectors.toMap(Promotion::getTargetId, p -> p, (p1, p2) -> p1));
                 

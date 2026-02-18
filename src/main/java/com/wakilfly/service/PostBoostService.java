@@ -39,10 +39,17 @@ public class PostBoostService {
 
     /**
      * Create a post boost campaign
-     * Creates a promotion and initiates USSD payment
+     * Creates a promotion and initiates USSD payment.
+     * Supports objective (ENGAGEMENT, MESSAGES, TRAFFIC) and audience (AUTOMATIC, LOCAL).
      */
     @Transactional
-    public Map<String, Object> createPostBoost(UUID userId, UUID postId, long targetReach, String paymentPhone) {
+    public Map<String, Object> createPostBoost(UUID userId, UUID postId, long targetReach, String paymentPhone,
+            com.wakilfly.model.PromotionObjective objective,
+            String audienceType,
+            String targetRegionsCsv,
+            Integer targetAgeMin,
+            Integer targetAgeMax,
+            String targetGender) {
         // Validate user
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -75,7 +82,7 @@ public class PostBoostService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime endDate = now.plusDays(30); // Default 30 days campaign
 
-        Promotion promotion = Promotion.builder()
+        Promotion.PromotionBuilder promoBuilder = Promotion.builder()
                 .user(user)
                 .business(business)
                 .type(PromotionType.POST)
@@ -88,8 +95,13 @@ public class PostBoostService {
                 .startDate(now)
                 .endDate(endDate)
                 .status(PromotionStatus.PENDING)
-                .reach(targetReach)
-                .build();
+                .reach(targetReach);
+        if (objective != null) promoBuilder.objective(objective);
+        if (targetRegionsCsv != null && !targetRegionsCsv.isBlank()) promoBuilder.targetRegions(targetRegionsCsv);
+        if (targetAgeMin != null) promoBuilder.targetAgeMin(targetAgeMin);
+        if (targetAgeMax != null) promoBuilder.targetAgeMax(targetAgeMax);
+        if (targetGender != null && !targetGender.isBlank()) promoBuilder.targetGender(targetGender);
+        Promotion promotion = promoBuilder.build();
 
         promotion = promotionRepository.save(promotion);
 

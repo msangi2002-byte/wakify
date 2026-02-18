@@ -1,5 +1,6 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.BoostPostRequest;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PostResponse;
@@ -12,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import com.wakilfly.model.PromotionObjective;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -60,22 +63,39 @@ public class PostBoostController {
     }
 
     /**
-     * Boost a post - create promotion and initiate USSD payment
+     * Boost a post - create promotion and initiate USSD payment.
+     * Optional: objective (ENGAGEMENT, MESSAGES, TRAFFIC), audienceType (AUTOMATIC, LOCAL), targeting.
      * POST /api/v1/ads/boost-post
      */
     @PostMapping("/boost-post")
     public ResponseEntity<ApiResponse<Map<String, Object>>> boostPost(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody Map<String, Object> request) {
+            @RequestBody BoostPostRequest request) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        UUID postId = UUID.fromString((String) request.get("postId"));
-        long targetReach = Long.parseLong(request.get("targetReach").toString());
-        String paymentPhone = (String) request.get("paymentPhone");
-        
-        Map<String, Object> result = postBoostService.createPostBoost(userId, postId, targetReach, paymentPhone);
-        
+        UUID postId = UUID.fromString(request.getPostId());
+        long targetReach = request.getTargetReach() > 0 ? request.getTargetReach() : 1000;
+        String paymentPhone = request.getPaymentPhone();
+        PromotionObjective objective = parseObjective(request.getObjective());
+        String audienceType = request.getAudienceType() != null ? request.getAudienceType().toUpperCase() : "AUTOMATIC";
+        String targetRegionsCsv = null;
+        if (request.getTargetRegions() != null && !request.getTargetRegions().isEmpty()) {
+            targetRegionsCsv = String.join(",", request.getTargetRegions());
+        }
+        Map<String, Object> result = postBoostService.createPostBoost(
+                userId, postId, targetReach, paymentPhone,
+                objective, audienceType, targetRegionsCsv,
+                request.getTargetAgeMin(), request.getTargetAgeMax(), request.getTargetGender());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Post boost created. Payment initiated.", result));
+    }
+
+    private static PromotionObjective parseObjective(String s) {
+        if (s == null || s.isBlank()) return PromotionObjective.ENGAGEMENT;
+        try {
+            return PromotionObjective.valueOf(s.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return PromotionObjective.ENGAGEMENT;
+        }
     }
 
     /**

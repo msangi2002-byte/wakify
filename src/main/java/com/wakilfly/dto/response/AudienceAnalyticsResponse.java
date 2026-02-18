@@ -20,10 +20,13 @@ public class AudienceAnalyticsResponse {
     /** By interest (normalized): interest name -> count */
     private List<InterestStat> byInterests;
 
+    /** By continent: derived from country (via lat/long or registration country) */
+    private List<LocationStat> byContinent;
+
     /** By country: country -> count */
     private List<LocationStat> byCountry;
 
-    /** By region: region -> count */
+    /** By region: region (mkoa) -> count */
     private List<LocationStat> byRegion;
 
     /** By city: city -> count */

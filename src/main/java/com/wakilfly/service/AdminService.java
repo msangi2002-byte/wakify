@@ -1064,6 +1064,7 @@ public class AdminService {
                 userRepository.countGroupByRegionBetween(from, to));
         List<AudienceAnalyticsResponse.LocationStat> byCity = buildLocationStats(
                 userRepository.countGroupByCityBetween(from, to));
+        List<AudienceAnalyticsResponse.LocationStat> byContinent = buildContinentStats(byCountry);
 
         // By demographics
         List<AudienceAnalyticsResponse.DemographicStat> byAgeBand = buildAgeBandStats(from, to);
@@ -1075,6 +1076,7 @@ public class AdminService {
 
         return AudienceAnalyticsResponse.builder()
                 .byInterests(byInterests)
+                .byContinent(byContinent)
                 .byCountry(byCountry)
                 .byRegion(byRegion)
                 .byCity(byCity)
@@ -1115,6 +1117,22 @@ public class AdminService {
                 .map(r -> AudienceAnalyticsResponse.LocationStat.builder()
                         .name(String.valueOf(r[0]))
                         .count(((Number) r[1]).longValue())
+                        .build())
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .collect(Collectors.toList());
+    }
+
+    /** Aggregate byCountry into byContinent using ContinentHelper (country -> continent from map/lat-long). */
+    private List<AudienceAnalyticsResponse.LocationStat> buildContinentStats(List<AudienceAnalyticsResponse.LocationStat> byCountry) {
+        Map<String, Long> continentCounts = new HashMap<>();
+        for (AudienceAnalyticsResponse.LocationStat c : byCountry) {
+            String continent = ContinentHelper.getContinent(c.getName());
+            continentCounts.merge(continent, c.getCount(), Long::sum);
+        }
+        return continentCounts.entrySet().stream()
+                .map(e -> AudienceAnalyticsResponse.LocationStat.builder()
+                        .name(e.getKey())
+                        .count(e.getValue())
                         .build())
                 .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
                 .collect(Collectors.toList());

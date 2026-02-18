@@ -663,7 +663,7 @@ public class AgentService {
         @Transactional(readOnly = true)
         public AgentDashboardResponse getAgentDashboard(UUID agentUserId) {
                 Agent agent = agentRepository.findByUserId(agentUserId)
-                                .orElseThrow(() -> new RuntimeException("Agent not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent", "userId", agentUserId.toString()));
 
                 // Get today's start time for today's earnings calculation
                 LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
@@ -672,14 +672,24 @@ public class AgentService {
                 BigDecimal pendingWithdrawals = withdrawalRepository.sumAmountByAgentIdAndStatus(
                                 agent.getId(), WithdrawalStatus.PENDING);
 
-                return AgentDashboardResponse.builder()
+                AgentDashboardResponse.AgentDashboardResponseBuilder b = AgentDashboardResponse.builder()
                                 .currentBalance(agent.getAvailableBalance())
                                 .totalEarnings(agent.getTotalEarnings())
                                 .todayEarnings(todayEarnings != null ? todayEarnings : BigDecimal.ZERO)
                                 .pendingWithdrawals(pendingWithdrawals != null ? pendingWithdrawals : BigDecimal.ZERO)
                                 .totalBusinessesActivated(agent.getBusinessesActivated())
-                                .totalReferrals(agent.getTotalReferrals())
-                                .build();
+                                .totalReferrals(agent.getTotalReferrals());
+
+                if (agent.getAgentPackage() != null) {
+                        AgentPackage pkg = agent.getAgentPackage();
+                        Integer maxBiz = pkg.getNumberOfBusinesses();
+                        Integer activated = agent.getBusinessesActivated();
+                        b.packageId(pkg.getId())
+                                        .packageName(pkg.getName())
+                                        .packageMaxBusinesses(maxBiz)
+                                        .packageRemainingBusinesses(maxBiz != null && activated != null ? Math.max(0, maxBiz - activated) : null);
+                }
+                return b.build();
         }
 
         /**

@@ -70,11 +70,10 @@ public class AgentController {
     }
 
     /**
-     * Get agent dashboard summary (wallet, earnings, stats)
+     * Get agent dashboard summary (wallet, earnings, stats). Allowed for any authenticated user so dashboard loads after registration redirect.
      * GET /api/v1/agent/dashboard
      */
     @GetMapping("/dashboard")
-    @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<ApiResponse<AgentDashboardResponse>> getAgentDashboard(
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
@@ -240,8 +239,9 @@ public class AgentController {
     }
 
     /**
-     * Webhook for payment confirmation
-     * POST /api/v1/webhooks/payment-callback
+     * Legacy/alternate webhook for payment confirmation.
+     * Full path: POST /api/v1/agent/webhooks/payment-callback (expects body: transactionId, status).
+     * For HarakaPay use PaymentWebhookController: POST /api/v1/webhooks/harakapay (expects order_id).
      */
     @PostMapping("/webhooks/payment-callback")
     public ResponseEntity<ApiResponse<Void>> paymentCallback(@RequestBody Map<String, Object> payload) {

@@ -64,6 +64,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/registration-packages").authenticated()
                         // Agent profile (for polling after registration; user may not yet have AGENT in JWT)
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/me").authenticated()
+                        // Agent dashboard (allow authenticated so dashboard loads right after registration redirect)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/dashboard").authenticated()
                         // Other Agent endpoints - require AGENT role
                         .requestMatchers("/api/v1/agent/**").hasAnyRole("AGENT", "ADMIN")
                         // Business endpoints

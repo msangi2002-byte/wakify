@@ -12,6 +12,7 @@ import com.wakilfly.model.PaymentType;
 import com.wakilfly.model.User;
 import com.wakilfly.repository.AgentRepository;
 import com.wakilfly.repository.BusinessRequestRepository;
+import com.wakilfly.service.SystemSettingsService;
 import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 public class BusinessRequestService {
 
     private final BusinessRequestRepository businessRequestRepository;
-    private final SystemConfigService systemConfigService;
+    private final SystemSettingsService systemSettingsService;
     private final UserRepository userRepository;
     private final AgentRepository agentRepository;
     private final BusinessRepository businessRepository;
@@ -71,8 +72,8 @@ public class BusinessRequestService {
                 .build();
         br = businessRequestRepository.save(br);
 
-        // System completes the request: push USSD payment; after payment, system will create business and approve user
-        BigDecimal businessActivationFee = systemConfigService.getBusinessActivationAmount();
+        // System completes the request: push USSD payment; after payment, system will create business and approve user (fee from Admin Settings)
+        BigDecimal businessActivationFee = systemSettingsService.getToBeBusinessAmount();
         String phone = request.getOwnerPhone().trim();
         String description = "Business activation: " + br.getBusinessName();
         String orderId = paymentService.initiatePayment(

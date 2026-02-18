@@ -34,6 +34,11 @@ public class Promotion {
     @Column(nullable = false)
     private PromotionType type;
 
+    /** Objective: AWARENESS, TRAFFIC, ENGAGEMENT, MESSAGES, LEADS, CONVERSIONS. Algorithm optimizes for this. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "objective", length = 32)
+    private PromotionObjective objective;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -79,6 +84,30 @@ public class Promotion {
 
     @Column(name = "target_gender")
     private String targetGender; // ALL, MALE, FEMALE
+
+    @Column(name = "target_country", length = 100)
+    private String targetCountry;
+
+    @Column(name = "target_city", length = 100)
+    private String targetCity;
+
+    @Column(name = "target_radius_km")
+    private Integer targetRadiusKm;
+
+    @Column(name = "target_interests", columnDefinition = "TEXT")
+    private String targetInterests; // Comma-separated: Football, Fashion, etc.
+
+    @Column(name = "target_behaviors", columnDefinition = "TEXT")
+    private String targetBehaviors; // Comma-separated: Online shoppers, etc.
+
+    /** Ad quality score 0–100. Higher = better delivery in auction. */
+    @Column(name = "ad_quality_score")
+    private Double adQualityScore;
+
+    /** Conversions during learning phase (target ~50 for algorithm to learn). */
+    @Column(name = "learning_phase_conversions")
+    @Builder.Default
+    private Integer learningPhaseConversions = 0;
 
     // Performance metrics
     @Column(name = "impressions")

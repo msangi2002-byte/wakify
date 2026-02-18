@@ -49,4 +49,10 @@ public interface PromotionRepository extends JpaRepository<Promotion, UUID> {
     // Get promotions to start (past start date but still pending)
     @Query("SELECT p FROM Promotion p WHERE p.status = 'PENDING' AND p.isPaid = true AND p.startDate <= :now")
     List<Promotion> findPromotionsToStart(@Param("now") LocalDateTime now);
+
+    // Admin: all promotions (paginated)
+    Page<Promotion> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<Promotion> findByTypeOrderByCreatedAtDesc(PromotionType type, Pageable pageable);
+
 }

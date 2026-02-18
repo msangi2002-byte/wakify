@@ -1,5 +1,6 @@
 package com.wakilfly.dto.response;
 
+import com.wakilfly.model.PromotionObjective;
 import com.wakilfly.model.PromotionStatus;
 import com.wakilfly.model.PromotionType;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ public class PromotionResponse {
     private UUID id;
     private PromotionType type;
     private PromotionStatus status;
+    private PromotionObjective objective;
     private UUID targetId;
     private String title;
     private String description;
@@ -40,6 +42,14 @@ public class PromotionResponse {
     private Integer targetAgeMin;
     private Integer targetAgeMax;
     private String targetGender;
+    private String targetCountry;
+    private String targetCity;
+    private Integer targetRadiusKm;
+    private List<String> targetInterests;
+    private List<String> targetBehaviors;
+    private Double adQualityScore;
+    private Integer learningPhaseConversions;
+    private Boolean isInLearningPhase;
 
     // Performance metrics
     private Long impressions;
@@ -51,7 +61,8 @@ public class PromotionResponse {
 
     // Payment
     private Boolean isPaid;
-
+    private UUID userId;
+    private String userName;
     private LocalDateTime createdAt;
 
     @Data

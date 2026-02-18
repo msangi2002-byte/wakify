@@ -625,6 +625,76 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(approve ? "Withdrawal approved" : "Withdrawal rejected", w));
     }
 
+    // ==================== PROMOTIONS ====================
+
+    /**
+     * Get all promotions (admin view). Filter by status and/or type.
+     * GET /api/v1/admin/promotions
+     */
+    @GetMapping("/promotions")
+    public ResponseEntity<ApiResponse<PagedResponse<PromotionResponse>>> getPromotions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) PromotionStatus status,
+            @RequestParam(required = false) PromotionType type,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        PagedResponse<PromotionResponse> promotions = adminService.getAllPromotions(status, type, page, size);
+        return ResponseEntity.ok(ApiResponse.success(promotions));
+    }
+
+    /**
+     * Get promotions summary stats
+     * GET /api/v1/admin/promotions/stats
+     */
+    @GetMapping("/promotions/stats")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getPromotionsStats(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        return ResponseEntity.ok(ApiResponse.success(adminService.getPromotionsStats()));
+    }
+
+    /**
+     * Admin pause promotion
+     * POST /api/v1/admin/promotions/{id}/pause
+     */
+    @PostMapping("/promotions/{id}/pause")
+    public ResponseEntity<ApiResponse<PromotionResponse>> adminPausePromotion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        PromotionResponse p = adminService.adminPausePromotion(id, getAdminUser(userDetails).getId());
+        return ResponseEntity.ok(ApiResponse.success("Promotion paused", p));
+    }
+
+    /**
+     * Admin resume promotion
+     * POST /api/v1/admin/promotions/{id}/resume
+     */
+    @PostMapping("/promotions/{id}/resume")
+    public ResponseEntity<ApiResponse<PromotionResponse>> adminResumePromotion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        PromotionResponse p = adminService.adminResumePromotion(id, getAdminUser(userDetails).getId());
+        return ResponseEntity.ok(ApiResponse.success("Promotion resumed", p));
+    }
+
+    /**
+     * Admin reject promotion
+     * POST /api/v1/admin/promotions/{id}/reject
+     */
+    @PostMapping("/promotions/{id}/reject")
+    public ResponseEntity<ApiResponse<PromotionResponse>> adminRejectPromotion(
+            @PathVariable UUID id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        String reason = body != null ? body.get("reason") : null;
+        PromotionResponse p = adminService.adminRejectPromotion(id, getAdminUser(userDetails).getId(), reason);
+        return ResponseEntity.ok(ApiResponse.success("Promotion rejected", p));
+    }
+
     // ==================== REPORTS & MODERATION ====================
 
     /**

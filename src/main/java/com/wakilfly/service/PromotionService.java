@@ -341,11 +341,22 @@ public class PromotionService {
         }
     }
 
-    private PromotionResponse mapToResponse(Promotion promotion) {
+    public PromotionResponse mapToResponse(Promotion promotion) {
+        return mapToResponse(promotion, false);
+    }
+
+    public PromotionResponse mapToAdminResponse(Promotion promotion) {
+        return mapToResponse(promotion, true);
+    }
+
+    private PromotionResponse mapToResponse(Promotion promotion, boolean includeAdminFields) {
+        int learningPhase = promotion.getLearningPhaseConversions() != null ? promotion.getLearningPhaseConversions() : 0;
+        boolean inLearning = promotion.getStatus() == PromotionStatus.ACTIVE && learningPhase < 50;
         return PromotionResponse.builder()
                 .id(promotion.getId())
                 .type(promotion.getType())
                 .status(promotion.getStatus())
+                .objective(promotion.getObjective())
                 .targetId(promotion.getTargetId())
                 .title(promotion.getTitle())
                 .description(promotion.getDescription())
@@ -361,6 +372,16 @@ public class PromotionService {
                 .targetAgeMin(promotion.getTargetAgeMin())
                 .targetAgeMax(promotion.getTargetAgeMax())
                 .targetGender(promotion.getTargetGender())
+                .targetCountry(promotion.getTargetCountry())
+                .targetCity(promotion.getTargetCity())
+                .targetRadiusKm(promotion.getTargetRadiusKm())
+                .targetInterests(promotion.getTargetInterests() != null && !promotion.getTargetInterests().isBlank()
+                        ? Arrays.asList(promotion.getTargetInterests().split(",\\s*")) : null)
+                .targetBehaviors(promotion.getTargetBehaviors() != null && !promotion.getTargetBehaviors().isBlank()
+                        ? Arrays.asList(promotion.getTargetBehaviors().split(",\\s*")) : null)
+                .adQualityScore(promotion.getAdQualityScore())
+                .learningPhaseConversions(learningPhase)
+                .isInLearningPhase(inLearning)
                 .impressions(promotion.getImpressions())
                 .clicks(promotion.getClicks())
                 .conversions(promotion.getConversions())
@@ -368,6 +389,8 @@ public class PromotionService {
                 .ctr(promotion.getCtr())
                 .costPerClick(promotion.getCostPerClick())
                 .isPaid(promotion.getIsPaid())
+                .userId(includeAdminFields && promotion.getUser() != null ? promotion.getUser().getId() : null)
+                .userName(includeAdminFields && promotion.getUser() != null ? promotion.getUser().getName() : null)
                 .createdAt(promotion.getCreatedAt())
                 .build();
     }

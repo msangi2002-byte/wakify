@@ -55,6 +55,7 @@ public class AdminService {
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final AdminRoleDefinitionService roleDefinitionService;
+    private final PromotionService promotionService;
 
     /**
      * Get dashboard statistics
@@ -1025,6 +1026,90 @@ public class AdminService {
 
     public void deleteProduct(UUID productId) {
         productService.deleteProductForAdmin(productId);
+    }
+
+    // ==================== PROMOTIONS (ADMIN) ====================
+
+    public PagedResponse<PromotionResponse> getAllPromotions(PromotionStatus status, PromotionType type, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Promotion> promotions;
+        if (status != null && type != null) {
+            promotions = promotionRepository.findByTypeAndStatusOrderByCreatedAtDesc(type, status, pageable);
+        } else if (status != null) {
+            promotions = promotionRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+        } else if (type != null) {
+            promotions = promotionRepository.findByTypeOrderByCreatedAtDesc(type, pageable);
+        } else {
+            promotions = promotionRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        return PagedResponse.<PromotionResponse>builder()
+                .content(promotions.getContent().stream()
+                        .map(promotionService::mapToAdminResponse)
+                        .collect(Collectors.toList()))
+                .page(promotions.getNumber())
+                .size(promotions.getSize())
+                .totalElements(promotions.getTotalElements())
+                .totalPages(promotions.getTotalPages())
+                .last(promotions.isLast())
+                .first(promotions.isFirst())
+                .build();
+    }
+
+    public Map<String, Object> getPromotionsStats() {
+        long total = promotionRepository.count();
+        long active = promotionRepository.countByStatus(PromotionStatus.ACTIVE);
+        long pending = promotionRepository.countByStatus(PromotionStatus.PENDING);
+        long paused = promotionRepository.countByStatus(PromotionStatus.PAUSED);
+        long completed = promotionRepository.countByStatus(PromotionStatus.COMPLETED);
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", total);
+        stats.put("active", active);
+        stats.put("pending", pending);
+        stats.put("paused", paused);
+        stats.put("completed", completed);
+        return stats;
+    }
+
+    @Transactional
+    public PromotionResponse adminPausePromotion(UUID promotionId, UUID adminId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", promotionId));
+        if (promotion.getStatus() != PromotionStatus.ACTIVE) {
+            throw new BadRequestException("Only active promotions can be paused");
+        }
+        promotion.setStatus(PromotionStatus.PAUSED);
+        promotionRepository.save(promotion);
+        auditLogService.log(adminId, "PROMOTION_PAUSED", "Promotion", promotionId, "Admin paused promotion", null, null, null);
+        log.info("Admin {} paused promotion {}", adminId, promotionId);
+        return promotionService.mapToAdminResponse(promotion);
+    }
+
+    @Transactional
+    public PromotionResponse adminResumePromotion(UUID promotionId, UUID adminId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", promotionId));
+        if (promotion.getStatus() != PromotionStatus.PAUSED) {
+            throw new BadRequestException("Only paused promotions can be resumed");
+        }
+        promotion.setStatus(PromotionStatus.ACTIVE);
+        promotionRepository.save(promotion);
+        auditLogService.log(adminId, "PROMOTION_RESUMED", "Promotion", promotionId, "Admin resumed promotion", null, null, null);
+        log.info("Admin {} resumed promotion {}", adminId, promotionId);
+        return promotionService.mapToAdminResponse(promotion);
+    }
+
+    @Transactional
+    public PromotionResponse adminRejectPromotion(UUID promotionId, UUID adminId, String reason) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", promotionId));
+        if (promotion.getStatus() != PromotionStatus.PENDING && promotion.getStatus() != PromotionStatus.ACTIVE) {
+            throw new BadRequestException("Cannot reject promotion in current state");
+        }
+        promotion.setStatus(PromotionStatus.REJECTED);
+        promotionRepository.save(promotion);
+        auditLogService.log(adminId, "PROMOTION_REJECTED", "Promotion", promotionId, reason != null ? reason : "Admin rejected", null, null, null);
+        log.info("Admin {} rejected promotion {}: {}", adminId, promotionId, reason);
+        return promotionService.mapToAdminResponse(promotion);
     }
 
     // ==================== IMPERSONATION ====================

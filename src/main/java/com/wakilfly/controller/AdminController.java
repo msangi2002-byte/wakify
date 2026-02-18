@@ -327,6 +327,19 @@ public class AdminController {
     }
 
     /**
+     * Get full user details for admin (profile, location, engagements, communities).
+     * GET /api/v1/admin/users/{id}
+     */
+    @GetMapping("/users/{id}")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, USERS);
+        AdminUserDetailResponse detail = adminService.getUserDetail(id);
+        return ResponseEntity.ok(ApiResponse.success(detail));
+    }
+
+    /**
      * Update user status (activate/deactivate)
      * PUT /api/v1/admin/users/{id}/status
      */

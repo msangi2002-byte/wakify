@@ -59,6 +59,7 @@ public class AdminService {
     private final PromotionService promotionService;
     private final PostReactionRepository postReactionRepository;
     private final CommentRepository commentRepository;
+    private final CommunityMemberRepository communityMemberRepository;
 
     /**
      * Get dashboard statistics
@@ -132,6 +133,64 @@ public class AdminService {
     @Transactional
     public AdminSettingsResponse updateSettings(AdminSettingsUpdateRequest request) {
         return systemSettingsService.updateSettings(request);
+    }
+
+    /**
+     * Get full user details for admin (profile, location, engagements, communities).
+     */
+    public AdminUserDetailResponse getUserDetail(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        long followersCount = userRepository.countFollowers(userId);
+        long followingCount = userRepository.countFollowing(userId);
+        long postsCount = postRepository.countByAuthorIdAndIsDeletedFalse(userId);
+
+        List<AdminUserDetailResponse.CommunityMembership> memberships = communityMemberRepository
+                .findByUserIdOrderByJoinedAtDesc(userId)
+                .stream()
+                .map(cm -> {
+                    com.wakilfly.model.Community c = cm.getCommunity();
+                    return AdminUserDetailResponse.CommunityMembership.builder()
+                            .communityId(c.getId())
+                            .name(c.getName())
+                            .type(c.getType())
+                            .memberRole(cm.getRole())
+                            .membersCount(c.getMembersCount() != null ? c.getMembersCount() : 0)
+                            .joinedAt(cm.getJoinedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return AdminUserDetailResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .bio(user.getBio())
+                .profilePic(user.getProfilePic())
+                .coverPic(user.getCoverPic())
+                .role(user.getRole())
+                .adminRole(user.getRole() == Role.ADMIN ? user.getAdminRoleCode() : null)
+                .isVerified(user.getIsVerified())
+                .isActive(user.getIsActive())
+                .onboardingCompleted(user.getOnboardingCompleted())
+                .createdAt(user.getCreatedAt())
+                .lastSeen(user.getLastSeen())
+                .work(user.getWork())
+                .education(user.getEducation())
+                .currentCity(user.getCurrentCity())
+                .region(user.getRegion())
+                .country(user.getCountry())
+                .hometown(user.getHometown())
+                .gender(user.getGender())
+                .language(user.getLanguage())
+                .interests(user.getInterests())
+                .followersCount(followersCount)
+                .followingCount(followingCount)
+                .postsCount(postsCount)
+                .communities(memberships)
+                .build();
     }
 
     /**
@@ -522,6 +581,9 @@ public class AdminService {
                 .isVerified(user.getIsVerified())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
+                .country(user.getCountry())
+                .region(user.getRegion())
+                .currentCity(user.getCurrentCity())
                 .build();
     }
 

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,9 @@ public interface CommunityMemberRepository extends JpaRepository<CommunityMember
 
     // Find groups a user has joined
     Page<CommunityMember> findByUserId(UUID userId, Pageable pageable);
+
+    /** All memberships for a user (for admin detail). */
+    List<CommunityMember> findByUserIdOrderByJoinedAtDesc(UUID userId);
 
     // Check membership
     boolean existsByCommunityIdAndUserId(UUID communityId, UUID userId);

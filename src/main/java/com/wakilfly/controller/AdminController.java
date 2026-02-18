@@ -156,6 +156,18 @@ public class AdminController {
     }
 
     /**
+     * Get audience analytics (by interests, location, demographics, behaviors)
+     * GET /api/v1/admin/audience-analytics
+     */
+    @GetMapping("/audience-analytics")
+    public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AudienceAnalyticsResponse>> getAudienceAnalytics(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, AUDIENCE_ANALYTICS);
+        com.wakilfly.dto.response.AudienceAnalyticsResponse analytics = adminService.getAudienceAnalytics();
+        return ResponseEntity.ok(ApiResponse.success(analytics));
+    }
+
+    /**
      * Export users as CSV
      * GET /api/v1/admin/users/export
      */

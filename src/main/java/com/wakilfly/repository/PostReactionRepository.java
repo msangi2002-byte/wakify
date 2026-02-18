@@ -28,4 +28,8 @@ public interface PostReactionRepository extends JpaRepository<PostReaction, UUID
     /** Post IDs this user reacted to (for interest vector). */
     @Query("SELECT pr.post.id FROM PostReaction pr WHERE pr.user.id = :userId")
     List<UUID> findPostIdsByUserId(@Param("userId") UUID userId);
+
+    /** Count distinct users who have given at least one reaction – for "Engaged" segment. */
+    @Query("SELECT COUNT(DISTINCT pr.user.id) FROM PostReaction pr")
+    long countDistinctReactors();
 }

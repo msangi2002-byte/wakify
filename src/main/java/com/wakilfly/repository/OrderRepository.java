@@ -53,4 +53,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Query("SELECT o FROM Order o WHERE (:status IS NULL OR o.status = :status) ORDER BY o.createdAt DESC")
     Page<Order> findAllWithStatusFilter(@Param("status") OrderStatus status, Pageable pageable);
+
+    /** Count distinct buyers (users who have placed at least one order) – for "Online shoppers" segment. */
+    @Query("SELECT COUNT(DISTINCT o.buyer.id) FROM Order o")
+    long countDistinctBuyers();
 }

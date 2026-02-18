@@ -56,6 +56,8 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final AdminRoleDefinitionService roleDefinitionService;
     private final PromotionService promotionService;
+    private final PostReactionRepository postReactionRepository;
+    private final CommentRepository commentRepository;
 
     /**
      * Get dashboard statistics
@@ -973,6 +975,138 @@ public class AdminService {
                 .weeklyTransactionCount(weeklyCount)
                 .monthlyTransactionCount(monthlyCount)
                 .build();
+    }
+
+    // ==================== AUDIENCE ANALYTICS ====================
+
+    /**
+     * Audience analytics for admin: by interests, location, demographics, behaviors.
+     * Used for promotion targeting and audience insights.
+     */
+    public AudienceAnalyticsResponse getAudienceAnalytics() {
+        long totalUsers = userRepository.count();
+
+        // By interests (normalize: lowercase, trim, split comma)
+        List<AudienceAnalyticsResponse.InterestStat> byInterests = buildInterestStats();
+
+        // By location
+        List<AudienceAnalyticsResponse.LocationStat> byCountry = buildLocationStats(
+                userRepository.countGroupByCountry());
+        List<AudienceAnalyticsResponse.LocationStat> byRegion = buildLocationStats(
+                userRepository.countGroupByRegion());
+        List<AudienceAnalyticsResponse.LocationStat> byCity = buildLocationStats(
+                userRepository.countGroupByCity());
+
+        // By demographics
+        List<AudienceAnalyticsResponse.DemographicStat> byAgeBand = buildAgeBandStats();
+        List<AudienceAnalyticsResponse.DemographicStat> byGender = buildDemographicStats(
+                userRepository.countGroupByGender());
+
+        // By behaviors (derived)
+        List<AudienceAnalyticsResponse.BehaviorStat> byBehaviors = buildBehaviorStats();
+
+        return AudienceAnalyticsResponse.builder()
+                .byInterests(byInterests)
+                .byCountry(byCountry)
+                .byRegion(byRegion)
+                .byCity(byCity)
+                .byAgeBand(byAgeBand)
+                .byGender(byGender)
+                .byBehaviors(byBehaviors)
+                .totalUsers(totalUsers)
+                .build();
+    }
+
+    private List<AudienceAnalyticsResponse.InterestStat> buildInterestStats() {
+        Map<String, Long> counts = new HashMap<>();
+        List<String> raw = userRepository.findAllInterestsStrings();
+        for (String s : raw) {
+            if (s == null || s.isBlank()) continue;
+            for (String part : s.split(",")) {
+                String key = part.trim().toLowerCase();
+                if (key.isEmpty()) continue;
+                counts.merge(key, 1L, Long::sum);
+            }
+        }
+        return counts.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .map(e -> AudienceAnalyticsResponse.InterestStat.builder()
+                        .interest(capitalizeFirst(e.getKey()))
+                        .count(e.getValue())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private static String capitalizeFirst(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase();
+    }
+
+    private List<AudienceAnalyticsResponse.LocationStat> buildLocationStats(List<Object[]> rows) {
+        return rows.stream()
+                .map(r -> AudienceAnalyticsResponse.LocationStat.builder()
+                        .name(String.valueOf(r[0]))
+                        .count(((Number) r[1]).longValue())
+                        .build())
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .collect(Collectors.toList());
+    }
+
+    private List<AudienceAnalyticsResponse.DemographicStat> buildDemographicStats(List<Object[]> rows) {
+        return rows.stream()
+                .map(r -> AudienceAnalyticsResponse.DemographicStat.builder()
+                        .bucket(String.valueOf(r[0]))
+                        .count(((Number) r[1]).longValue())
+                        .build())
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .collect(Collectors.toList());
+    }
+
+    private List<AudienceAnalyticsResponse.DemographicStat> buildAgeBandStats() {
+        String[] labels = {"Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"};
+        long[] counts = new long[labels.length];
+        LocalDate today = LocalDate.now();
+
+        for (LocalDate dob : userRepository.findAllDateOfBirth()) {
+            int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dob, today);
+            if (age < 18) counts[0]++;
+            else if (age < 25) counts[1]++;
+            else if (age < 35) counts[2]++;
+            else if (age < 45) counts[3]++;
+            else if (age < 55) counts[4]++;
+            else if (age < 65) counts[5]++;
+            else counts[6]++;
+        }
+
+        List<AudienceAnalyticsResponse.DemographicStat> result = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) {
+            result.add(AudienceAnalyticsResponse.DemographicStat.builder()
+                    .bucket(labels[i])
+                    .count(counts[i])
+                    .build());
+        }
+        return result;
+    }
+
+    private List<AudienceAnalyticsResponse.BehaviorStat> buildBehaviorStats() {
+        long onlineShoppers = orderRepository.countDistinctBuyers();
+        long engagedReactors = postReactionRepository.countDistinctReactors();
+        long engagedCommenters = commentRepository.countDistinctCommenters();
+
+        List<AudienceAnalyticsResponse.BehaviorStat> list = new ArrayList<>();
+        list.add(AudienceAnalyticsResponse.BehaviorStat.builder()
+                .behavior("Online shoppers")
+                .count(onlineShoppers)
+                .build());
+        list.add(AudienceAnalyticsResponse.BehaviorStat.builder()
+                .behavior("Engaged (reactions)")
+                .count(engagedReactors)
+                .build());
+        list.add(AudienceAnalyticsResponse.BehaviorStat.builder()
+                .behavior("Engaged (comments)")
+                .count(engagedCommenters)
+                .build());
+        return list;
     }
 
     // ==================== ANALYTICS (DAU/MAU) ====================

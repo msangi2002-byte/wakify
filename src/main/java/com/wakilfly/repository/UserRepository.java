@@ -97,4 +97,23 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     /** Users with location set (for admin map display). */
     @Query("SELECT u FROM User u WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL AND u.isActive = true")
     java.util.List<User> findAllWithCoordinates();
+
+    // Audience analytics – group by location/demographics
+    @Query("SELECT u.country, COUNT(u) FROM User u WHERE u.country IS NOT NULL AND u.country <> '' GROUP BY u.country")
+    java.util.List<Object[]> countGroupByCountry();
+
+    @Query("SELECT u.region, COUNT(u) FROM User u WHERE u.region IS NOT NULL AND u.region <> '' GROUP BY u.region")
+    java.util.List<Object[]> countGroupByRegion();
+
+    @Query("SELECT u.currentCity, COUNT(u) FROM User u WHERE u.currentCity IS NOT NULL AND u.currentCity <> '' GROUP BY u.currentCity")
+    java.util.List<Object[]> countGroupByCity();
+
+    @Query("SELECT u.gender, COUNT(u) FROM User u WHERE u.gender IS NOT NULL AND u.gender <> '' GROUP BY u.gender")
+    java.util.List<Object[]> countGroupByGender();
+
+    @Query("SELECT u.interests FROM User u WHERE u.interests IS NOT NULL AND u.interests <> ''")
+    java.util.List<String> findAllInterestsStrings();
+
+    @Query("SELECT u.dateOfBirth FROM User u WHERE u.dateOfBirth IS NOT NULL")
+    java.util.List<java.time.LocalDate> findAllDateOfBirth();
 }

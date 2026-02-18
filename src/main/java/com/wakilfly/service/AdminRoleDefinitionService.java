@@ -33,9 +33,9 @@ public class AdminRoleDefinitionService {
     }
 
     private static final java.util.Map<String, java.util.Set<AdminArea>> BUILTIN_AREAS_FALLBACK = java.util.Map.of(
-            "MODERATOR", Set.of(AdminArea.DASHBOARD, AdminArea.REPORTS, AdminArea.PROMOTIONS),
+            "MODERATOR", Set.of(AdminArea.DASHBOARD, AdminArea.REPORTS, AdminArea.PROMOTIONS, AdminArea.AUDIENCE_ANALYTICS),
             "SUPPORT_AGENT", Set.of(AdminArea.DASHBOARD, AdminArea.USERS, AdminArea.ORDERS, AdminArea.AGENTS, AdminArea.BUSINESSES, AdminArea.PRODUCTS),
-            "FINANCE_MANAGER", Set.of(AdminArea.DASHBOARD, AdminArea.DASHBOARD_CHARTS, AdminArea.PAYMENTS, AdminArea.WITHDRAWALS, AdminArea.USER_WITHDRAWALS, AdminArea.TRANSACTION_REPORTS, AdminArea.ANALYTICS)
+            "FINANCE_MANAGER", Set.of(AdminArea.DASHBOARD, AdminArea.DASHBOARD_CHARTS, AdminArea.PAYMENTS, AdminArea.WITHDRAWALS, AdminArea.USER_WITHDRAWALS, AdminArea.TRANSACTION_REPORTS, AdminArea.ANALYTICS, AdminArea.AUDIENCE_ANALYTICS)
     );
 
     /**
@@ -144,9 +144,9 @@ public class AdminRoleDefinitionService {
         if (repository.count() > 0) return;
         List<AdminRoleDefinition> builtins = List.of(
                 AdminRoleDefinition.builder().code("SUPER_ADMIN").displayName("Super Admin").areasJson("[]").isBuiltin(true).build(),
-                AdminRoleDefinition.builder().code("MODERATOR").displayName("Moderator").areasJson("[\"DASHBOARD\",\"REPORTS\",\"PROMOTIONS\"]").isBuiltin(true).build(),
+                AdminRoleDefinition.builder().code("MODERATOR").displayName("Moderator").areasJson("[\"DASHBOARD\",\"REPORTS\",\"PROMOTIONS\",\"AUDIENCE_ANALYTICS\"]").isBuiltin(true).build(),
                 AdminRoleDefinition.builder().code("SUPPORT_AGENT").displayName("Support").areasJson("[\"DASHBOARD\",\"USERS\",\"ORDERS\",\"AGENTS\",\"BUSINESSES\",\"PRODUCTS\"]").isBuiltin(true).build(),
-                AdminRoleDefinition.builder().code("FINANCE_MANAGER").displayName("Finance").areasJson("[\"DASHBOARD\",\"DASHBOARD_CHARTS\",\"PAYMENTS\",\"WITHDRAWALS\",\"USER_WITHDRAWALS\",\"TRANSACTION_REPORTS\",\"ANALYTICS\"]").isBuiltin(true).build()
+                AdminRoleDefinition.builder().code("FINANCE_MANAGER").displayName("Finance").areasJson("[\"DASHBOARD\",\"DASHBOARD_CHARTS\",\"PAYMENTS\",\"WITHDRAWALS\",\"USER_WITHDRAWALS\",\"TRANSACTION_REPORTS\",\"ANALYTICS\",\"AUDIENCE_ANALYTICS\"]").isBuiltin(true).build()
         );
         repository.saveAll(builtins);
         log.info("Seeded {} built-in admin role definitions", builtins.size());

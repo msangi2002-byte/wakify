@@ -11,6 +11,7 @@ import com.wakilfly.model.*;
 import com.wakilfly.repository.*;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.util.ContinentHelper;
+import com.wakilfly.util.ReverseGeocodeUtil;
 import com.wakilfly.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -778,6 +779,14 @@ public class AdminService {
         List<User> users = userRepository.findAllWithCoordinates();
         for (User u : users) {
             String country = u.getCountry() != null ? u.getCountry().trim() : null;
+            String region = u.getRegion() != null ? u.getRegion().trim() : null;
+            if (country == null && u.getLatitude() != null && u.getLongitude() != null) {
+                var geo = ReverseGeocodeUtil.geocode(u.getLatitude(), u.getLongitude());
+                if (geo != null) {
+                    country = geo.country;
+                    if (region == null && geo.region != null) region = geo.region;
+                }
+            }
             String continent = ContinentHelper.getContinent(country);
             out.add(MapLocationResponse.builder()
                     .id(u.getId())
@@ -785,7 +794,7 @@ public class AdminService {
                     .latitude(u.getLatitude())
                     .longitude(u.getLongitude())
                     .type("USER")
-                    .region(u.getRegion())
+                    .region(region)
                     .category(null)
                     .country(country)
                     .continent(continent)
@@ -796,8 +805,16 @@ public class AdminService {
         List<Agent> agents = agentRepository.findAllWithCoordinates();
         for (Agent a : agents) {
             String country = null;
+            String region = a.getRegion() != null ? a.getRegion().trim() : null;
             if (a.getUser() != null && a.getUser().getCountry() != null) {
                 country = a.getUser().getCountry().trim();
+            }
+            if (country == null && a.getLatitude() != null && a.getLongitude() != null) {
+                var geo = ReverseGeocodeUtil.geocode(a.getLatitude(), a.getLongitude());
+                if (geo != null) {
+                    country = geo.country;
+                    if (region == null && geo.region != null) region = geo.region;
+                }
             }
             String continent = ContinentHelper.getContinent(country);
             out.add(MapLocationResponse.builder()
@@ -806,7 +823,7 @@ public class AdminService {
                     .latitude(a.getLatitude())
                     .longitude(a.getLongitude())
                     .type("AGENT")
-                    .region(a.getRegion())
+                    .region(region)
                     .category(a.getAgentCode())
                     .country(country)
                     .continent(continent)
@@ -818,8 +835,16 @@ public class AdminService {
         for (Business b : businesses) {
             if (b.getLatitude() != null && b.getLongitude() != null) {
                 String country = null;
+                String region = b.getRegion() != null ? b.getRegion().trim() : null;
                 if (b.getOwner() != null && b.getOwner().getCountry() != null) {
                     country = b.getOwner().getCountry().trim();
+                }
+                if (country == null) {
+                    var geo = ReverseGeocodeUtil.geocode(b.getLatitude(), b.getLongitude());
+                    if (geo != null) {
+                        country = geo.country;
+                        if (region == null && geo.region != null) region = geo.region;
+                    }
                 }
                 String continent = ContinentHelper.getContinent(country);
                 out.add(MapLocationResponse.builder()
@@ -828,7 +853,7 @@ public class AdminService {
                         .latitude(b.getLatitude())
                         .longitude(b.getLongitude())
                         .type("BUSINESS")
-                        .region(b.getRegion())
+                        .region(region)
                         .category(b.getCategory())
                         .country(country)
                         .continent(continent)

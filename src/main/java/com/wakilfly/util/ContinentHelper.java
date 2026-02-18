@@ -13,7 +13,7 @@ public final class ContinentHelper {
 
     static {
         // Africa
-        String[] africa = {"Tanzania", "Kenya", "Uganda", "Rwanda", "Burundi", "Ethiopia", "Somalia", "Djibouti",
+        String[] africa = {"Tanzania", "United Republic of Tanzania", "Kenya", "Uganda", "Rwanda", "Burundi", "Ethiopia", "Somalia", "Djibouti",
                 "Eritrea", "South Sudan", "Sudan", "Egypt", "Libya", "Tunisia", "Algeria", "Morocco", "Mauritania",
                 "Mali", "Niger", "Chad", "Nigeria", "Cameroon", "Central African Republic", "Gabon", "Congo",
                 "DRC", "Democratic Republic of Congo", "Angola", "Zambia", "Zimbabwe", "Malawi", "Mozambique",
@@ -34,7 +34,7 @@ public final class ContinentHelper {
             COUNTRY_TO_CONTINENT.put(normalize(c), "Asia");
         }
         // Europe
-        String[] europe = {"United Kingdom", "UK", "Germany", "France", "Italy", "Spain", "Portugal", "Netherlands",
+        String[] europe = {"United Kingdom", "United Kingdom of Great Britain and Northern Ireland", "UK", "Germany", "France", "Italy", "Spain", "Portugal", "Netherlands",
                 "Belgium", "Switzerland", "Austria", "Poland", "Sweden", "Norway", "Denmark", "Finland",
                 "Ireland", "Greece", "Romania", "Hungary", "Czech Republic", "Czechia", "Russia", "Ukraine",
                 "Belarus", "Croatia", "Serbia", "Bosnia", "Slovenia", "Slovakia", "Bulgaria", "Lithuania",
@@ -44,7 +44,7 @@ public final class ContinentHelper {
             COUNTRY_TO_CONTINENT.put(normalize(c), "Europe");
         }
         // North America
-        String[] na = {"United States", "USA", "US", "Canada", "Mexico", "Cuba", "Jamaica", "Haiti", "Dominican Republic",
+        String[] na = {"United States", "United States of America", "USA", "US", "Canada", "Mexico", "Cuba", "Jamaica", "Haiti", "Dominican Republic",
                 "Puerto Rico", "Guatemala", "Honduras", "El Salvador", "Nicaragua", "Costa Rica", "Panama",
                 "Belize", "Trinidad and Tobago", "Barbados", "Bahamas"};
         for (String c : na) {

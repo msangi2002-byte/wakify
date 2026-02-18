@@ -8,5 +8,8 @@ public enum NotificationType {
     FRIEND_ACCEPT,
     FOLLOW,
     COMMUNITY_INVITE, // Invited to join a group
+    PROMOTION_APPROVED,
+    PROMOTION_PAUSED,
+    PROMOTION_REJECTED,
     SYSTEM
 }

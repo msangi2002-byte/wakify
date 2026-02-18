@@ -33,6 +33,7 @@ public class UpdateProfileRequest {
     private String gender;
     private LocalDate dateOfBirth;
     private String website;
+    private String language;  // Preferred language e.g. sw, en
 
     /** Who can see your profile: PUBLIC, FOLLOWERS, PRIVATE */
     private Visibility profileVisibility;

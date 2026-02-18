@@ -40,6 +40,7 @@ public class RegisterRequest {
     private java.time.LocalDate dateOfBirth;
     private String gender;      // MALE, FEMALE, etc.
     private String interests;   // Hobbies comma-separated e.g. Music,Sports,Tech
+    private String language;    // Preferred language e.g. sw, en
 
     // Optional: Agent referral code
     private String referralCode;

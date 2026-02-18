@@ -100,6 +100,10 @@ public class Promotion {
     @Column(name = "target_behaviors", columnDefinition = "TEXT")
     private String targetBehaviors; // Comma-separated: Online shoppers, etc.
 
+    /** Audience type: AUTOMATIC (followers+similar), LOCAL (region/age/gender), CUSTOM (pixel retargeting). */
+    @Column(name = "audience_type", length = 32)
+    private String audienceType;
+
     /** Ad quality score 0–100. Higher = better delivery in auction. */
     @Column(name = "ad_quality_score")
     private Double adQualityScore;

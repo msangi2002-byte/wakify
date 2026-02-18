@@ -132,6 +132,8 @@ public class UserService {
             user.setDateOfBirth(request.getDateOfBirth());
         if (request.getWebsite() != null)
             user.setWebsite(request.getWebsite());
+        if (request.getLanguage() != null)
+            user.setLanguage(request.getLanguage());
         if (request.getProfileVisibility() != null)
             user.setProfileVisibility(request.getProfileVisibility());
         if (request.getFollowingListVisibility() != null)
@@ -511,6 +513,7 @@ public class UserService {
                 .gender(user.getGender())
                 .dateOfBirth(user.getDateOfBirth())
                 .website(user.getWebsite())
+                .language(user.getLanguage())
                 .profileVisibility(user.getProfileVisibility())
                 .followingListVisibility(user.getFollowingListVisibility())
                 .onboardingCompleted(Boolean.TRUE.equals(user.getOnboardingCompleted()))

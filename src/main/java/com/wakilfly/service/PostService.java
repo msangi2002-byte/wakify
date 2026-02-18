@@ -289,6 +289,46 @@ public class PostService {
                 return out;
         }
 
+        /** Check if promotion should be shown to user based on audience type. */
+        private boolean shouldShowPromotionToUser(Promotion p, UUID currentUserId, User currentUser) {
+                String audience = p.getAudienceType() != null ? p.getAudienceType().toUpperCase() : "";
+                if ("LOCAL".equals(audience)) {
+                        if (currentUser == null) return false;
+                        if (p.getTargetRegions() != null && !p.getTargetRegions().isBlank()) {
+                                String userRegion = currentUser.getRegion();
+                                if (userRegion == null || userRegion.isBlank()) return false;
+                                boolean matchRegion = java.util.Arrays.stream(p.getTargetRegions().split(","))
+                                        .map(String::trim).anyMatch(r -> r.equalsIgnoreCase(userRegion));
+                                if (!matchRegion) return false;
+                        }
+                        if (p.getTargetAgeMin() != null || p.getTargetAgeMax() != null) {
+                                java.time.LocalDate dob = currentUser.getDateOfBirth();
+                                if (dob == null) return false;
+                                int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dob, java.time.LocalDate.now());
+                                if (p.getTargetAgeMin() != null && age < p.getTargetAgeMin()) return false;
+                                if (p.getTargetAgeMax() != null && age > p.getTargetAgeMax()) return false;
+                        }
+                        if (p.getTargetGender() != null && !p.getTargetGender().equalsIgnoreCase("ALL")) {
+                                String ug = currentUser.getGender();
+                                if (ug == null || ug.isBlank()) return false;
+                                if (!ug.toUpperCase().contains(p.getTargetGender().substring(0, 1))) return false;
+                        }
+                        return true;
+                }
+                if ("AUTOMATIC".equals(audience)) {
+                        Post post = postRepository.findById(p.getTargetId()).orElse(null);
+                        if (post == null || post.getAuthor() == null) return true;
+                        UUID authorId = post.getAuthor().getId();
+                        if (userRepository.isFollowing(currentUserId, authorId)) return true;
+                        User author = post.getAuthor();
+                        if (currentUser != null && author.getRegion() != null && !author.getRegion().isBlank()
+                                && author.getRegion().equalsIgnoreCase(currentUser.getRegion())) return true;
+                        if (currentUser != null && author.getRegion() == null) return true; // No region = broader reach
+                        return false;
+                }
+                return true; // CUSTOM or null: show to all
+        }
+
         /** Feed algorithm: rank by interaction probability, recency, engagement, and relationship strength (like Facebook). */
         public PagedResponse<PostResponse> getFeed(UUID userId, int page, int size) {
                 LocalDateTime since = LocalDateTime.now().minusDays(14);
@@ -308,10 +348,14 @@ public class PostService {
                 Map<UUID, Promotion> promotionMap = activePromotions.stream()
                         .collect(Collectors.toMap(Promotion::getId, p -> p, (p1, p2) -> p1));
                 
-                // Get boosted posts - show to ALL users (like sponsored content), not just followers
-                // This is how social media platforms work - sponsored posts appear regardless of following status
+                // Filter promotions by audience (AUTOMATIC = followers+similar, LOCAL = targeting, else = all)
+                User currentUser = userRepository.findById(userId).orElse(null);
+                List<Promotion> promotionsForUser = activePromotions.stream()
+                        .filter(p -> shouldShowPromotionToUser(p, userId, currentUser))
+                        .collect(Collectors.toList());
+
                 Set<UUID> candidatePostIds = candidates.stream().map(Post::getId).collect(Collectors.toSet());
-                List<Post> boostedPosts = activePromotions.stream()
+                List<Post> boostedPosts = promotionsForUser.stream()
                         .map(p -> {
                             try {
                                 return postRepository.findById(p.getTargetId()).orElse(null);
@@ -322,7 +366,7 @@ public class PostService {
                         .filter(post -> post != null 
                                 && !post.getIsDeleted()
                                 && !post.getAuthor().getId().equals(userId)
-                                && post.getVisibility() == Visibility.PUBLIC) // Only public posts can be boosted to non-followers
+                                && post.getVisibility() == Visibility.PUBLIC)
                         .collect(Collectors.toList());
                 
                 // Add boosted posts to candidates (they'll get higher priority in scoring)
@@ -338,6 +382,7 @@ public class PostService {
                                         .totalPages(publicPage.getTotalPages()).last(publicPage.isLast()).first(true)
                                         .build();
                 }
+                activePromotions = promotionsForUser;
                 List<Post> scored = scoreAndSortFeedPosts(candidates, userId, boostedPosts);
                 
                 // Mix boosted posts more naturally into feed (like Facebook/Instagram)

@@ -53,6 +53,7 @@ public class AdminService {
     private final ProductService productService;
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final AdminRoleDefinitionService roleDefinitionService;
     private final PromotionService promotionService;
@@ -982,27 +983,32 @@ public class AdminService {
     /**
      * Audience analytics for admin: by interests, location, demographics, behaviors.
      * Used for promotion targeting and audience insights.
+     * @param fromDate optional - filter users by registration date (inclusive)
+     * @param toDate optional - filter users by registration date (inclusive, end of day)
      */
-    public AudienceAnalyticsResponse getAudienceAnalytics() {
-        long totalUsers = userRepository.count();
+    public AudienceAnalyticsResponse getAudienceAnalytics(java.time.LocalDate fromDate, java.time.LocalDate toDate) {
+        java.time.LocalDateTime from = fromDate != null ? fromDate.atStartOfDay() : null;
+        java.time.LocalDateTime to = toDate != null ? toDate.atTime(23, 59, 59, 999_999_999) : null;
+
+        long totalUsers = userRepository.countBetween(from, to);
 
         // By interests (normalize: lowercase, trim, split comma)
-        List<AudienceAnalyticsResponse.InterestStat> byInterests = buildInterestStats();
+        List<AudienceAnalyticsResponse.InterestStat> byInterests = buildInterestStats(from, to);
 
         // By location
         List<AudienceAnalyticsResponse.LocationStat> byCountry = buildLocationStats(
-                userRepository.countGroupByCountry());
+                userRepository.countGroupByCountryBetween(from, to));
         List<AudienceAnalyticsResponse.LocationStat> byRegion = buildLocationStats(
-                userRepository.countGroupByRegion());
+                userRepository.countGroupByRegionBetween(from, to));
         List<AudienceAnalyticsResponse.LocationStat> byCity = buildLocationStats(
-                userRepository.countGroupByCity());
+                userRepository.countGroupByCityBetween(from, to));
 
         // By demographics
-        List<AudienceAnalyticsResponse.DemographicStat> byAgeBand = buildAgeBandStats();
+        List<AudienceAnalyticsResponse.DemographicStat> byAgeBand = buildAgeBandStats(from, to);
         List<AudienceAnalyticsResponse.DemographicStat> byGender = buildDemographicStats(
-                userRepository.countGroupByGender());
+                userRepository.countGroupByGenderBetween(from, to));
 
-        // By behaviors (derived)
+        // By behaviors (derived; not date-filtered for simplicity)
         List<AudienceAnalyticsResponse.BehaviorStat> byBehaviors = buildBehaviorStats();
 
         return AudienceAnalyticsResponse.builder()
@@ -1017,9 +1023,9 @@ public class AdminService {
                 .build();
     }
 
-    private List<AudienceAnalyticsResponse.InterestStat> buildInterestStats() {
+    private List<AudienceAnalyticsResponse.InterestStat> buildInterestStats(java.time.LocalDateTime from, java.time.LocalDateTime to) {
         Map<String, Long> counts = new HashMap<>();
-        List<String> raw = userRepository.findAllInterestsStrings();
+        List<String> raw = userRepository.findAllInterestsStringsBetween(from, to);
         for (String s : raw) {
             if (s == null || s.isBlank()) continue;
             for (String part : s.split(",")) {
@@ -1062,12 +1068,12 @@ public class AdminService {
                 .collect(Collectors.toList());
     }
 
-    private List<AudienceAnalyticsResponse.DemographicStat> buildAgeBandStats() {
+    private List<AudienceAnalyticsResponse.DemographicStat> buildAgeBandStats(java.time.LocalDateTime from, java.time.LocalDateTime to) {
         String[] labels = {"Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"};
         long[] counts = new long[labels.length];
         LocalDate today = LocalDate.now();
 
-        for (LocalDate dob : userRepository.findAllDateOfBirth()) {
+        for (LocalDate dob : userRepository.findAllDateOfBirthBetween(from, to)) {
             int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dob, today);
             if (age < 18) counts[0]++;
             else if (age < 25) counts[1]++;
@@ -1193,15 +1199,33 @@ public class AdminService {
         long total = promotionRepository.count();
         long active = promotionRepository.countByStatus(PromotionStatus.ACTIVE);
         long pending = promotionRepository.countByStatus(PromotionStatus.PENDING);
+        long pendingApproval = promotionRepository.countByStatus(PromotionStatus.PENDING_APPROVAL);
         long paused = promotionRepository.countByStatus(PromotionStatus.PAUSED);
         long completed = promotionRepository.countByStatus(PromotionStatus.COMPLETED);
         Map<String, Object> stats = new HashMap<>();
         stats.put("total", total);
         stats.put("active", active);
         stats.put("pending", pending);
+        stats.put("pendingApproval", pendingApproval);
         stats.put("paused", paused);
         stats.put("completed", completed);
         return stats;
+    }
+
+    @Transactional
+    public PromotionResponse adminApprovePromotion(UUID promotionId, UUID adminId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", promotionId));
+        if (promotion.getStatus() != PromotionStatus.PENDING_APPROVAL) {
+            throw new BadRequestException("Only promotions pending approval can be approved");
+        }
+        promotion.setStatus(PromotionStatus.ACTIVE);
+        promotionRepository.save(promotion);
+        auditLogService.log(adminId, "PROMOTION_APPROVED", "Promotion", promotionId, "Admin approved promotion (policy check passed)", null, null, null);
+        notificationService.sendNotification(promotion.getUser(), null, NotificationType.PROMOTION_APPROVED,
+                promotionId, "Tangazo lako limeidhinishwa. Sasa linaonyeshwa kwa watu.");
+        log.info("Admin {} approved promotion {}", adminId, promotionId);
+        return promotionService.mapToAdminResponse(promotion);
     }
 
     @Transactional
@@ -1214,6 +1238,8 @@ public class AdminService {
         promotion.setStatus(PromotionStatus.PAUSED);
         promotionRepository.save(promotion);
         auditLogService.log(adminId, "PROMOTION_PAUSED", "Promotion", promotionId, "Admin paused promotion", null, null, null);
+        notificationService.sendNotification(promotion.getUser(), null, NotificationType.PROMOTION_PAUSED,
+                promotionId, "Tangazo lako limepauzwa na msimamizi.");
         log.info("Admin {} paused promotion {}", adminId, promotionId);
         return promotionService.mapToAdminResponse(promotion);
     }
@@ -1236,12 +1262,18 @@ public class AdminService {
     public PromotionResponse adminRejectPromotion(UUID promotionId, UUID adminId, String reason) {
         Promotion promotion = promotionRepository.findById(promotionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", promotionId));
-        if (promotion.getStatus() != PromotionStatus.PENDING && promotion.getStatus() != PromotionStatus.ACTIVE) {
+        if (promotion.getStatus() != PromotionStatus.PENDING && promotion.getStatus() != PromotionStatus.PENDING_APPROVAL
+                && promotion.getStatus() != PromotionStatus.ACTIVE) {
             throw new BadRequestException("Cannot reject promotion in current state");
         }
         promotion.setStatus(PromotionStatus.REJECTED);
         promotionRepository.save(promotion);
         auditLogService.log(adminId, "PROMOTION_REJECTED", "Promotion", promotionId, reason != null ? reason : "Admin rejected", null, null, null);
+        String msg = reason != null && !reason.isBlank()
+                ? "Tangazo lako limekataliwa: " + reason
+                : "Tangazo lako limekataliwa na msimamizi.";
+        notificationService.sendNotification(promotion.getUser(), null, NotificationType.PROMOTION_REJECTED,
+                promotionId, msg);
         log.info("Admin {} rejected promotion {}: {}", adminId, promotionId, reason);
         return promotionService.mapToAdminResponse(promotion);
     }

@@ -98,22 +98,32 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL AND u.isActive = true")
     java.util.List<User> findAllWithCoordinates();
 
-    // Audience analytics – group by location/demographics
-    @Query("SELECT u.country, COUNT(u) FROM User u WHERE u.country IS NOT NULL AND u.country <> '' GROUP BY u.country")
-    java.util.List<Object[]> countGroupByCountry();
+    // Audience analytics – group by location/demographics (optional date filter by user createdAt)
+    @Query("SELECT u.country, COUNT(u) FROM User u WHERE u.country IS NOT NULL AND u.country <> '' " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate) GROUP BY u.country")
+    java.util.List<Object[]> countGroupByCountryBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 
-    @Query("SELECT u.region, COUNT(u) FROM User u WHERE u.region IS NOT NULL AND u.region <> '' GROUP BY u.region")
-    java.util.List<Object[]> countGroupByRegion();
+    @Query("SELECT u.region, COUNT(u) FROM User u WHERE u.region IS NOT NULL AND u.region <> '' " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate) GROUP BY u.region")
+    java.util.List<Object[]> countGroupByRegionBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 
-    @Query("SELECT u.currentCity, COUNT(u) FROM User u WHERE u.currentCity IS NOT NULL AND u.currentCity <> '' GROUP BY u.currentCity")
-    java.util.List<Object[]> countGroupByCity();
+    @Query("SELECT u.currentCity, COUNT(u) FROM User u WHERE u.currentCity IS NOT NULL AND u.currentCity <> '' " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate) GROUP BY u.currentCity")
+    java.util.List<Object[]> countGroupByCityBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 
-    @Query("SELECT u.gender, COUNT(u) FROM User u WHERE u.gender IS NOT NULL AND u.gender <> '' GROUP BY u.gender")
-    java.util.List<Object[]> countGroupByGender();
+    @Query("SELECT u.gender, COUNT(u) FROM User u WHERE u.gender IS NOT NULL AND u.gender <> '' " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate) GROUP BY u.gender")
+    java.util.List<Object[]> countGroupByGenderBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 
-    @Query("SELECT u.interests FROM User u WHERE u.interests IS NOT NULL AND u.interests <> ''")
-    java.util.List<String> findAllInterestsStrings();
+    @Query("SELECT u.interests FROM User u WHERE u.interests IS NOT NULL AND u.interests <> '' " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate)")
+    java.util.List<String> findAllInterestsStringsBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 
-    @Query("SELECT u.dateOfBirth FROM User u WHERE u.dateOfBirth IS NOT NULL")
-    java.util.List<java.time.LocalDate> findAllDateOfBirth();
+    @Query("SELECT u.dateOfBirth FROM User u WHERE u.dateOfBirth IS NOT NULL " +
+            "AND (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate)")
+    java.util.List<java.time.LocalDate> findAllDateOfBirthBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
+
+    /** Count users (optionally filtered by registration date). */
+    @Query("SELECT COUNT(u) FROM User u WHERE (:fromDate IS NULL OR u.createdAt >= :fromDate) AND (:toDate IS NULL OR u.createdAt <= :toDate)")
+    long countBetween(@Param("fromDate") LocalDateTime fromDate, @Param("toDate") LocalDateTime toDate);
 }

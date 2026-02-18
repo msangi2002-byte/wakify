@@ -105,6 +105,10 @@ public class User {
 
     private String website;
 
+    /** Preferred language (e.g. sw, en) for UI and notifications. Used in Audience Analytics by Language. */
+    @Column(name = "language", length = 10)
+    private String language;
+
     /** Who can see your profile (PUBLIC, FOLLOWERS, PRIVATE) */
     @Enumerated(EnumType.STRING)
     @Column(name = "profile_visibility", length = 20)

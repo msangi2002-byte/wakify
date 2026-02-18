@@ -89,6 +89,7 @@ public class AuthService {
                 .dateOfBirth(request.getDateOfBirth())
                 .gender(request.getGender())
                 .interests(request.getInterests())
+                .language(request.getLanguage())
                 .build();
 
         user = userRepository.save(user);

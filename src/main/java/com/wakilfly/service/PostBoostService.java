@@ -97,6 +97,7 @@ public class PostBoostService {
                 .status(PromotionStatus.PENDING)
                 .reach(targetReach);
         if (objective != null) promoBuilder.objective(objective);
+        if (audienceType != null && !audienceType.isBlank()) promoBuilder.audienceType(audienceType);
         if (targetRegionsCsv != null && !targetRegionsCsv.isBlank()) promoBuilder.targetRegions(targetRegionsCsv);
         if (targetAgeMin != null) promoBuilder.targetAgeMin(targetAgeMin);
         if (targetAgeMax != null) promoBuilder.targetAgeMax(targetAgeMax);
@@ -184,6 +185,8 @@ public class PostBoostService {
         // Build response with individual promotion stats
         List<Map<String, Object>> promotionStats = postPromotions.stream()
                 .map(p -> {
+                    int learning = p.getLearningPhaseConversions() != null ? p.getLearningPhaseConversions() : 0;
+                    boolean inLearning = p.getStatus() == PromotionStatus.ACTIVE && learning < 50;
                     Map<String, Object> stat = new HashMap<>();
                     stat.put("id", p.getId());
                     stat.put("postId", p.getTargetId());
@@ -199,6 +202,8 @@ public class PostBoostService {
                     stat.put("startDate", p.getStartDate());
                     stat.put("endDate", p.getEndDate());
                     stat.put("createdAt", p.getCreatedAt());
+                    stat.put("learningPhaseConversions", learning);
+                    stat.put("isInLearningPhase", inLearning);
                     return stat;
                 })
                 .collect(java.util.stream.Collectors.toList());

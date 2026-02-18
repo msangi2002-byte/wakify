@@ -157,13 +157,15 @@ public class AdminController {
 
     /**
      * Get audience analytics (by interests, location, demographics, behaviors)
-     * GET /api/v1/admin/audience-analytics
+     * GET /api/v1/admin/audience-analytics?fromDate=2024-01-01&toDate=2024-01-31
      */
     @GetMapping("/audience-analytics")
     public ResponseEntity<ApiResponse<com.wakilfly.dto.response.AudienceAnalyticsResponse>> getAudienceAnalytics(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fromDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate toDate) {
         requireArea(userDetails, AUDIENCE_ANALYTICS);
-        com.wakilfly.dto.response.AudienceAnalyticsResponse analytics = adminService.getAudienceAnalytics();
+        com.wakilfly.dto.response.AudienceAnalyticsResponse analytics = adminService.getAudienceAnalytics(fromDate, toDate);
         return ResponseEntity.ok(ApiResponse.success(analytics));
     }
 
@@ -690,6 +692,19 @@ public class AdminController {
         requireArea(userDetails, PROMOTIONS);
         PromotionResponse p = adminService.adminResumePromotion(id, getAdminUser(userDetails).getId());
         return ResponseEntity.ok(ApiResponse.success("Promotion resumed", p));
+    }
+
+    /**
+     * Admin approve promotion (policy check passed)
+     * POST /api/v1/admin/promotions/{id}/approve
+     */
+    @PostMapping("/promotions/{id}/approve")
+    public ResponseEntity<ApiResponse<PromotionResponse>> adminApprovePromotion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        PromotionResponse p = adminService.adminApprovePromotion(id, getAdminUser(userDetails).getId());
+        return ResponseEntity.ok(ApiResponse.success("Promotion approved", p));
     }
 
     /**

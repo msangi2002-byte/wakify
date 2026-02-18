@@ -1,5 +1,6 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.BoostProductOrBusinessRequest;
 import com.wakilfly.dto.request.CreatePromotionRequest;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.PagedResponse;
@@ -17,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -36,6 +38,19 @@ public class PromotionController {
             @RequestParam(required = false) PromotionType type) {
         List<PromotionPackageResponse> packages = promotionService.getPackages(type);
         return ResponseEntity.ok(ApiResponse.success(packages));
+    }
+
+    /**
+     * Boost Product or Business – create promotion and initiate USSD payment
+     * POST /api/v1/promotions/boost
+     */
+    @PostMapping("/boost")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> boostProductOrBusiness(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody BoostProductOrBusinessRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        Map<String, Object> result = promotionService.boostProductOrBusiness(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Promotion created. Payment initiated.", result));
     }
 
     /**

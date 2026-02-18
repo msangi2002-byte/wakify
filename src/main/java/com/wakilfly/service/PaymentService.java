@@ -561,9 +561,8 @@ public class PaymentService {
 
         if (promotion != null) {
             promotion.setIsPaid(true);
-            if (!promotion.getStartDate().isAfter(LocalDateTime.now())) {
-                promotion.setStatus(PromotionStatus.ACTIVE);
-            }
+            // Require admin approval before going live (policy check)
+            promotion.setStatus(PromotionStatus.PENDING_APPROVAL);
             promotionRepository.save(promotion);
             log.info("Promotion {} activated after payment {}", promotion.getId(), payment.getTransactionId());
         }

@@ -55,6 +55,7 @@ public class UserResponse {
     private String gender;
     private java.time.LocalDate dateOfBirth;
     private String website;
+    private String language;  // Preferred language e.g. sw, en
 
     /** Who can see your profile (for settings screen) */
     private Visibility profileVisibility;

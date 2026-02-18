@@ -1,5 +1,6 @@
 package com.wakilfly.service;
 
+import com.wakilfly.dto.request.BoostProductOrBusinessRequest;
 import com.wakilfly.dto.request.CreatePromotionRequest;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PromotionPackageResponse;
@@ -20,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,7 @@ public class PromotionService {
     private final PostRepository postRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
 
     /**
      * Create a new promotion
@@ -97,6 +101,69 @@ public class PromotionService {
         log.info("Promotion {} created by user {}. Awaiting payment.", promotion.getId(), userId);
 
         return mapToResponse(promotion);
+    }
+
+    /**
+     * Create Product or Business promotion and initiate USSD payment (like Post Boost).
+     */
+    @Transactional
+    public Map<String, Object> boostProductOrBusiness(UUID userId, BoostProductOrBusinessRequest request) {
+        if (request.getType() != PromotionType.PRODUCT && request.getType() != PromotionType.BUSINESS) {
+            throw new BadRequestException("Type must be PRODUCT or BUSINESS");
+        }
+        validateTarget(request.getType(), request.getTargetId(), userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        Business business = businessRepository.findByOwnerId(userId).orElse(null);
+
+        String title;
+        if (request.getType() == PromotionType.PRODUCT) {
+            Product product = productRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", request.getTargetId()));
+            title = "Boost Product: " + (product.getName().length() > 50 ? product.getName().substring(0, 50) + "..." : product.getName());
+        } else {
+            Business b = businessRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Business", "id", request.getTargetId()));
+            title = "Boost Business: " + (b.getName().length() > 50 ? b.getName().substring(0, 50) + "..." : b.getName());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endDate = now.plusDays(30);
+
+        Promotion promotion = Promotion.builder()
+                .user(user)
+                .business(business)
+                .type(request.getType())
+                .targetId(request.getTargetId())
+                .title(title)
+                .description("Boost " + request.getType() + " - " + request.getBudget() + " TZS")
+                .budget(request.getBudget())
+                .startDate(now)
+                .endDate(endDate)
+                .status(PromotionStatus.PENDING)
+                .build();
+        promotion = promotionRepository.save(promotion);
+
+        String description = "Promotion: " + title;
+        String orderId = paymentService.initiatePayment(
+                userId, request.getBudget(), PaymentType.PROMOTION,
+                request.getPaymentPhone(), description,
+                promotion.getId(), "PROMOTION");
+
+        Payment payment = paymentRepository.findByTransactionId(orderId).orElse(null);
+        if (payment != null) {
+            promotion.setPaymentId(payment.getId());
+            promotionRepository.save(promotion);
+        }
+
+        log.info("Product/Business boost created: promotionId={}, type={}, orderId={}", promotion.getId(), request.getType(), orderId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("promotionId", promotion.getId());
+        result.put("orderId", orderId);
+        result.put("message", "USSD push imetumwa kwa simu yako. Fuata maelekezo kukamilisha malipo.");
+        return result;
     }
 
     /**
@@ -289,14 +356,15 @@ public class PromotionService {
     }
 
     /**
-     * Scheduled job to start/end promotions
+     * Scheduled job to start/end promotions.
+     * Note: Paid promotions require admin approval (PENDING_APPROVAL -> ACTIVE) and are not auto-started here.
      */
     @Scheduled(fixedRate = 60000) // Every minute
     @Transactional
     public void processPromotions() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Start pending promotions
+        // Start paid PENDING promotions (legacy/fallback – new flow uses PENDING_APPROVAL)
         List<Promotion> toStart = promotionRepository.findPromotionsToStart(now);
         for (Promotion promotion : toStart) {
             promotion.setStatus(PromotionStatus.ACTIVE);

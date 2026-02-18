@@ -69,6 +69,22 @@ public final class ReverseGeocodeUtil {
         return String.format("%.2f,%.2f", lat, lng);
     }
 
+    /**
+     * Clear the in-memory geocode cache (e.g. for admin maintenance).
+     * @return number of entries removed
+     */
+    public static int clearCache() {
+        int size = CACHE.size();
+        CACHE.clear();
+        log.info("Geocode cache cleared ({} entries)", size);
+        return size;
+    }
+
+    /** Current number of cached entries (for admin/system info). */
+    public static int cacheSize() {
+        return CACHE.size();
+    }
+
     private static Result fetchFromNominatim(double lat, double lng) {
         synchronized (ReverseGeocodeUtil.class) {
             long now = System.currentTimeMillis();

@@ -21,6 +21,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import com.wakilfly.util.ReverseGeocodeUtil;
+
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -890,6 +892,42 @@ public class AdminController {
         requireArea(userDetails, SETTINGS);
         AdminSettingsResponse settings = adminService.updateSettings(request);
         return ResponseEntity.ok(ApiResponse.success("Settings updated", settings));
+    }
+
+    /**
+     * Clear a specific application cache (admin maintenance).
+     * POST /api/v1/admin/maintenance/clear-cache
+     * Body: { "cache": "geocode" } — geocode = reverse geocode in-memory cache
+     */
+    @PostMapping("/maintenance/clear-cache")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> clearCache(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, SETTINGS);
+        String cache = body != null ? body.get("cache") : null;
+        if ("geocode".equalsIgnoreCase(cache)) {
+            int removed = ReverseGeocodeUtil.clearCache();
+            return ResponseEntity.ok(ApiResponse.success("Cache cleared", Map.of(
+                    "cache", "geocode",
+                    "entriesRemoved", removed
+            )));
+        }
+        return ResponseEntity.badRequest().body(ApiResponse.error("Unknown or missing cache. Use { \"cache\": \"geocode\" }"));
+    }
+
+    /**
+     * System info for admin (app name, version, caches).
+     * GET /api/v1/admin/system/info
+     */
+    @GetMapping("/system/info")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getSystemInfo(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, SETTINGS);
+        Map<String, Object> info = new java.util.LinkedHashMap<>();
+        info.put("appName", "Wakilfly");
+        info.put("version", "1.0");
+        info.put("caches", Map.of("geocode", Map.of("size", ReverseGeocodeUtil.cacheSize(), "description", "Reverse geocode (lat/lng → country)")));
+        return ResponseEntity.ok(ApiResponse.success(info));
     }
 
     // ==================== PAYMENT MONITORING ====================

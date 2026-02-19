@@ -192,6 +192,22 @@ public class AgentController {
         return ResponseEntity.ok(ApiResponse.success(agents));
     }
 
+    /**
+     * List agents for "Become a business" (authenticated).
+     * sort: popularity (default), rating, nearby. For nearby pass lat & lng.
+     * GET /api/v1/agent/for-business-request
+     */
+    @GetMapping("/for-business-request")
+    public ResponseEntity<ApiResponse<PagedResponse<AgentResponse>>> getAgentsForBusinessRequest(
+            @RequestParam(required = false, defaultValue = "popularity") String sort,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedResponse<AgentResponse> agents = agentService.getAgentsForBusinessRequest(sort, lat, lng, page, size);
+        return ResponseEntity.ok(ApiResponse.success(agents));
+    }
+
     // ==================== WITHDRAWAL ENDPOINTS ====================
 
     /**

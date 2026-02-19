@@ -88,10 +88,12 @@ Baada ya hapo user ana role BUSINESS na anaweza kuingia kwenye Business Dashboar
 - **Admin Settings** inaweka **toBeBusinessAmount** kwenye **system_settings** (SystemSettingsService).
 - **Become a business** sasa inatumia **SystemSettingsService.getToBeBusinessAmount()** kwenye BusinessRequestService, hivyo kiasi kinachotumika ni kile admin anachoweka kwenye Settings.
 
-### 4.2 Agent hiari
+### 4.2 Agent hiari – orodha na map (tayari)
 
-- Fomu ya frontend **haionyeshi** uchaguzi wa agent (hakuna `agentCode`).  
+- **GET /api/v1/agent/for-business-request** – orodha ya agents kwa "Become a business": sort = popularity | rating | nearby (lat, lng). Response ina `latitude`, `longitude`, `averageRating`, `ratingCount`, `isOnline`.
+- Fomu ya frontend inaweza kuonyesha **uchaguzi wa agent** (list au map); user anachagua agent → `agentCode` inatumwa kwenye **POST /api/v1/users/me/business-requests**. Request inaenda direct kwa agent yule.
 - Backend inakubali `agentCode` optional; ikiwa haijatuma, commission kwa agent haitoki.
+- **Baada ya activation:** Frontend inaonyesha **popup ya kumpa rating** agent (1–5 + comment). **POST /api/v1/users/me/rate-agent** (body: agentId, rating, comment). Tu business owner aliyewasajiliwa na agent huyo anaweza kumpa rating.
 
 ### 4.3 Polling / redirect baada ya malipo
 

@@ -1,6 +1,7 @@
 package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.CreateBusinessRequestRequest;
+import com.wakilfly.dto.request.RateAgentRequest;
 import com.wakilfly.dto.request.UpdateProfileRequest;
 import com.wakilfly.dto.request.UploadContactsRequest;
 import com.wakilfly.dto.response.ApiResponse;
@@ -10,6 +11,7 @@ import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.UserResponse;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.AuthEventService;
+import com.wakilfly.service.AgentService;
 import com.wakilfly.service.BusinessRequestService;
 import com.wakilfly.service.PeopleYouMayKnowService;
 import com.wakilfly.service.UserService;
@@ -33,6 +35,7 @@ public class UserController {
     private final AuthEventService authEventService;
     private final PeopleYouMayKnowService peopleYouMayKnowService;
     private final BusinessRequestService businessRequestService;
+    private final AgentService agentService;
     private final CustomUserDetailsService userDetailsService;
 
     @PostMapping("/me/activity")
@@ -173,6 +176,19 @@ public class UserController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<BusinessRequestResponse> requests = businessRequestService.findMyRequests(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(requests));
+    }
+
+    /**
+     * Rate the agent who activated your business (after becoming a business). Popup after activation.
+     * POST /api/v1/users/me/rate-agent
+     */
+    @PostMapping("/me/rate-agent")
+    public ResponseEntity<ApiResponse<Void>> rateAgent(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody RateAgentRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        agentService.rateAgent(userId, request.getAgentId(), request.getRating(), request.getComment());
+        return ResponseEntity.ok(ApiResponse.success("Thank you for your rating!"));
     }
 
     @PostMapping("/me/contacts")

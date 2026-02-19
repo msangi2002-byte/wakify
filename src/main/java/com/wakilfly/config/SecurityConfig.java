@@ -66,6 +66,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/me").authenticated()
                         // Agent dashboard (allow authenticated so dashboard loads right after registration redirect)
                         .requestMatchers(HttpMethod.GET, "/api/v1/agent/dashboard").authenticated()
+                        // List agents for "Become a business" (settings page)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agent/for-business-request").authenticated()
                         // Other Agent endpoints - require AGENT role
                         .requestMatchers("/api/v1/agent/**").hasAnyRole("AGENT", "ADMIN")
                         // Business endpoints

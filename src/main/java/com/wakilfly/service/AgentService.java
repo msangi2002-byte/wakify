@@ -10,6 +10,12 @@ import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;
 import lombok.RequiredArgsConstructor;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -40,8 +45,10 @@ public class AgentService {
         private final SystemSettingsService systemSettingsService;
         private final AgentPackageRepository agentPackageRepository;
         private final PaymentService paymentService;
+        private final AgentRatingRepository agentRatingRepository;
 
         private static final BigDecimal AGENT_COMMISSION = new BigDecimal("5000.00");
+        private static final int ONLINE_MINUTES = 15;
 
         /**
          * Register a user as an Agent.
@@ -383,6 +390,117 @@ public class AgentService {
         }
 
         /**
+         * List agents for "Become a business" flow. Public/authenticated.
+         * sort: popularity (businessesActivated desc), rating (avg rating desc), nearby (distance from lat,lng).
+         * For nearby, pass lat and lng (or from user profile).
+         */
+        @Transactional(readOnly = true)
+        public PagedResponse<AgentResponse> getAgentsForBusinessRequest(String sort, Double lat, Double lng, int page, int size) {
+                List<Agent> agents;
+                long total;
+                if ("nearby".equalsIgnoreCase(sort) && lat != null && lng != null) {
+                        List<Agent> withLocation = agentRepository.findByStatusAndLatitudeIsNotNullAndLongitudeIsNotNull(AgentStatus.ACTIVE);
+                        total = withLocation.size();
+                        withLocation.sort(Comparator.comparingDouble(a -> distanceSq(a.getLatitude(), a.getLongitude(), lat, lng)));
+                        int from = page * size;
+                        int to = Math.min(from + size, withLocation.size());
+                        agents = from < withLocation.size() ? withLocation.subList(from, to) : List.of();
+                } else if ("rating".equalsIgnoreCase(sort)) {
+                        Page<Agent> all = agentRepository.findByStatus(AgentStatus.ACTIVE, PageRequest.of(0, 500));
+                        List<Agent> list = all.getContent();
+                        List<UUID> ids = list.stream().map(Agent::getId).collect(Collectors.toList());
+                        Map<UUID, Double> avgMap = new HashMap<>();
+                        Map<UUID, Long> countMap = new HashMap<>();
+                        if (!ids.isEmpty()) {
+                                for (Object[] row : agentRatingRepository.getAverageAndCountByAgentIds(ids)) {
+                                        avgMap.put((UUID) row[0], ((Number) row[1]).doubleValue());
+                                        countMap.put((UUID) row[0], ((Number) row[2]).longValue());
+                                }
+                        }
+                        list.sort(Comparator.<Agent>comparingDouble(a -> avgMap.getOrDefault(a.getId(), 0.0)).reversed());
+                        total = list.size();
+                        int from = page * size;
+                        int to = Math.min(from + size, list.size());
+                        agents = from < list.size() ? list.subList(from, to) : List.of();
+                } else {
+                        // popularity (default)
+                        Page<Agent> pageResult = agentRepository.findByStatus(AgentStatus.ACTIVE,
+                                        PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "businessesActivated")));
+                        agents = pageResult.getContent();
+                        total = pageResult.getTotalElements();
+                }
+                List<UUID> agentIds = agents.stream().map(Agent::getId).collect(Collectors.toList());
+                Map<UUID, Double> avgMap = new HashMap<>();
+                Map<UUID, Long> countMap = new HashMap<>();
+                if (!agentIds.isEmpty()) {
+                        for (Object[] row : agentRatingRepository.getAverageAndCountByAgentIds(agentIds)) {
+                                avgMap.put((UUID) row[0], ((Number) row[1]).doubleValue());
+                                countMap.put((UUID) row[0], ((Number) row[2]).longValue());
+                        }
+                }
+                LocalDateTime onlineThreshold = LocalDateTime.now().minus(Duration.ofMinutes(ONLINE_MINUTES));
+                List<AgentResponse> content = agents.stream()
+                                .map(a -> {
+                                        Double avg = avgMap.get(a.getId());
+                                        Long cnt = countMap.get(a.getId());
+                                        boolean online = a.getUser().getLastSeen() != null && a.getUser().getLastSeen().isAfter(onlineThreshold);
+                                        return mapToAgentResponse(a, avg, cnt, online);
+                                })
+                                .collect(Collectors.toList());
+                int totalPages = (int) Math.ceil((double) total / size);
+                return PagedResponse.<AgentResponse>builder()
+                                .content(content)
+                                .page(page)
+                                .size(size)
+                                .totalElements(total)
+                                .totalPages(totalPages)
+                                .last(page >= totalPages - 1)
+                                .first(page == 0)
+                                .build();
+        }
+
+        private static double distanceSq(Double aLat, Double aLng, double lat, double lng) {
+                if (aLat == null || aLng == null) return Double.MAX_VALUE;
+                double dLat = aLat - lat;
+                double dLng = aLng - lng;
+                return dLat * dLat + dLng * dLng;
+        }
+
+        /**
+         * Rate the agent who activated your business. Allowed only if current user has a business activated by this agent.
+         */
+        @Transactional
+        public void rateAgent(UUID userId, UUID agentId, int rating, String comment) {
+                if (rating < 1 || rating > 5) {
+                        throw new BadRequestException("Rating must be between 1 and 5");
+                }
+                Business business = businessRepository.findByOwnerId(userId)
+                                .orElseThrow(() -> new BadRequestException("You do not have a business. Only business owners can rate agents."));
+                if (business.getAgent() == null || !business.getAgent().getId().equals(agentId)) {
+                        throw new BadRequestException("You can only rate the agent who activated your business.");
+                }
+                User user = userRepository.findById(userId).orElseThrow();
+                Agent agent = agentRepository.findById(agentId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Agent", "id", agentId));
+                AgentRating existing = agentRatingRepository.findByRaterUserIdAndAgentId(userId, agentId).orElse(null);
+                if (existing != null) {
+                        existing.setRating(rating);
+                        existing.setComment(comment != null ? comment.trim() : null);
+                        agentRatingRepository.save(existing);
+                        log.info("Agent rating updated by user {} for agent {}", userId, agentId);
+                } else {
+                        AgentRating ar = AgentRating.builder()
+                                        .raterUser(user)
+                                        .agent(agent)
+                                        .rating(rating)
+                                        .comment(comment != null ? comment.trim() : null)
+                                        .build();
+                        agentRatingRepository.save(ar);
+                        log.info("Agent rated by user {} for agent {}: {} stars", userId, agentId, rating);
+                }
+        }
+
+        /**
          * Confirm payment and activate agent/business
          * Called by payment webhook
          */
@@ -459,8 +577,11 @@ public class AgentService {
         }
 
         private AgentResponse mapToAgentResponse(Agent agent) {
-                BigDecimal pendingBalance = commissionRepository.sumPendingByAgentId(agent.getId());
+                return mapToAgentResponse(agent, null, null, null);
+        }
 
+        private AgentResponse mapToAgentResponse(Agent agent, Double averageRating, Long ratingCount, Boolean isOnline) {
+                BigDecimal pendingBalance = commissionRepository.sumPendingByAgentId(agent.getId());
                 return AgentResponse.builder()
                                 .id(agent.getId())
                                 .userId(agent.getUser().getId())
@@ -475,6 +596,11 @@ public class AgentService {
                                 .region(agent.getRegion())
                                 .district(agent.getDistrict())
                                 .ward(agent.getWard())
+                                .latitude(agent.getLatitude())
+                                .longitude(agent.getLongitude())
+                                .averageRating(averageRating)
+                                .ratingCount(ratingCount != null ? ratingCount : 0L)
+                                .isOnline(isOnline)
                                 .totalEarnings(agent.getTotalEarnings())
                                 .availableBalance(pendingBalance != null ? pendingBalance : BigDecimal.ZERO)
                                 .businessesActivated(agent.getBusinessesActivated())

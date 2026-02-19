@@ -32,6 +32,17 @@ public class AgentResponse {
     private String district;
     private String ward;
 
+    /** For "Become a business" list and map: agent location */
+    private Double latitude;
+    private Double longitude;
+
+    /** Average rating (1–5) from business owners who were activated by this agent. */
+    private Double averageRating;
+    /** Number of ratings received. */
+    private Long ratingCount;
+    /** True if agent's user lastSeen is within last 15 minutes. */
+    private Boolean isOnline;
+
     private BigDecimal totalEarnings;
     private BigDecimal availableBalance;
 

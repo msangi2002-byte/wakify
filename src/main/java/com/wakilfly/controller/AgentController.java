@@ -198,6 +198,21 @@ public class AgentController {
     }
 
     /**
+     * Agent approves the request after visit: creates business, user becomes BUSINESS, request marked CONVERTED.
+     * Only when request status is PAID (user has already paid).
+     * POST /api/v1/agent/business-requests/{id}/approve
+     */
+    @PostMapping("/business-requests/{id}/approve")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<BusinessRequestResponse>> approveBusinessRequest(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessRequestResponse updated = businessRequestService.approveByAgent(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Business approved and registered", updated));
+    }
+
+    /**
      * Get my commissions
      * GET /api/v1/agent/commissions
      */

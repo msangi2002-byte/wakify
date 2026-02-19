@@ -211,4 +211,29 @@ public class BusinessRequestService {
         br = businessRequestRepository.save(br);
         return mapToResponse(br);
     }
+
+    /**
+     * Agent approves the request after visit: create business, set user role to BUSINESS, set request to CONVERTED, create commission.
+     * Only allowed when request status is PAID (user has already paid).
+     */
+    @Transactional
+    public BusinessRequestResponse approveByAgent(UUID requestId, UUID agentUserId) {
+        BusinessRequest br = businessRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business request", "id", requestId));
+        if (br.getAgent() == null || !br.getAgent().getUser().getId().equals(agentUserId)) {
+            throw new BadRequestException("You can only approve your own business requests.");
+        }
+        if (br.getStatus() != BusinessRequestStatus.PAID) {
+            throw new BadRequestException("Request can only be approved after payment. Current status: " + br.getStatus());
+        }
+        if (businessRepository.findByOwnerId(br.getUser().getId()).isPresent()) {
+            br.setStatus(BusinessRequestStatus.CONVERTED);
+            businessRequestRepository.save(br);
+            return mapToResponse(br);
+        }
+        paymentService.completeBusinessFromRequest(br);
+        br = businessRequestRepository.findById(requestId).orElse(br);
+        log.info("Business request {} approved by agent (user {}); business created", requestId, br.getUser().getId());
+        return mapToResponse(br);
+    }
 }

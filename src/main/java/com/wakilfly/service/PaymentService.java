@@ -449,7 +449,7 @@ public class PaymentService {
         }
     }
 
-    /** After user (with account) pays business activation via USSD: create business and approve user. */
+    /** After user (with account) pays business activation via USSD. If request has agent: set PAID (agent must approve). Else: create business now. */
     private void activateBusinessFromRequest(Payment payment) {
         BusinessRequest br = businessRequestRepository.findById(payment.getRelatedEntityId()).orElse(null);
         if (br == null || br.getStatus() != BusinessRequestStatus.PENDING) {
@@ -461,6 +461,26 @@ public class PaymentService {
             br.setStatus(BusinessRequestStatus.CONVERTED);
             businessRequestRepository.save(br);
             return; // already has business
+        }
+        // When user selected an agent: wait for agent to visit and approve; do not create business yet
+        if (br.getAgent() != null) {
+            br.setStatus(BusinessRequestStatus.PAID);
+            businessRequestRepository.save(br);
+            log.info("Business request {} marked PAID; agent {} must visit and approve", br.getId(), br.getAgent().getAgentCode());
+            return;
+        }
+        doCreateBusinessFromRequest(br);
+    }
+
+    /**
+     * Create business from request and set CONVERTED. Used when: (1) payment completed and no agent, or (2) agent approved after visit.
+     */
+    private void doCreateBusinessFromRequest(BusinessRequest br) {
+        User owner = br.getUser();
+        if (businessRepository.findByOwnerId(owner.getId()).isPresent()) {
+            br.setStatus(BusinessRequestStatus.CONVERTED);
+            businessRequestRepository.save(br);
+            return;
         }
         Business business = Business.builder()
                 .name(br.getBusinessName())
@@ -542,8 +562,16 @@ public class PaymentService {
             }
         }
 
-        log.info("Business {} created and user {} approved after USSD payment (request {})",
+        log.info("Business {} created and user {} approved (request {})",
                 business.getName(), owner.getId(), br.getId());
+    }
+
+    /**
+     * Complete business registration from request. Called when agent approves after visit (request status must be PAID).
+     */
+    @Transactional
+    public void completeBusinessFromRequest(BusinessRequest br) {
+        doCreateBusinessFromRequest(br);
     }
 
     private void activateSubscription(Payment payment) {

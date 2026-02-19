@@ -146,10 +146,10 @@ public class ProductController {
     }
 
     /**
-     * Update a product
+     * Update a product (JSON only)
      * PUT /api/v1/business/products/{id}
      */
-    @PutMapping("/business/products/{id}")
+    @PutMapping(value = "/business/products/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -160,7 +160,28 @@ public class ProductController {
         Business business = businessRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new RuntimeException("Business not found for this user"));
 
-        ProductResponse product = productService.updateProduct(id, business.getId(), request);
+        ProductResponse product = productService.updateProduct(id, business.getId(), request, null, null);
+        return ResponseEntity.ok(ApiResponse.success("Product updated successfully", product));
+    }
+
+    /**
+     * Update a product with optional cover image and gallery images (multipart)
+     * PUT /api/v1/business/products/{id}
+     */
+    @PutMapping(value = "/business/products/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProductWithImages(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @RequestPart("product") @Valid CreateProductRequest request,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        Business business = businessRepository.findByOwnerId(userId)
+                .orElseThrow(() -> new RuntimeException("Business not found for this user"));
+
+        ProductResponse product = productService.updateProduct(id, business.getId(), request, coverImage, images);
         return ResponseEntity.ok(ApiResponse.success("Product updated successfully", product));
     }
 

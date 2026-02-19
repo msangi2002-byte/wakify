@@ -99,10 +99,11 @@ public class ProductService {
     }
 
     /**
-     * Update a product
+     * Update a product (optionally with new cover image and/or gallery images)
      */
     @Transactional
-    public ProductResponse updateProduct(UUID productId, UUID businessId, CreateProductRequest request) {
+    public ProductResponse updateProduct(UUID productId, UUID businessId, CreateProductRequest request,
+                                        MultipartFile coverImage, List<MultipartFile> images) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
@@ -133,6 +134,46 @@ public class ProductService {
         }
 
         product = productRepository.save(product);
+
+        // Update cover image (thumbnail and primary image)
+        if (coverImage != null && !coverImage.isEmpty()) {
+            String coverUrl = fileStorageService.storeFile(coverImage, "products");
+            product.setThumbnail(coverUrl);
+            List<ProductImage> existingImages = productImageRepository.findByProductIdOrderByDisplayOrderAsc(productId);
+            ProductImage primary = existingImages.stream().filter(ProductImage::getIsPrimary).findFirst().orElse(null);
+            if (primary != null) {
+                primary.setUrl(coverUrl);
+                productImageRepository.save(primary);
+            } else {
+                ProductImage newPrimary = ProductImage.builder()
+                        .product(product)
+                        .url(coverUrl)
+                        .isPrimary(true)
+                        .displayOrder(0)
+                        .build();
+                productImageRepository.save(newPrimary);
+            }
+            product = productRepository.save(product);
+        }
+
+        // Add new gallery images
+        if (images != null && !images.isEmpty()) {
+            List<ProductImage> existingImages = productImageRepository.findByProductIdOrderByDisplayOrderAsc(productId);
+            int nextOrder = existingImages.isEmpty() ? 0 : existingImages.stream()
+                    .mapToInt(ProductImage::getDisplayOrder)
+                    .max().orElse(0) + 1;
+            for (MultipartFile file : images) {
+                String url = fileStorageService.storeFile(file, "products");
+                ProductImage image = ProductImage.builder()
+                        .product(product)
+                        .url(url)
+                        .isPrimary(false)
+                        .displayOrder(nextOrder++)
+                        .build();
+                productImageRepository.save(image);
+            }
+        }
+
         return mapToProductResponse(product);
     }
 

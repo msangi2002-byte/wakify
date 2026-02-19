@@ -20,10 +20,11 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE p.category = :category AND p.isActive = true")
     Page<Product> findByCategory(@Param("category") String category, Pageable pageable);
 
-    @Query("SELECT p FROM Product p WHERE " +
+    @Query("SELECT p FROM Product p JOIN p.business b WHERE " +
             "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
             "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(p.category) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.isActive = true")
+            "LOWER(p.category) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(b.name) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.isActive = true")
     Page<Product> searchProducts(@Param("query") String query, Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE p.business.region = :region AND p.isActive = true")

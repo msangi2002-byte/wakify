@@ -215,12 +215,18 @@ public class ProductService {
     }
 
     /**
-     * Search products
+     * Search products by product name/description/category OR by business name.
      */
     public PagedResponse<ProductResponse> searchProducts(String query, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.searchProducts(query, pageable);
-
+        List<UUID> businessIds = businessRepository.findActiveBusinessIdsBySearch(
+                query, PageRequest.of(0, 500));
+        Page<Product> products;
+        if (businessIds == null || businessIds.isEmpty()) {
+            products = productRepository.searchProductsByProductFields(query, pageable);
+        } else {
+            products = productRepository.searchProductsByQueryOrBusinessIds(query, businessIds, pageable);
+        }
         return buildPagedResponse(products);
     }
 

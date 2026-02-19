@@ -34,6 +34,13 @@ public interface BusinessRepository extends JpaRepository<Business, UUID> {
             "LOWER(b.category) LIKE LOWER(CONCAT('%', :query, '%'))) AND b.status = 'ACTIVE'")
     Page<Business> searchBusinesses(@Param("query") String query, Pageable pageable);
 
+    /** Used by product search: get business IDs whose name/description/category match the query (max 500). */
+    @Query("SELECT b.id FROM Business b WHERE " +
+            "(LOWER(b.name) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(COALESCE(b.description, '')) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(COALESCE(b.category, '')) LIKE LOWER(CONCAT('%', :q, '%'))) AND b.status = 'ACTIVE'")
+    List<UUID> findActiveBusinessIdsBySearch(@Param("q") String q, Pageable pageable);
+
     @Query("SELECT COUNT(b) FROM Business b WHERE b.agent.id = :agentId")
     long countByAgentId(@Param("agentId") UUID agentId);
 

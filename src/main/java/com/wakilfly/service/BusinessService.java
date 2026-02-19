@@ -179,14 +179,16 @@ public class BusinessService {
     }
 
     /**
-     * Get My Orders (incoming orders for business)
+     * Get My Orders (incoming orders for business). Optional status filter.
      */
-    public PagedResponse<OrderResponse> getMyOrders(UUID ownerId, int page, int size) {
+    public PagedResponse<OrderResponse> getMyOrders(UUID ownerId, int page, int size, OrderStatus status) {
         Business business = businessRepository.findByOwnerId(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Order> orders = orderRepository.findByBusinessIdOrderByCreatedAtDesc(business.getId(), pageable);
+        Page<Order> orders = status != null
+                ? orderRepository.findByBusinessIdAndStatusOrderByCreatedAtDesc(business.getId(), status, pageable)
+                : orderRepository.findByBusinessIdOrderByCreatedAtDesc(business.getId(), pageable);
 
         return PagedResponse.<OrderResponse>builder()
                 .content(orders.getContent().stream()

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -20,12 +21,20 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE p.category = :category AND p.isActive = true")
     Page<Product> findByCategory(@Param("category") String category, Pageable pageable);
 
-    @Query("SELECT p FROM Product p JOIN p.business b WHERE " +
+    @Query("SELECT p FROM Product p WHERE " +
             "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(p.category) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(b.name) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.isActive = true")
-    Page<Product> searchProducts(@Param("query") String query, Pageable pageable);
+            "LOWER(COALESCE(p.description, '')) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(COALESCE(p.category, '')) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.isActive = true")
+    Page<Product> searchProductsByProductFields(@Param("query") String query, Pageable pageable);
+
+    @Query("SELECT p FROM Product p WHERE p.isActive = true AND (p.business.id IN :businessIds OR " +
+            "LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(COALESCE(p.description, '')) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(COALESCE(p.category, '')) LIKE LOWER(CONCAT('%', :query, '%')))")
+    Page<Product> searchProductsByQueryOrBusinessIds(
+            @Param("query") String query,
+            @Param("businessIds") List<UUID> businessIds,
+            Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE p.business.region = :region AND p.isActive = true")
     Page<Product> findByRegion(@Param("region") String region, Pageable pageable);

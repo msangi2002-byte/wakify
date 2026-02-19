@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.UpdateBusinessRequest;
 import com.wakilfly.dto.response.*;
+import com.wakilfly.model.OrderStatus;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.BusinessService;
 import jakarta.validation.Valid;
@@ -179,17 +180,18 @@ public class BusinessController {
     }
 
     /**
-     * Get my orders (incoming orders)
-     * GET /api/v1/business/orders
+     * Get my orders (incoming orders). Optional status filter.
+     * GET /api/v1/business/orders?page=0&size=20&status=PENDING
      */
     @GetMapping("/business/orders")
     @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PagedResponse<OrderResponse>>> getMyOrders(
             @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        PagedResponse<OrderResponse> orders = businessService.getMyOrders(userId, page, size);
+        PagedResponse<OrderResponse> orders = businessService.getMyOrders(userId, page, size, status);
         return ResponseEntity.ok(ApiResponse.success(orders));
     }
 }

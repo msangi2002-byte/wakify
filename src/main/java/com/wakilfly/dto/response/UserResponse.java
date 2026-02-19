@@ -39,6 +39,10 @@ public class UserResponse {
     private Boolean hasPendingBusinessRequest;
     /** When hasPendingBusinessRequest: order ID to poll GET /payments/status/{orderId}. */
     private String pendingBusinessPaymentOrderId;
+    /** First-time business: prompt to rate the agent who registered them. */
+    private Boolean shouldRateAgent;
+    private UUID rateAgentId;
+    private String rateAgentName;
 
     // Extended Details
     private String work;

@@ -27,4 +27,9 @@ public class CreateBusinessRequestRequest {
     private String ward;
     private String street;
     private String description;
+    /** User's location at request time (for agent map and distance). */
+    private Double latitude;
+    private Double longitude;
+    /** Optional plan id; if set, payment uses plan price instead of default fee. */
+    private java.util.UUID businessPlanId;
 }

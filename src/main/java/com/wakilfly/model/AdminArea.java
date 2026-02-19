@@ -24,6 +24,8 @@ public enum AdminArea {
     AUDIT_LOGS,
     SETTINGS,
     AGENT_PACKAGES,
+    /** Business registration subscription plans (fees for "Become a business"). */
+    BUSINESS_REGISTRATION_PLANS,
     IMPERSONATE,
     /** Manage role definitions (add/edit/delete roles and their areas). Super Admin only. */
     ROLE_DEFINITIONS,

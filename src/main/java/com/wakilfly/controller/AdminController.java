@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.AdminCreateUserRequest;
 import com.wakilfly.dto.request.AdminSettingsUpdateRequest;
+import com.wakilfly.dto.request.BusinessRegistrationPlanRequest;
 import com.wakilfly.dto.request.CreateAgentPackageRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.model.*;
@@ -21,6 +22,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import com.wakilfly.util.ReverseGeocodeUtil;
 
 import java.nio.charset.StandardCharsets;
@@ -32,6 +34,7 @@ import com.wakilfly.model.AdminArea;
 import com.wakilfly.model.AdminRoleDefinition;
 import com.wakilfly.dto.response.AdminRoleDefinitionResponse;
 import com.wakilfly.service.AdminRoleDefinitionService;
+import com.wakilfly.service.BusinessRegistrationPlanService;
 
 import static com.wakilfly.model.AdminArea.*;
 
@@ -48,6 +51,7 @@ public class AdminController {
     private final AuditLogService auditLogService;
     private final CustomUserDetailsService userDetailsService;
     private final AdminRoleDefinitionService roleDefinitionService;
+    private final BusinessRegistrationPlanService businessRegistrationPlanService;
 
     private com.wakilfly.model.User getAdminUser(UserDetails userDetails) {
         return userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
@@ -1004,5 +1008,58 @@ public class AdminController {
         requireArea(userDetails, AGENT_PACKAGES);
         adminService.deleteAgentPackage(id);
         return ResponseEntity.ok(ApiResponse.success("Agent package deleted successfully"));
+    }
+
+    // ==================== BUSINESS REGISTRATION PLANS ====================
+
+    /**
+     * Get all business registration plans (subscription fees for "Become a business").
+     * GET /api/v1/admin/business-registration-plans
+     */
+    @GetMapping("/business-registration-plans")
+    public ResponseEntity<ApiResponse<java.util.List<BusinessRegistrationPlanResponse>>> getBusinessRegistrationPlans(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, BUSINESS_REGISTRATION_PLANS);
+        return ResponseEntity.ok(ApiResponse.success(businessRegistrationPlanService.getAllPlans()));
+    }
+
+    /**
+     * Create a business registration plan.
+     * POST /api/v1/admin/business-registration-plans
+     */
+    @PostMapping("/business-registration-plans")
+    public ResponseEntity<ApiResponse<BusinessRegistrationPlanResponse>> createBusinessRegistrationPlan(
+            @RequestBody @Valid BusinessRegistrationPlanRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, BUSINESS_REGISTRATION_PLANS);
+        BusinessRegistrationPlanResponse created = businessRegistrationPlanService.create(request);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(ApiResponse.success("Plan created", created));
+    }
+
+    /**
+     * Update a business registration plan.
+     * PUT /api/v1/admin/business-registration-plans/{id}
+     */
+    @PutMapping("/business-registration-plans/{id}")
+    public ResponseEntity<ApiResponse<BusinessRegistrationPlanResponse>> updateBusinessRegistrationPlan(
+            @PathVariable UUID id,
+            @RequestBody @Valid BusinessRegistrationPlanRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, BUSINESS_REGISTRATION_PLANS);
+        return ResponseEntity.ok(ApiResponse.success("Plan updated", businessRegistrationPlanService.update(id, request)));
+    }
+
+    /**
+     * Delete a business registration plan.
+     * DELETE /api/v1/admin/business-registration-plans/{id}
+     */
+    @DeleteMapping("/business-registration-plans/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteBusinessRegistrationPlan(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, BUSINESS_REGISTRATION_PLANS);
+        businessRegistrationPlanService.delete(id);
+        return ResponseEntity.ok(ApiResponse.success("Plan deleted"));
     }
 }

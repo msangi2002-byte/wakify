@@ -50,6 +50,24 @@ public class BusinessRequest {
     @Column(name = "street")
     private String street;
 
+    /** User's location at request time (for agent map and distance). */
+    @Column(name = "latitude")
+    private Double latitude;
+    @Column(name = "longitude")
+    private Double longitude;
+
+    /** Filled by agent when visiting user: NIDA, TIN, company, ID docs. */
+    @Column(name = "nida_number")
+    private String nidaNumber;
+    @Column(name = "tin_number")
+    private String tinNumber;
+    @Column(name = "company_name")
+    private String companyName;
+    @Column(name = "id_document_url")
+    private String idDocumentUrl;
+    @Column(name = "id_back_document_url")
+    private String idBackDocumentUrl;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

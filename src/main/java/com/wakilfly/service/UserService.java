@@ -12,6 +12,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.BusinessRequestStatus;
 import com.wakilfly.model.PaymentStatus;
 import com.wakilfly.model.PaymentType;
+import com.wakilfly.repository.AgentRatingRepository;
 import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.repository.BusinessRequestRepository;
 import com.wakilfly.repository.PaymentRepository;
@@ -41,6 +42,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
     private final UserRestrictionRepository userRestrictionRepository;
+    private final AgentRatingRepository agentRatingRepository;
     private final BusinessRepository businessRepository;
     private final BusinessRequestRepository businessRequestRepository;
     private final PaymentRepository paymentRepository;
@@ -49,12 +51,14 @@ public class UserService {
 
     public UserService(UserRepository userRepository, UserBlockRepository userBlockRepository,
                        UserRestrictionRepository userRestrictionRepository,
+                       AgentRatingRepository agentRatingRepository,
                        BusinessRepository businessRepository, BusinessRequestRepository businessRequestRepository,
                        PaymentRepository paymentRepository,
                        NotificationService notificationService, FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.userBlockRepository = userBlockRepository;
         this.userRestrictionRepository = userRestrictionRepository;
+        this.agentRatingRepository = agentRatingRepository;
         this.businessRepository = businessRepository;
         this.businessRequestRepository = businessRequestRepository;
         this.paymentRepository = paymentRepository;
@@ -480,6 +484,17 @@ public class UserService {
                     .map(p -> p.getTransactionId())
                     .orElse(null);
         }
+        Boolean shouldRateAgent = null;
+        UUID rateAgentId = null;
+        String rateAgentName = null;
+        if (business.isPresent() && business.get().getAgent() != null) {
+            var agent = business.get().getAgent();
+            if (agentRatingRepository.findByRaterUserIdAndAgentId(user.getId(), agent.getId()).isEmpty()) {
+                shouldRateAgent = true;
+                rateAgentId = agent.getId();
+                rateAgentName = agent.getUser() != null ? agent.getUser().getName() : null;
+            }
+        }
         return UserResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -498,6 +513,9 @@ public class UserService {
                 .businessId(business.map(b -> b.getId()).orElse(null))
                 .hasPendingBusinessRequest(hasPending)
                 .pendingBusinessPaymentOrderId(pendingOrderId)
+                .shouldRateAgent(shouldRateAgent)
+                .rateAgentId(rateAgentId)
+                .rateAgentName(rateAgentName)
                 .isFollowing(isFollowing)
                 .work(user.getWork())
                 .education(user.getEducation())

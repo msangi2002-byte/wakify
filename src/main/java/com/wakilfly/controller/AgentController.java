@@ -2,6 +2,7 @@ package com.wakilfly.controller;
 
 import com.wakilfly.dto.request.AgentRegistrationRequest;
 import com.wakilfly.dto.request.BusinessActivationRequest;
+import com.wakilfly.dto.request.UpdateBusinessRequestDetailsRequest;
 import com.wakilfly.dto.request.WithdrawalRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.security.CustomUserDetailsService;
@@ -162,6 +163,38 @@ public class AgentController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<BusinessRequestResponse> requests = businessRequestService.findByAgentId(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(requests));
+    }
+
+    /**
+     * Get one business request detail (for agent: map, distance, user details, documents).
+     * GET /api/v1/agent/business-requests/{id}
+     */
+    @GetMapping("/business-requests/{id}")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<BusinessRequestResponse>> getBusinessRequestById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessRequestResponse request = businessRequestService.getByIdForAgent(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(request));
+    }
+
+    /**
+     * Agent updates document/details for a business request (NIDA, TIN, company, ID doc URLs).
+     * PATCH /api/v1/agent/business-requests/{id}
+     */
+    @PatchMapping("/business-requests/{id}")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<ApiResponse<BusinessRequestResponse>> updateBusinessRequestDetails(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody UpdateBusinessRequestDetailsRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessRequestResponse updated = businessRequestService.updateRequestDetailsByAgent(
+                id, userId,
+                request.getNidaNumber(), request.getTinNumber(), request.getCompanyName(),
+                request.getIdDocumentUrl(), request.getIdBackDocumentUrl());
+        return ResponseEntity.ok(ApiResponse.success("Details updated", updated));
     }
 
     /**

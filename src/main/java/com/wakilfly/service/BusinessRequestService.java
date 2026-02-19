@@ -13,8 +13,11 @@ import com.wakilfly.model.User;
 import com.wakilfly.repository.AgentRepository;
 import com.wakilfly.repository.BusinessRequestRepository;
 import com.wakilfly.service.SystemSettingsService;
+import com.wakilfly.service.NotificationService;
+import com.wakilfly.model.NotificationType;
 import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.repository.UserRepository;
+import com.wakilfly.service.BusinessRegistrationPlanService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -37,6 +40,8 @@ public class BusinessRequestService {
     private final AgentRepository agentRepository;
     private final BusinessRepository businessRepository;
     private final PaymentService paymentService;
+    private final NotificationService notificationService;
+    private final BusinessRegistrationPlanService businessRegistrationPlanService;
 
     /**
      * User with account requests to become a business. System pushes USSD payment;
@@ -67,13 +72,23 @@ public class BusinessRequestService {
                 .district(request.getDistrict() != null ? request.getDistrict().trim() : null)
                 .ward(request.getWard() != null ? request.getWard().trim() : null)
                 .street(request.getStreet() != null ? request.getStreet().trim() : null)
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
                 .status(BusinessRequestStatus.PENDING)
                 .build();
         br = businessRequestRepository.save(br);
 
-        // System completes the request: push USSD payment; after payment, system will create business and approve user (fee from Admin Settings)
-        BigDecimal businessActivationFee = systemSettingsService.getToBeBusinessAmount();
+        // Fee: use selected plan price if businessPlanId provided, else default from settings
+        BigDecimal businessActivationFee;
+        if (request.getBusinessPlanId() != null) {
+            businessActivationFee = businessRegistrationPlanService.findById(request.getBusinessPlanId())
+                    .filter(p -> Boolean.TRUE.equals(p.getIsActive()))
+                    .map(p -> p.getPrice())
+                    .orElseThrow(() -> new BadRequestException("Invalid or inactive business plan selected."));
+        } else {
+            businessActivationFee = systemSettingsService.getToBeBusinessAmount();
+        }
         String phone = request.getOwnerPhone().trim();
         String description = "Business activation: " + br.getBusinessName();
         String orderId = paymentService.initiatePayment(
@@ -84,6 +99,14 @@ public class BusinessRequestService {
                 description,
                 br.getId(),
                 "BUSINESS_REQUEST");
+        if (agent != null) {
+            notificationService.sendNotification(
+                    agent.getUser(),
+                    user,
+                    NotificationType.BUSINESS_REQUEST_RECEIVED,
+                    br.getId(),
+                    user.getName() + " requested to become a business: " + br.getBusinessName());
+        }
         log.info("Business request {} created by user {}; USSD payment initiated orderId={}", br.getId(), userId, orderId);
         BusinessRequestResponse response = mapToResponse(br);
         response.setPaymentOrderId(orderId);
@@ -144,6 +167,48 @@ public class BusinessRequestService {
                 .status(br.getStatus())
                 .createdAt(br.getCreatedAt())
                 .updatedAt(br.getUpdatedAt())
+                .userLatitude(br.getLatitude() != null ? br.getLatitude() : (br.getUser() != null ? br.getUser().getLatitude() : null))
+                .userLongitude(br.getLongitude() != null ? br.getLongitude() : (br.getUser() != null ? br.getUser().getLongitude() : null))
+                .agentLatitude(br.getAgent() != null ? br.getAgent().getLatitude() : null)
+                .agentLongitude(br.getAgent() != null ? br.getAgent().getLongitude() : null)
+                .nidaNumber(br.getNidaNumber())
+                .tinNumber(br.getTinNumber())
+                .companyName(br.getCompanyName())
+                .idDocumentUrl(br.getIdDocumentUrl())
+                .idBackDocumentUrl(br.getIdBackDocumentUrl())
                 .build();
+    }
+
+    /**
+     * Get one business request by id; only for the request's agent.
+     */
+    @Transactional(readOnly = true)
+    public BusinessRequestResponse getByIdForAgent(UUID requestId, UUID agentUserId) {
+        BusinessRequest br = businessRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business request", "id", requestId));
+        if (br.getAgent() == null || !br.getAgent().getUser().getId().equals(agentUserId)) {
+            throw new BadRequestException("You can only view your own business requests.");
+        }
+        return mapToResponse(br);
+    }
+
+    /**
+     * Agent updates document/details for a business request (after visiting the user).
+     */
+    @Transactional
+    public BusinessRequestResponse updateRequestDetailsByAgent(UUID requestId, UUID agentUserId,
+            String nidaNumber, String tinNumber, String companyName, String idDocumentUrl, String idBackDocumentUrl) {
+        BusinessRequest br = businessRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business request", "id", requestId));
+        if (br.getAgent() == null || !br.getAgent().getUser().getId().equals(agentUserId)) {
+            throw new BadRequestException("You can only update your own business requests.");
+        }
+        if (nidaNumber != null) br.setNidaNumber(nidaNumber.trim().isEmpty() ? null : nidaNumber.trim());
+        if (tinNumber != null) br.setTinNumber(tinNumber.trim().isEmpty() ? null : tinNumber.trim());
+        if (companyName != null) br.setCompanyName(companyName.trim().isEmpty() ? null : companyName.trim());
+        if (idDocumentUrl != null) br.setIdDocumentUrl(idDocumentUrl.trim().isEmpty() ? null : idDocumentUrl.trim());
+        if (idBackDocumentUrl != null) br.setIdBackDocumentUrl(idBackDocumentUrl.trim().isEmpty() ? null : idBackDocumentUrl.trim());
+        br = businessRequestRepository.save(br);
+        return mapToResponse(br);
     }
 }

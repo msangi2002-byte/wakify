@@ -8,7 +8,6 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.Agent;
 import com.wakilfly.model.BusinessRequest;
 import com.wakilfly.model.BusinessRequestStatus;
-import com.wakilfly.model.PaymentType;
 import com.wakilfly.model.User;
 import com.wakilfly.repository.AgentRepository;
 import com.wakilfly.repository.BusinessRequestRepository;
@@ -25,7 +24,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -44,8 +42,8 @@ public class BusinessRequestService {
     private final BusinessRegistrationPlanService businessRegistrationPlanService;
 
     /**
-     * User with account requests to become a business. System pushes USSD payment;
-     * after payment completes, system approves and creates the business (no agent approval).
+     * User requests to become a business. Request is sent to the selected agent (if any) with user location.
+     * No payment at this step – agent will visit, then payment/approval flow happens later.
      */
     @Transactional
     public BusinessRequestResponse create(UUID userId, CreateBusinessRequestRequest request) {
@@ -61,6 +59,12 @@ public class BusinessRequestService {
             if (agent.getStatus() != com.wakilfly.model.AgentStatus.ACTIVE) {
                 throw new BadRequestException("Selected agent is not active. Please choose another agent.");
             }
+        }
+        // Optional: validate plan if provided (for when payment is triggered later by agent)
+        if (request.getBusinessPlanId() != null) {
+            businessRegistrationPlanService.findById(request.getBusinessPlanId())
+                    .filter(p -> Boolean.TRUE.equals(p.getIsActive()))
+                    .orElseThrow(() -> new BadRequestException("Invalid or inactive business plan selected."));
         }
         BusinessRequest br = BusinessRequest.builder()
                 .user(user)
@@ -79,26 +83,6 @@ public class BusinessRequestService {
                 .build();
         br = businessRequestRepository.save(br);
 
-        // Fee: use selected plan price if businessPlanId provided, else default from settings
-        BigDecimal businessActivationFee;
-        if (request.getBusinessPlanId() != null) {
-            businessActivationFee = businessRegistrationPlanService.findById(request.getBusinessPlanId())
-                    .filter(p -> Boolean.TRUE.equals(p.getIsActive()))
-                    .map(p -> p.getPrice())
-                    .orElseThrow(() -> new BadRequestException("Invalid or inactive business plan selected."));
-        } else {
-            businessActivationFee = systemSettingsService.getToBeBusinessAmount();
-        }
-        String phone = request.getOwnerPhone().trim();
-        String description = "Business activation: " + br.getBusinessName();
-        String orderId = paymentService.initiatePayment(
-                userId,
-                businessActivationFee,
-                PaymentType.BUSINESS_ACTIVATION,
-                phone,
-                description,
-                br.getId(),
-                "BUSINESS_REQUEST");
         if (agent != null) {
             notificationService.sendNotification(
                     agent.getUser(),
@@ -107,10 +91,8 @@ public class BusinessRequestService {
                     br.getId(),
                     user.getName() + " requested to become a business: " + br.getBusinessName());
         }
-        log.info("Business request {} created by user {}; USSD payment initiated orderId={}", br.getId(), userId, orderId);
-        BusinessRequestResponse response = mapToResponse(br);
-        response.setPaymentOrderId(orderId);
-        return response;
+        log.info("Business request {} created by user {}; sent to agent (no payment yet)", br.getId(), userId);
+        return mapToResponse(br);
     }
 
     @Transactional(readOnly = true)
@@ -214,7 +196,7 @@ public class BusinessRequestService {
 
     /**
      * Agent approves the request after visit: create business, set user role to BUSINESS, set request to CONVERTED, create commission.
-     * Only allowed when request status is PAID (user has already paid).
+     * Allowed when status is PENDING (request-only, no payment yet) or PAID (user already paid).
      */
     @Transactional
     public BusinessRequestResponse approveByAgent(UUID requestId, UUID agentUserId) {
@@ -223,8 +205,8 @@ public class BusinessRequestService {
         if (br.getAgent() == null || !br.getAgent().getUser().getId().equals(agentUserId)) {
             throw new BadRequestException("You can only approve your own business requests.");
         }
-        if (br.getStatus() != BusinessRequestStatus.PAID) {
-            throw new BadRequestException("Request can only be approved after payment. Current status: " + br.getStatus());
+        if (br.getStatus() != BusinessRequestStatus.PENDING && br.getStatus() != BusinessRequestStatus.PAID) {
+            throw new BadRequestException("Request can only be approved when PENDING or PAID. Current status: " + br.getStatus());
         }
         if (businessRepository.findByOwnerId(br.getUser().getId()).isPresent()) {
             br.setStatus(BusinessRequestStatus.CONVERTED);

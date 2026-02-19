@@ -29,7 +29,7 @@ public class Notification {
     private User actor; // Who triggered the notification (can be null for system)
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 64)
     private NotificationType type;
 
     @Column(name = "entity_id")

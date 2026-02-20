@@ -1,9 +1,11 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.BusinessFeedbackRequest;
 import com.wakilfly.dto.request.UpdateBusinessRequest;
 import com.wakilfly.dto.response.*;
 import com.wakilfly.model.OrderStatus;
 import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.service.BusinessFeedbackService;
 import com.wakilfly.service.BusinessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class BusinessController {
 
     private final BusinessService businessService;
+    private final BusinessFeedbackService businessFeedbackService;
     private final CustomUserDetailsService userDetailsService;
 
     // ============================================
@@ -120,6 +123,20 @@ public class BusinessController {
         return ResponseEntity.ok(ApiResponse.success(businesses));
     }
 
+    /**
+     * Submit feedback or advice for a shop (authenticated user).
+     * POST /api/v1/businesses/{id}/feedback
+     */
+    @PostMapping("/businesses/{id}/feedback")
+    public ResponseEntity<ApiResponse<BusinessFeedbackResponse>> addFeedback(
+            @PathVariable("id") UUID businessId,
+            @Valid @RequestBody BusinessFeedbackRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessFeedbackResponse response = businessFeedbackService.addFeedback(userId, businessId, request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     // ============================================
     // BUSINESS OWNER ENDPOINTS
     // ============================================
@@ -193,5 +210,20 @@ public class BusinessController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         PagedResponse<OrderResponse> orders = businessService.getMyOrders(userId, page, size, status);
         return ResponseEntity.ok(ApiResponse.success(orders));
+    }
+
+    /**
+     * Get feedback/advice submitted by customers for my shop.
+     * GET /api/v1/business/feedback?page=0&size=20
+     */
+    @GetMapping("/business/feedback")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PagedResponse<BusinessFeedbackResponse>>> getMyFeedback(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        PagedResponse<BusinessFeedbackResponse> feedback = businessFeedbackService.getMyBusinessFeedback(userId, page, size);
+        return ResponseEntity.ok(ApiResponse.success(feedback));
     }
 }

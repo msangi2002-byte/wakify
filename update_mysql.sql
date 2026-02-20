@@ -39,4 +39,20 @@ ALTER TABLE `messages` ADD CONSTRAINT `FK_message_reply_to` FOREIGN KEY (`reply_
 ALTER TABLE `live_stream_join_requests` ADD COLUMN `guest_stream_key` varchar(255) DEFAULT NULL;
 ALTER TABLE `live_stream_join_requests` ADD UNIQUE KEY `UK_guest_stream_key` (`guest_stream_key`);
 
+-- --------------------------------------------------------
+-- Shop feedback: customers can submit feedback/advice to a business
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `business_feedback` (
+  `id` binary(16) NOT NULL,
+  `business_id` binary(16) NOT NULL,
+  `user_id` binary(16) NOT NULL,
+  `content` text NOT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_business_feedback_business` (`business_id`),
+  KEY `FK_business_feedback_user` (`user_id`),
+  CONSTRAINT `FK_business_feedback_business` FOREIGN KEY (`business_id`) REFERENCES `businesses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_business_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 COMMIT;

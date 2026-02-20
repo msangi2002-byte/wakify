@@ -268,6 +268,12 @@ public class PromotionService {
             throw new BadRequestException("Cannot cancel a completed promotion");
         }
 
+        if (promotion.getStatus() == PromotionStatus.CANCELLED || promotion.getStatus() == PromotionStatus.REJECTED) {
+            promotionRepository.delete(promotion);
+            log.info("Promotion {} deleted by user (was already cancelled/rejected)", promotionId);
+            return;
+        }
+
         promotion.setStatus(PromotionStatus.CANCELLED);
         promotionRepository.save(promotion);
 

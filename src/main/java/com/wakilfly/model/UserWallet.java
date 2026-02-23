@@ -79,6 +79,7 @@ public class UserWallet {
     }
 
     public void addDiamonds(BigDecimal diamonds) {
-        this.diamondBalance = this.diamondBalance.add(diamonds);
+        if (diamonds == null) return;
+        this.diamondBalance = (this.diamondBalance != null ? this.diamondBalance : BigDecimal.ZERO).add(diamonds);
     }
 }

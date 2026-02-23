@@ -104,13 +104,24 @@ public class GiftController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody Map<String, Object> request) {
         UUID senderId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
-        UUID receiverId = UUID.fromString((String) request.get("receiverId"));
-        UUID giftId = UUID.fromString((String) request.get("giftId"));
-        int quantity = request.get("quantity") != null ? (Integer) request.get("quantity") : 1;
-        String message = (String) request.get("message");
-        UUID liveStreamId = request.get("liveStreamId") != null
-                ? UUID.fromString((String) request.get("liveStreamId"))
-                : null;
+        Object rec = request.get("receiverId");
+        Object gid = request.get("giftId");
+        if (rec == null || gid == null) {
+            throw new com.wakilfly.exception.BadRequestException("receiverId and giftId are required");
+        }
+        UUID receiverId = UUID.fromString(rec.toString());
+        UUID giftId = UUID.fromString(gid.toString());
+        int quantity = 1;
+        if (request.get("quantity") != null) {
+            Object q = request.get("quantity");
+            quantity = q instanceof Number ? ((Number) q).intValue() : Integer.parseInt(q.toString());
+        }
+        quantity = Math.max(1, Math.min(quantity, 999));
+        String message = request.get("message") != null ? request.get("message").toString() : null;
+        UUID liveStreamId = null;
+        if (request.get("liveStreamId") != null) {
+            liveStreamId = UUID.fromString(request.get("liveStreamId").toString());
+        }
 
         giftService.sendGift(senderId, receiverId, giftId, liveStreamId, quantity, message);
         return ResponseEntity.ok(ApiResponse.success("Gift sent successfully"));

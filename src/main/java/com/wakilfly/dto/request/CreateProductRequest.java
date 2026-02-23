@@ -32,6 +32,9 @@ public class CreateProductRequest {
 
     private Integer stockQuantity;
 
+    /** Minimum order quantity (MOQ) for B2B. Default 1. */
+    private Integer minOrderQuantity;
+
     private Boolean trackStock;
 
     /** Feature on marketplace "Picked for you" section */

@@ -40,6 +40,11 @@ public class Product {
     @Builder.Default
     private Integer stockQuantity = 0;
 
+    /** Minimum order quantity (MOQ) for B2B – e.g. 10 Pieces. Default 1. */
+    @Column(name = "min_order_quantity")
+    @Builder.Default
+    private Integer minOrderQuantity = 1;
+
     @Column(name = "track_stock")
     @Builder.Default
     private Boolean trackStock = true;

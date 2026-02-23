@@ -50,6 +50,7 @@ public class ProductService {
                 .compareAtPrice(request.getCompareAtPrice())
                 .category(request.getCategory())
                 .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
+                .minOrderQuantity(request.getMinOrderQuantity() != null && request.getMinOrderQuantity() >= 1 ? request.getMinOrderQuantity() : 1)
                 .trackStock(request.getTrackStock() != null && request.getTrackStock())
                 .isFeatured(request.getIsFeatured() != null && request.getIsFeatured())
                 .isActive(true)
@@ -129,6 +130,9 @@ public class ProductService {
         }
         if (request.getStockQuantity() != null) {
             product.setStockQuantity(request.getStockQuantity());
+        }
+        if (request.getMinOrderQuantity() != null && request.getMinOrderQuantity() >= 1) {
+            product.setMinOrderQuantity(request.getMinOrderQuantity());
         }
         if (request.getTrackStock() != null) {
             product.setTrackStock(request.getTrackStock());
@@ -357,6 +361,7 @@ public class ProductService {
                 .compareAtPrice(product.getCompareAtPrice())
                 .category(product.getCategory())
                 .stockQuantity(product.getStockQuantity())
+                .minOrderQuantity(product.getMinOrderQuantity() != null && product.getMinOrderQuantity() >= 1 ? product.getMinOrderQuantity() : 1)
                 .inStock(product.isInStock())
                 .isActive(product.getIsActive())
                 .isFeatured(product.getIsFeatured() != null && product.getIsFeatured())

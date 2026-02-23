@@ -23,6 +23,7 @@ public class ProductResponse {
     private BigDecimal compareAtPrice;
     private String category;
     private Integer stockQuantity;
+    private Integer minOrderQuantity; // MOQ for B2B (e.g. Min. Order: 10 Pieces)
     private Boolean inStock;
     private Boolean isActive;
     private Boolean isFeatured;

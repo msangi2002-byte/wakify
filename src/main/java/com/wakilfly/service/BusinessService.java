@@ -287,6 +287,9 @@ public class BusinessService {
                 .followersCount(business.getFollowersCount())
                 .rating(business.getRating())
                 .reviewsCount(business.getReviewsCount())
+                .responseRate(business.getResponseRate())
+                .averageResponseMinutes(business.getAverageResponseMinutes())
+                .supplierLevel(business.getSupplierLevel())
                 .isFollowing(isFollowing)
                 .createdAt(business.getCreatedAt())
                 .build();

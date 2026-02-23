@@ -107,6 +107,18 @@ public class Business {
     @Builder.Default
     private Integer reviewsCount = 0;
 
+    /** Response rate 0–1 (e.g. % of inquiries answered within 24h). For ranking. */
+    @Column(name = "response_rate", precision = 3, scale = 2)
+    private Double responseRate;
+
+    /** Average response time in minutes. Lower = better for ranking. */
+    @Column(name = "average_response_minutes")
+    private Integer averageResponseMinutes;
+
+    /** Supplier level for display/ranking: e.g. GOLD_SUPPLIER, VERIFIED. */
+    @Column(name = "supplier_level")
+    private String supplierLevel;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

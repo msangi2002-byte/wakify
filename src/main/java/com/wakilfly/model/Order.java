@@ -62,6 +62,14 @@ public class Order {
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source")
+    @Builder.Default
+    private OrderSource source = OrderSource.CART;
+
+    @Column(name = "inquiry_id")
+    private UUID inquiryId;
+
     // Delivery details
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;

@@ -18,6 +18,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Page<Product> findByIsActiveTrue(Pageable pageable);
 
+    /** Marketplace listing ordered by supplier performance (rating, response rate) and engagement (views). */
+    @Query("SELECT p FROM Product p JOIN p.business b WHERE p.isActive = true ORDER BY COALESCE(b.rating, 0) DESC, COALESCE(b.responseRate, 0) DESC, COALESCE(p.viewsCount, 0) DESC, p.createdAt DESC")
+    Page<Product> findMarketplaceRanked(Pageable pageable);
+
     @Query("SELECT p FROM Product p WHERE p.category = :category AND p.isActive = true")
     Page<Product> findByCategory(@Param("category") String category, Pageable pageable);
 

@@ -209,11 +209,11 @@ public class ProductService {
     }
 
     /**
-     * Get all products (marketplace)
+     * Get all products (marketplace) – ranked by supplier performance (rating, response rate) and engagement.
      */
     public PagedResponse<ProductResponse> getAllProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productRepository.findByIsActiveTrue(pageable);
+        Page<Product> products = productRepository.findMarketplaceRanked(pageable);
 
         return buildPagedResponse(products);
     }
@@ -376,6 +376,8 @@ public class ProductService {
                         .region(business.getRegion())
                         .district(business.getDistrict())
                         .isVerified(business.getIsVerified())
+                        .supplierLevel(business.getSupplierLevel())
+                        .responseRate(business.getResponseRate())
                         .build())
                 .viewsCount(product.getViewsCount())
                 .ordersCount(product.getOrdersCount() != null ? product.getOrdersCount() : 0)

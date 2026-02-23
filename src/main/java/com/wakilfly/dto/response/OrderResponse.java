@@ -1,5 +1,6 @@
 package com.wakilfly.dto.response;
 
+import com.wakilfly.model.OrderSource;
 import com.wakilfly.model.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +21,8 @@ public class OrderResponse {
     private UUID id;
     private String orderNumber;
     private OrderStatus status;
+    private OrderSource source;
+    private UUID inquiryId;
 
     // Buyer info
     private UserSummary buyer;

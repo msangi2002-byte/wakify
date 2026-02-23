@@ -1,8 +1,10 @@
 package com.wakilfly.model;
 
 public enum OrderStatus {
-    PENDING, // Order placed, awaiting payment/confirmation
-    CONFIRMED, // Order confirmed by seller
+    DRAFT, // Created from inquiry; seller can amend price/shipping
+    PENDING_CONFIRMATION, // Seller sent quote; buyer can accept or seller can amend
+    PENDING, // Order placed (cart), awaiting payment/confirmation
+    CONFIRMED, // Buyer confirmed (inquiry flow) or order confirmed by seller; ready for payment
     PROCESSING, // Order being prepared
     SHIPPED, // Order shipped
     DELIVERED, // Order delivered

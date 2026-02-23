@@ -64,5 +64,7 @@ public class ProductResponse {
         private String region;
         private String district;
         private Boolean isVerified;
+        private String supplierLevel;
+        private Double responseRate;
     }
 }

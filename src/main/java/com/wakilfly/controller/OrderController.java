@@ -1,15 +1,20 @@
 package com.wakilfly.controller;
 
+import com.wakilfly.dto.request.AddTrackingEventRequest;
+import com.wakilfly.dto.request.CreateDraftOrderRequest;
 import com.wakilfly.dto.request.CreateOrderRequest;
+import com.wakilfly.dto.request.UpdateDraftOrderRequest;
 import com.wakilfly.dto.request.UpdateOrderStatusRequest;
 import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.OrderResponse;
+import com.wakilfly.dto.response.OrderTrackingEventResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.model.Business;
 import com.wakilfly.model.OrderStatus;
 import com.wakilfly.repository.BusinessRepository;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.OrderService;
+import com.wakilfly.service.OrderTrackingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +24,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -28,6 +34,7 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderTrackingService orderTrackingService;
     private final BusinessRepository businessRepository;
     private final CustomUserDetailsService userDetailsService;
 
@@ -36,7 +43,34 @@ public class OrderController {
     // ============================================
 
     /**
-     * Create a new order (buyer)
+     * Create draft order from accepted inquiry (Alibaba-style)
+     * POST /api/v1/orders/draft
+     */
+    @PostMapping("/orders/draft")
+    public ResponseEntity<ApiResponse<OrderResponse>> createDraftOrder(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody CreateDraftOrderRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        OrderResponse order = orderService.createDraftOrderFromInquiry(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Draft order created", order));
+    }
+
+    /**
+     * Buyer confirms draft order (ready for payment)
+     * POST /api/v1/orders/{id}/confirm
+     */
+    @PostMapping("/orders/{id}/confirm")
+    public ResponseEntity<ApiResponse<OrderResponse>> confirmOrderByBuyer(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        OrderResponse order = orderService.confirmOrderByBuyer(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Order confirmed", order));
+    }
+
+    /**
+     * Create a new order (buyer) – cart checkout
      * POST /api/v1/orders
      */
     @PostMapping("/orders")
@@ -121,6 +155,21 @@ public class OrderController {
     }
 
     /**
+     * Seller updates draft order (delivery fee, discount, notes)
+     * PUT /api/v1/business/orders/{id}/draft
+     */
+    @PutMapping("/business/orders/{id}/draft")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateDraftOrder(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateDraftOrderRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        OrderResponse order = orderService.updateDraftOrder(id, userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Draft updated", order));
+    }
+
+    /**
      * Update order status (seller)
      * PUT /api/v1/business/orders/{id}/status
      */
@@ -190,5 +239,34 @@ public class OrderController {
                 .build();
         OrderResponse order = orderService.updateOrderStatus(id, userId, request);
         return ResponseEntity.ok(ApiResponse.success("Order marked as delivered", order));
+    }
+
+    /**
+     * Add tracking event (seller) – e.g. AT_STORE, PACKAGING, SHIPPED, IN_TRANSIT, DELIVERED with optional location
+     * POST /api/v1/business/orders/{id}/tracking
+     */
+    @PostMapping("/business/orders/{id}/tracking")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<OrderTrackingEventResponse>> addTrackingEvent(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id,
+            @Valid @RequestBody AddTrackingEventRequest request) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        OrderTrackingEventResponse event = orderTrackingService.addEvent(id, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Tracking updated", event));
+    }
+
+    /**
+     * Get tracking events for an order (buyer or seller)
+     * GET /api/v1/orders/{id}/tracking
+     */
+    @GetMapping("/orders/{id}/tracking")
+    public ResponseEntity<ApiResponse<List<OrderTrackingEventResponse>>> getOrderTracking(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        List<OrderTrackingEventResponse> events = orderTrackingService.getEventsForOrder(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(events));
     }
 }

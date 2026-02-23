@@ -52,6 +52,11 @@ public class BusinessResponse {
     private Double rating;
     private Integer reviewsCount;
 
+    /** Supplier performance for ranking (Alibaba-style) */
+    private Double responseRate;
+    private Integer averageResponseMinutes;
+    private String supplierLevel;
+
     /** True if current user follows this business (when authenticated) */
     private Boolean isFollowing;
 

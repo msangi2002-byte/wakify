@@ -29,6 +29,8 @@ public class ReportService {
     private final PostRepository postRepository;
     private final ProductRepository productRepository;
     private final BusinessRepository businessRepository;
+    private final com.wakilfly.repository.LiveStreamRepository liveStreamRepository;
+    private final com.wakilfly.repository.LiveStreamCommentRepository liveStreamCommentRepository;
     private final AuditLogService auditLogService;
 
     /**
@@ -196,7 +198,17 @@ public class ReportService {
                 }
             }
             case COMMENT, MESSAGE -> {
-                // TODO: Add validation when repositories are available
+                // Optional: validate via post/comment repos if needed
+            }
+            case LIVE_STREAM -> {
+                if (!liveStreamRepository.existsById(targetId)) {
+                    throw new ResourceNotFoundException("Live stream", "id", targetId);
+                }
+            }
+            case LIVE_COMMENT -> {
+                if (!liveStreamCommentRepository.existsById(targetId)) {
+                    throw new ResourceNotFoundException("Live comment", "id", targetId);
+                }
             }
         }
     }

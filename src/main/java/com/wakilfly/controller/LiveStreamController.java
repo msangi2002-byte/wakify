@@ -7,13 +7,16 @@ import com.wakilfly.dto.response.LiveStreamResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.StreamingConfigResponse;
 import com.wakilfly.security.CustomUserDetailsService;
+import com.wakilfly.service.LiveStreamCommentBroadcaster;
 import com.wakilfly.service.LiveStreamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,7 @@ import java.util.UUID;
 public class LiveStreamController {
 
     private final LiveStreamService liveStreamService;
+    private final LiveStreamCommentBroadcaster commentBroadcaster;
     private final CustomUserDetailsService userDetailsService;
 
     @Value("${streaming.stun.url}")
@@ -59,8 +63,9 @@ public class LiveStreamController {
         UUID hostId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         String title = request.get("title");
         String description = request.get("description");
+        String category = request.get("category");
 
-        LiveStreamResponse stream = liveStreamService.createLiveStream(hostId, title, description, null);
+        LiveStreamResponse stream = liveStreamService.createLiveStream(hostId, title, description, null, category);
         return ResponseEntity.ok(ApiResponse.success("Live stream started", stream));
     }
 
@@ -77,7 +82,8 @@ public class LiveStreamController {
         String description = (String) request.get("description");
         java.time.LocalDateTime scheduledAt = java.time.LocalDateTime.parse((String) request.get("scheduledAt"));
 
-        LiveStreamResponse stream = liveStreamService.createLiveStream(hostId, title, description, scheduledAt);
+        String category = request.get("category") != null ? (String) request.get("category") : null;
+        LiveStreamResponse stream = liveStreamService.createLiveStream(hostId, title, description, scheduledAt, category);
         return ResponseEntity.ok(ApiResponse.success("Live stream scheduled", stream));
     }
 
@@ -100,8 +106,9 @@ public class LiveStreamController {
      */
     @GetMapping("/active")
     public ResponseEntity<ApiResponse<List<LiveStreamResponse>>> getActiveLives(
-            @RequestParam(defaultValue = "20") int limit) {
-        List<LiveStreamResponse> streams = liveStreamService.getActiveLiveStreams(limit);
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) String category) {
+        List<LiveStreamResponse> streams = liveStreamService.getActiveLiveStreams(limit, category);
         return ResponseEntity.ok(ApiResponse.success(streams));
     }
 
@@ -122,6 +129,9 @@ public class LiveStreamController {
     @PostMapping("/{liveId}/join")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> joinLive(@PathVariable UUID liveId) {
         LiveStreamResponse stream = liveStreamService.joinLiveStream(liveId);
+        if (stream != null && stream.getViewerCount() != null) {
+            commentBroadcaster.broadcastViewerCount(liveId, stream.getViewerCount());
+        }
         return ResponseEntity.ok(ApiResponse.success("Joined live stream", stream));
     }
 
@@ -132,6 +142,10 @@ public class LiveStreamController {
     @PostMapping("/{liveId}/leave")
     public ResponseEntity<ApiResponse<Void>> leaveLive(@PathVariable UUID liveId) {
         liveStreamService.leaveLiveStream(liveId);
+        Integer count = liveStreamService.getViewerCount(liveId);
+        if (count != null) {
+            commentBroadcaster.broadcastViewerCount(liveId, count);
+        }
         return ResponseEntity.ok(ApiResponse.success("Left live stream"));
     }
 
@@ -157,7 +171,21 @@ public class LiveStreamController {
         UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
         String content = body != null ? body.get("content") : null;
         LiveStreamCommentResponse comment = liveStreamService.addComment(liveId, userId, content != null ? content : "");
+        commentBroadcaster.broadcast(liveId, comment);
         return ResponseEntity.ok(ApiResponse.success("Comment sent", comment));
+    }
+
+    /**
+     * SSE stream for live comments – real-time updates without polling.
+     * GET /api/v1/live/{liveId}/comments/stream
+     * Events: "connected" (ok), "comment" (JSON LiveStreamCommentResponse).
+     */
+    @GetMapping(value = "/{liveId}/comments/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter commentStream(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID liveId) {
+        userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
+        return commentBroadcaster.register(liveId);
     }
 
     /**

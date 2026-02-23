@@ -15,4 +15,5 @@ public class LiveStreamCommentResponse {
     private String authorProfilePic;
     private String content;
     private LocalDateTime createdAt;
+    private Boolean isHost;
 }

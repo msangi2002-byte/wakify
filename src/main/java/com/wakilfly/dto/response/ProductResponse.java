@@ -25,6 +25,7 @@ public class ProductResponse {
     private Integer stockQuantity;
     private Boolean inStock;
     private Boolean isActive;
+    private Boolean isFeatured;
 
     // Images
     private List<ImageResponse> images;
@@ -61,6 +62,7 @@ public class ProductResponse {
         private String name;
         private String logo;
         private String region;
+        private String district;
         private Boolean isVerified;
     }
 }

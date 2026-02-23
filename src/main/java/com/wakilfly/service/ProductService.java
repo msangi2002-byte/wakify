@@ -51,6 +51,7 @@ public class ProductService {
                 .category(request.getCategory())
                 .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
                 .trackStock(request.getTrackStock() != null && request.getTrackStock())
+                .isFeatured(request.getIsFeatured() != null && request.getIsFeatured())
                 .isActive(true)
                 .build();
 
@@ -131,6 +132,9 @@ public class ProductService {
         }
         if (request.getTrackStock() != null) {
             product.setTrackStock(request.getTrackStock());
+        }
+        if (request.getIsFeatured() != null) {
+            product.setIsFeatured(request.getIsFeatured());
         }
 
         product = productRepository.save(product);
@@ -241,11 +245,31 @@ public class ProductService {
     }
 
     /**
-     * Get trending products
+     * Get trending products (by views – "hot" right now)
      */
     public PagedResponse<ProductResponse> getTrendingProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findTrending(pageable);
+
+        return buildPagedResponse(products);
+    }
+
+    /**
+     * Get top selling products (by orders count – marketplace hero)
+     */
+    public PagedResponse<ProductResponse> getTopSellingProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> products = productRepository.findTopSelling(pageable);
+
+        return buildPagedResponse(products);
+    }
+
+    /**
+     * Get featured products (picked for you / Alibaba-style)
+     */
+    public PagedResponse<ProductResponse> getFeaturedProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> products = productRepository.findFeatured(pageable);
 
         return buildPagedResponse(products);
     }
@@ -335,6 +359,7 @@ public class ProductService {
                 .stockQuantity(product.getStockQuantity())
                 .inStock(product.isInStock())
                 .isActive(product.getIsActive())
+                .isFeatured(product.getIsFeatured() != null && product.getIsFeatured())
                 .thumbnail(thumbnail)
                 .images(images.stream()
                         .map(img -> ProductResponse.ImageResponse.builder()
@@ -349,9 +374,11 @@ public class ProductService {
                         .name(business.getName())
                         .logo(business.getLogo())
                         .region(business.getRegion())
+                        .district(business.getDistrict())
                         .isVerified(business.getIsVerified())
                         .build())
                 .viewsCount(product.getViewsCount())
+                .ordersCount(product.getOrdersCount() != null ? product.getOrdersCount() : 0)
                 .rating(product.getRating())
                 .reviewsCount(product.getReviewsCount())
                 .createdAt(product.getCreatedAt())

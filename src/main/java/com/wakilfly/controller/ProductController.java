@@ -84,7 +84,7 @@ public class ProductController {
     }
 
     /**
-     * Get trending products
+     * Get trending products (by views)
      * GET /api/v1/products/trending
      */
     @GetMapping("/products/trending")
@@ -92,6 +92,30 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PagedResponse<ProductResponse> products = productService.getTrendingProducts(page, size);
+        return ResponseEntity.ok(ApiResponse.success(products));
+    }
+
+    /**
+     * Get top selling products (by orders count – marketplace hero)
+     * GET /api/v1/products/top-selling
+     */
+    @GetMapping("/products/top-selling")
+    public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getTopSellingProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedResponse<ProductResponse> products = productService.getTopSellingProducts(page, size);
+        return ResponseEntity.ok(ApiResponse.success(products));
+    }
+
+    /**
+     * Get featured products (picked for you)
+     * GET /api/v1/products/featured
+     */
+    @GetMapping("/products/featured")
+    public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getFeaturedProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedResponse<ProductResponse> products = productService.getFeaturedProducts(page, size);
         return ResponseEntity.ok(ApiResponse.success(products));
     }
 

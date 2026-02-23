@@ -34,5 +34,8 @@ public class CreateProductRequest {
 
     private Boolean trackStock;
 
+    /** Feature on marketplace "Picked for you" section */
+    private Boolean isFeatured;
+
     private List<String> tags;
 }

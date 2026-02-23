@@ -42,6 +42,10 @@ public class VirtualGift {
     @Builder.Default
     private Integer sortOrder = 0;
 
+    /** Display level: Basic, Low, Mid, Popular, High, Premium, Ultra, Elite */
+    @Column(name = "gift_level", length = 32)
+    private String level;
+
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;

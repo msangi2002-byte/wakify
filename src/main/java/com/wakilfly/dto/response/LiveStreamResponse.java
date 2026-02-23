@@ -16,6 +16,7 @@ public class LiveStreamResponse {
     private HostSummary host;
     private String title;
     private String description;
+    private String category;
     private String thumbnailUrl;
     private LiveStreamStatus status;
     private String roomId;

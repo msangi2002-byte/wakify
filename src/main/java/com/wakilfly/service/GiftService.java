@@ -33,8 +33,7 @@ public class GiftService {
     private final UserRepository userRepository;
     private final LiveStreamRepository liveStreamRepository;
     private final UserCashWithdrawalRepository userCashWithdrawalRepository;
-
-    private static final BigDecimal MIN_WITHDRAWAL = new BigDecimal("1000");
+    private final com.wakilfly.repository.SystemConfigRepository systemConfigRepository;
 
     // ============================================
     // COIN PACKAGES
@@ -82,7 +81,8 @@ public class GiftService {
     }
 
     /**
-     * Send a gift during live stream
+     * Send a gift during live stream.
+     * Viewer coins are deducted; creator receives diamonds (creator_split_ratio of coin value; platform keeps the rest).
      */
     @Transactional
     public void sendGift(UUID senderId, UUID receiverId, UUID giftId, UUID liveStreamId, int quantity, String message) {
@@ -93,14 +93,19 @@ public class GiftService {
         VirtualGift gift = virtualGiftRepository.findById(giftId)
                 .orElseThrow(() -> new ResourceNotFoundException("Gift not found"));
 
+        int coinValue = gift.getCoinValue() != null ? gift.getCoinValue() : 0;
+        if (coinValue <= 0) {
+            throw new BadRequestException("Gift has invalid coin value");
+        }
+
         UserWallet senderWallet = getOrCreateWallet(senderId);
-        int totalCoinCost = gift.getCoinValue() * quantity;
+        int totalCoinCost = coinValue * quantity;
 
         if (!senderWallet.spendCoins(totalCoinCost)) {
             throw new BadRequestException("Insufficient coins. You need " + totalCoinCost + " coins.");
         }
 
-        BigDecimal totalValue = gift.getPrice().multiply(BigDecimal.valueOf(quantity));
+        BigDecimal totalValue = gift.getPrice() != null ? gift.getPrice().multiply(BigDecimal.valueOf(quantity)) : BigDecimal.valueOf(totalCoinCost);
 
         // Create transaction
         GiftTransaction transaction = GiftTransaction.builder()
@@ -125,14 +130,17 @@ public class GiftService {
         giftTransactionRepository.save(transaction);
         userWalletRepository.save(senderWallet);
 
-        // Credit receiver's wallet (70% of value - platform takes 30%)
+        // Credit creator with diamonds (platform takes the rest)
+        BigDecimal creatorRatio = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_CREATOR_SPLIT_RATIO, com.wakilfly.model.SystemConfig.DEFAULT_CREATOR_SPLIT_RATIO);
+        BigDecimal creatorDiamonds = BigDecimal.valueOf(totalCoinCost).multiply(creatorRatio);
         UserWallet receiverWallet = getOrCreateWallet(receiverId);
-        BigDecimal receiverShare = totalValue.multiply(BigDecimal.valueOf(0.70));
-        receiverWallet.addCash(receiverShare);
+        receiverWallet.addDiamonds(creatorDiamonds);
+        BigDecimal prev = receiverWallet.getTotalGiftsReceived() != null ? receiverWallet.getTotalGiftsReceived() : BigDecimal.ZERO;
+        receiverWallet.setTotalGiftsReceived(prev.add(totalValue));
         userWalletRepository.save(receiverWallet);
 
-        log.info("Gift sent: {} x{} from {} to {}, value: {} TZS",
-                gift.getName(), quantity, sender.getName(), receiver.getName(), totalValue);
+        log.info("Gift sent: {} x{} from {} to {}, coins: {}, creator diamonds: {}",
+                gift.getName(), quantity, sender.getName(), receiver.getName(), totalCoinCost, creatorDiamonds);
     }
 
     // ============================================
@@ -140,25 +148,37 @@ public class GiftService {
     // ============================================
 
     /**
-     * Request withdrawal of gift cash to pesa (host convert balance to mobile money etc.)
-     * Deducts from balance when request is created; on reject admin adds back.
+     * Request withdrawal: convert diamonds to TZS (at rate), deduct diamond balance, create withdrawal request.
+     * Min/max TZS from config.
      */
     @Transactional
     public UserCashWithdrawalResponse requestCashWithdrawal(UUID userId, UserWithdrawalRequest request) {
         UserWallet wallet = getOrCreateWallet(userId);
-        if (request.getAmount().compareTo(MIN_WITHDRAWAL) < 0) {
-            throw new BadRequestException("Minimum withdrawal is " + MIN_WITHDRAWAL + " TZS");
+        BigDecimal rate = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_DIAMOND_TO_TZS_RATE, com.wakilfly.model.SystemConfig.DEFAULT_DIAMOND_TO_TZS_RATE);
+        BigDecimal minTzs = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_WITHDRAWAL_MIN_TZS, com.wakilfly.model.SystemConfig.DEFAULT_WITHDRAWAL_MIN_TZS);
+        BigDecimal maxTzs = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_WITHDRAWAL_MAX_TZS, com.wakilfly.model.SystemConfig.DEFAULT_WITHDRAWAL_MAX_TZS);
+
+        if (request.getAmount().compareTo(minTzs) < 0) {
+            throw new BadRequestException("Minimum withdrawal is " + minTzs + " TZS");
         }
-        if (wallet.getCashBalance().compareTo(request.getAmount()) < 0) {
-            throw new BadRequestException("Insufficient cash balance. You have " + wallet.getCashBalance() + " TZS.");
+        if (request.getAmount().compareTo(maxTzs) > 0) {
+            throw new BadRequestException("Maximum withdrawal per request is " + maxTzs + " TZS");
+        }
+
+        BigDecimal diamondBal = wallet.getDiamondBalance() != null ? wallet.getDiamondBalance() : BigDecimal.ZERO;
+        BigDecimal withdrawableTzs = diamondBal.multiply(rate);
+        if (request.getAmount().compareTo(withdrawableTzs) > 0) {
+            throw new BadRequestException("Insufficient balance. You have " + withdrawableTzs + " TZS withdrawable (diamonds: " + wallet.getDiamondBalance() + ").");
         }
         if (userCashWithdrawalRepository.existsByUserIdAndStatus(userId, WithdrawalStatus.PENDING)) {
             throw new BadRequestException("You already have a pending withdrawal. Wait for it to be processed.");
         }
-        User user = userRepository.getReferenceById(userId);
-        wallet.setCashBalance(wallet.getCashBalance().subtract(request.getAmount()));
+
+        BigDecimal diamondsToDeduct = request.getAmount().divide(rate, 4, java.math.RoundingMode.DOWN);
+        wallet.setDiamondBalance(wallet.getDiamondBalance().subtract(diamondsToDeduct));
         userWalletRepository.save(wallet);
 
+        User user = userRepository.getReferenceById(userId);
         UserCashWithdrawal w = UserCashWithdrawal.builder()
                 .user(user)
                 .amount(request.getAmount())
@@ -168,7 +188,7 @@ public class GiftService {
                 .status(WithdrawalStatus.PENDING)
                 .build();
         w = userCashWithdrawalRepository.save(w);
-        log.info("User {} requested cash withdrawal {} TZS", userId, request.getAmount());
+        log.info("User {} requested withdrawal {} TZS (diamonds deducted: {})", userId, request.getAmount(), diamondsToDeduct);
         return mapToWithdrawalResponse(w);
     }
 
@@ -206,7 +226,9 @@ public class GiftService {
             w.setProcessedAt(LocalDateTime.now());
         } else {
             UserWallet wallet = getOrCreateWallet(w.getUser().getId());
-            wallet.setCashBalance(wallet.getCashBalance().add(w.getAmount()));
+            BigDecimal rate = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_DIAMOND_TO_TZS_RATE, com.wakilfly.model.SystemConfig.DEFAULT_DIAMOND_TO_TZS_RATE);
+            BigDecimal diamondsToRefund = w.getAmount().divide(rate, 4, java.math.RoundingMode.UP);
+            wallet.setDiamondBalance(wallet.getDiamondBalance().add(diamondsToRefund));
             userWalletRepository.save(wallet);
             w.setStatus(WithdrawalStatus.REJECTED);
             w.setRejectionReason(rejectionReason);
@@ -300,14 +322,31 @@ public class GiftService {
                 .build();
     }
 
+    private BigDecimal getConfigDecimal(String key, String defaultValue) {
+        return systemConfigRepository.findByConfigKey(key)
+                .map(c -> new BigDecimal(c.getConfigValue()))
+                .orElse(new BigDecimal(defaultValue));
+    }
+
     private WalletResponse mapToWalletResponse(UserWallet wallet) {
+        BigDecimal rate = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_DIAMOND_TO_TZS_RATE, com.wakilfly.model.SystemConfig.DEFAULT_DIAMOND_TO_TZS_RATE);
+        BigDecimal coinBuyRate = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_COIN_TO_TZS_BUY_RATE, com.wakilfly.model.SystemConfig.DEFAULT_COIN_TO_TZS_BUY_RATE);
+        BigDecimal minTzs = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_WITHDRAWAL_MIN_TZS, com.wakilfly.model.SystemConfig.DEFAULT_WITHDRAWAL_MIN_TZS);
+        BigDecimal maxTzs = getConfigDecimal(com.wakilfly.model.SystemConfig.KEY_WITHDRAWAL_MAX_TZS, com.wakilfly.model.SystemConfig.DEFAULT_WITHDRAWAL_MAX_TZS);
+        BigDecimal diamondBalance = wallet.getDiamondBalance() != null ? wallet.getDiamondBalance() : BigDecimal.ZERO;
         return WalletResponse.builder()
                 .id(wallet.getId())
                 .coinBalance(wallet.getCoinBalance())
                 .cashBalance(wallet.getCashBalance())
+                .diamondBalance(diamondBalance)
                 .totalCoinsPurchased(wallet.getTotalCoinsPurchased())
                 .totalCoinsSpent(wallet.getTotalCoinsSpent())
                 .totalGiftsReceived(wallet.getTotalGiftsReceived())
+                .diamondToTzsRate(rate)
+                .coinToTzsBuyRate(coinBuyRate)
+                .withdrawableTzs(diamondBalance.multiply(rate))
+                .minWithdrawalTzs(minTzs)
+                .maxWithdrawalTzs(maxTzs)
                 .build();
     }
 
@@ -321,6 +360,7 @@ public class GiftService {
                 .price(gift.getPrice())
                 .coinValue(gift.getCoinValue())
                 .isPremium(gift.getIsPremium())
+                .level(gift.getLevel())
                 .build();
     }
 

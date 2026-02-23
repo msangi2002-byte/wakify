@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
+import static com.wakilfly.model.NotificationType.LIVE_STARTED;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,18 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final UserNotificationSettingsRepository notificationSettingsRepository;
     private final UserMutedNotificationRepository mutedNotificationRepository;
+
+    /**
+     * Notify all followers of the host that they started a live stream.
+     */
+    @Transactional
+    public void notifyLiveStarted(User host, UUID liveStreamId) {
+        Page<User> followers = userRepository.findFollowers(host.getId(), PageRequest.of(0, 500));
+        for (User recipient : followers.getContent()) {
+            sendNotification(recipient, host, LIVE_STARTED, liveStreamId,
+                    host.getName() + " started a live stream");
+        }
+    }
 
     @Transactional
     public void sendNotification(User recipient, User actor, NotificationType type, UUID entityId, String message) {

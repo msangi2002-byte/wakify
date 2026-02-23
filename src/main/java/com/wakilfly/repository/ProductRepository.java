@@ -42,6 +42,14 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE p.isActive = true ORDER BY p.viewsCount DESC")
     Page<Product> findTrending(Pageable pageable);
 
+    /** Top selling – most orders (marketplace hero) */
+    @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.ordersCount > 0 ORDER BY p.ordersCount DESC")
+    Page<Product> findTopSelling(Pageable pageable);
+
+    /** Featured / picked for you (Alibaba-style) */
+    @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.isFeatured = true ORDER BY p.updatedAt DESC")
+    Page<Product> findFeatured(Pageable pageable);
+
     @Query("SELECT COUNT(p) FROM Product p WHERE p.business.id = :businessId")
     long countByBusinessId(@Param("businessId") UUID businessId);
 

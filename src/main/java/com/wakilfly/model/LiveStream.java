@@ -33,6 +33,10 @@ public class LiveStream {
     @Column(length = 500)
     private String description;
 
+    /** Category for discovery: all, just_chatting, gaming, music, irl, etc. */
+    @Column(length = 64)
+    private String category;
+
     @Column(name = "thumbnail_url")
     private String thumbnailUrl;
 

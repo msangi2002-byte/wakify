@@ -12,5 +12,6 @@ public enum NotificationType {
     PROMOTION_APPROVED,
     PROMOTION_PAUSED,
     PROMOTION_REJECTED,
+    LIVE_STARTED, // "X started a live stream"
     SYSTEM
 }

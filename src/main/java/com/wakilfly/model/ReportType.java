@@ -6,5 +6,7 @@ public enum ReportType {
     COMMENT,
     PRODUCT,
     BUSINESS,
-    MESSAGE
+    MESSAGE,
+    LIVE_STREAM,
+    LIVE_COMMENT
 }

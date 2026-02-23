@@ -31,7 +31,12 @@ public class UserWallet {
 
     @Column(name = "cash_balance", precision = 15, scale = 2)
     @Builder.Default
-    private BigDecimal cashBalance = BigDecimal.ZERO; // TZS from received gifts
+    private BigDecimal cashBalance = BigDecimal.ZERO; // Legacy; use diamondBalance for creator earnings
+
+    /** Creator earnings from gifts (diamonds). Convert to TZS at rate for withdrawal. */
+    @Column(name = "diamond_balance", precision = 15, scale = 4)
+    @Builder.Default
+    private BigDecimal diamondBalance = BigDecimal.ZERO;
 
     @Column(name = "total_coins_purchased")
     @Builder.Default
@@ -71,5 +76,9 @@ public class UserWallet {
     public void addCash(BigDecimal amount) {
         this.cashBalance = this.cashBalance.add(amount);
         this.totalGiftsReceived = this.totalGiftsReceived.add(amount);
+    }
+
+    public void addDiamonds(BigDecimal diamonds) {
+        this.diamondBalance = this.diamondBalance.add(diamonds);
     }
 }

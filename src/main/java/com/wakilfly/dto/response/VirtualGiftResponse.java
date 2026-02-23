@@ -17,4 +17,6 @@ public class VirtualGiftResponse {
     private BigDecimal price;
     private Integer coinValue;
     private Boolean isPremium;
+    /** Level: Basic, Low, Mid, Popular, High, Premium, Ultra, Elite */
+    private String level;
 }

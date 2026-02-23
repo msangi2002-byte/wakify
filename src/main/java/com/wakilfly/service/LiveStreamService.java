@@ -36,6 +36,7 @@ public class LiveStreamService {
     private final LiveStreamJoinRequestRepository joinRequestRepository;
     private final LiveStreamCommentRepository liveStreamCommentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Value("${streaming.rtmp-url}")
     private String rtmpBaseUrl;
@@ -54,7 +55,7 @@ public class LiveStreamService {
      */
     @Transactional
     public LiveStreamResponse createLiveStream(UUID hostId, String title, String description,
-            LocalDateTime scheduledAt) {
+            LocalDateTime scheduledAt, String category) {
         User host = userRepository.findById(hostId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -70,6 +71,7 @@ public class LiveStreamService {
                 .host(host)
                 .title(title)
                 .description(description)
+                .category(category != null && !category.isBlank() ? category : "all")
                 .roomId(roomId)
                 .streamKey(streamKey)
                 .status(scheduledAt != null ? LiveStreamStatus.SCHEDULED : LiveStreamStatus.LIVE)
@@ -103,6 +105,11 @@ public class LiveStreamService {
         liveStream.setStartedAt(LocalDateTime.now());
         liveStream = liveStreamRepository.save(liveStream);
 
+        try {
+            notificationService.notifyLiveStarted(liveStream.getHost(), liveStream.getId());
+        } catch (Exception e) {
+            log.warn("Failed to send live started notifications: {}", e.getMessage());
+        }
         log.info("Live stream started: {}", liveStreamId);
         return mapToLiveStreamResponse(liveStream);
     }
@@ -164,12 +171,19 @@ public class LiveStreamService {
         }
     }
 
+    /** Get current viewer count for a live stream (for SSE broadcast after join/leave). */
+    public Integer getViewerCount(UUID liveStreamId) {
+        return liveStreamRepository.findById(liveStreamId)
+                .map(LiveStream::getViewerCount)
+                .orElse(null);
+    }
+
     /**
-     * Get active live streams
+     * Get active live streams, optionally filtered by category (null or "all" = all).
      */
-    public List<LiveStreamResponse> getActiveLiveStreams(int limit) {
-        Pageable pageable = PageRequest.of(0, limit);
-        return liveStreamRepository.findActiveLiveStreams(pageable).stream()
+    public List<LiveStreamResponse> getActiveLiveStreams(int limit, String category) {
+        Pageable pageable = PageRequest.of(0, Math.min(limit, 100));
+        return liveStreamRepository.findActiveLiveStreamsByCategory(category, pageable).stream()
                 .map(this::mapToLiveStreamResponse)
                 .collect(Collectors.toList());
     }
@@ -400,6 +414,8 @@ public class LiveStreamService {
 
     private LiveStreamCommentResponse mapToCommentResponse(LiveStreamComment c) {
         User a = c.getAuthor();
+        boolean isHost = c.getLiveStream() != null && c.getLiveStream().getHost() != null
+                && a.getId().equals(c.getLiveStream().getHost().getId());
         return LiveStreamCommentResponse.builder()
                 .id(c.getId())
                 .authorId(a.getId())
@@ -407,6 +423,7 @@ public class LiveStreamService {
                 .authorProfilePic(a.getProfilePic())
                 .content(c.getContent())
                 .createdAt(c.getCreatedAt())
+                .isHost(isHost)
                 .build();
     }
 
@@ -436,6 +453,7 @@ public class LiveStreamService {
                         .build())
                 .title(ls.getTitle())
                 .description(ls.getDescription())
+                .category(ls.getCategory())
                 .thumbnailUrl(ls.getThumbnailUrl())
                 .status(ls.getStatus())
                 .roomId(ls.getRoomId())
@@ -478,6 +496,11 @@ public class LiveStreamService {
             liveStream.setStatus(LiveStreamStatus.LIVE);
             liveStream.setStartedAt(LocalDateTime.now());
             liveStreamRepository.save(liveStream);
+            try {
+                notificationService.notifyLiveStarted(liveStream.getHost(), liveStream.getId());
+            } catch (Exception e) {
+                log.warn("Failed to send live started notifications: {}", e.getMessage());
+            }
         }
         return true;
     }

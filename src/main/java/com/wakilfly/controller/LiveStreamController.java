@@ -150,12 +150,16 @@ public class LiveStreamController {
     }
 
     /**
-     * Like a live stream
+     * Like a live stream. Broadcasts to all viewers + creator so like appears on everyone's screen.
      * POST /api/v1/live/{liveId}/like
      */
     @PostMapping("/{liveId}/like")
-    public ResponseEntity<ApiResponse<Void>> likeLive(@PathVariable UUID liveId) {
+    public ResponseEntity<ApiResponse<Void>> likeLive(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID liveId) {
         liveStreamService.likeLiveStream(liveId);
+        var user = userDetailsService.loadUserEntityByUsername(userDetails.getUsername());
+        commentBroadcaster.broadcastLike(liveId, user.getId(), user.getName(), user.getProfilePic());
         return ResponseEntity.ok(ApiResponse.success("Liked"));
     }
 

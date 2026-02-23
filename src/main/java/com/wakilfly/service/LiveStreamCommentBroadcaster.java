@@ -75,6 +75,61 @@ public class LiveStreamCommentBroadcaster {
         });
     }
 
+    /** Broadcast like so all viewers and creator see "X liked" on screen. */
+    public void broadcastLike(UUID liveId, UUID userId, String userName, String userProfilePic) {
+        List<SseEmitter> emitters = liveIdToEmitters.get(liveId);
+        if (emitters == null || emitters.isEmpty()) return;
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("userId", userId != null ? userId.toString() : null);
+        payload.put("userName", userName);
+        payload.put("userProfilePic", userProfilePic);
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            log.warn("SSE like serialize failed: {}", e.getMessage());
+            return;
+        }
+        String data = json;
+        emitters.forEach(emitter -> {
+            try {
+                emitter.send(SseEmitter.event().name("like").data(data));
+            } catch (IOException e) {
+                remove(liveId, emitter);
+            }
+        });
+    }
+
+    /** Broadcast gift_sent so all viewers and creator see gift pop on screen. */
+    public void broadcastGiftSent(UUID liveId, String senderName, UUID giftId, String giftName, String giftIconUrl, Integer coinValue, int quantity) {
+        List<SseEmitter> emitters = liveIdToEmitters.get(liveId);
+        if (emitters == null || emitters.isEmpty()) return;
+        java.util.Map<String, Object> gift = new java.util.LinkedHashMap<>();
+        gift.put("id", giftId != null ? giftId.toString() : null);
+        gift.put("name", giftName);
+        gift.put("iconUrl", giftIconUrl);
+        gift.put("coinValue", coinValue);
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("senderName", senderName);
+        payload.put("gift", gift);
+        payload.put("quantity", quantity);
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            log.warn("SSE gift_sent serialize failed: {}", e.getMessage());
+            return;
+        }
+        String data = json;
+        emitters.forEach(emitter -> {
+            try {
+                emitter.send(SseEmitter.event().name("gift_sent").data(data));
+            } catch (IOException e) {
+                remove(liveId, emitter);
+            }
+        });
+    }
+
     private void remove(UUID liveId, SseEmitter emitter) {
         List<SseEmitter> list = liveIdToEmitters.get(liveId);
         if (list != null) {

@@ -34,6 +34,7 @@ public class GiftService {
     private final LiveStreamRepository liveStreamRepository;
     private final UserCashWithdrawalRepository userCashWithdrawalRepository;
     private final com.wakilfly.repository.SystemConfigRepository systemConfigRepository;
+    private final LiveStreamCommentBroadcaster liveStreamCommentBroadcaster;
 
     // ============================================
     // COIN PACKAGES
@@ -139,6 +140,16 @@ public class GiftService {
         receiverWallet.setTotalGiftsReceived(prev.add(totalValue));
         userWalletRepository.save(receiverWallet);
 
+        if (liveStreamId != null) {
+            liveStreamCommentBroadcaster.broadcastGiftSent(
+                    liveStreamId,
+                    sender.getName(),
+                    gift.getId(),
+                    gift.getName(),
+                    gift.getIconUrl(),
+                    gift.getCoinValue(),
+                    quantity);
+        }
         log.info("Gift sent: {} x{} from {} to {}, coins: {}, creator diamonds: {}",
                 gift.getName(), quantity, sender.getName(), receiver.getName(), totalCoinCost, creatorDiamonds);
     }

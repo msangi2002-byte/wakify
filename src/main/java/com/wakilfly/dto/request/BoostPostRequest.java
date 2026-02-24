@@ -34,4 +34,7 @@ public class BoostPostRequest {
     private Integer targetAgeMax;
     /** MALE, FEMALE, ALL */
     private String targetGender;
+
+    /** CTA link for MESSAGES / TRAFFIC: when user clicks the sponsored post, direct to this URL. */
+    private String ctaLink;
 }

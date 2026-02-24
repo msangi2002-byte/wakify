@@ -422,6 +422,9 @@ public class PostService {
                                     if (promotion != null) {
                                         response.setIsSponsored(true);
                                         response.setPromotionId(promotion.getId());
+                                        if (promotion.getCtaLink() != null && !promotion.getCtaLink().isBlank()) {
+                                            response.setSponsorCtaLink(promotion.getCtaLink());
+                                        }
                                     }
                                     return response;
                                 }).collect(Collectors.toList()))

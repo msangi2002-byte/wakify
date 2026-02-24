@@ -47,6 +47,8 @@ public class PostResponse {
     private Boolean isSponsored;
     /** Promotion ID if this post is sponsored */
     private UUID promotionId;
+    /** CTA link for MESSAGES/TRAFFIC: when user clicks sponsored post, open this URL */
+    private String sponsorCtaLink;
 
     @Data
     @Builder

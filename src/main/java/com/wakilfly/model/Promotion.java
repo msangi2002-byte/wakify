@@ -104,6 +104,10 @@ public class Promotion {
     @Column(name = "audience_type", length = 32)
     private String audienceType;
 
+    /** CTA link for MESSAGES/TRAFFIC: when user clicks the sponsored post, open this URL. */
+    @Column(name = "cta_link", length = 2048)
+    private String ctaLink;
+
     /** Ad quality score 0–100. Higher = better delivery in auction. */
     @Column(name = "ad_quality_score")
     private Double adQualityScore;

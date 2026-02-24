@@ -84,7 +84,8 @@ public class PostBoostController {
         Map<String, Object> result = postBoostService.createPostBoost(
                 userId, postId, targetReach, paymentPhone,
                 objective, audienceType, targetRegionsCsv,
-                request.getTargetAgeMin(), request.getTargetAgeMax(), request.getTargetGender());
+                request.getTargetAgeMin(), request.getTargetAgeMax(), request.getTargetGender(),
+                request.getCtaLink());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Post boost created. Payment initiated.", result));
     }

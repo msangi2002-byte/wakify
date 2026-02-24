@@ -49,7 +49,8 @@ public class PostBoostService {
             String targetRegionsCsv,
             Integer targetAgeMin,
             Integer targetAgeMax,
-            String targetGender) {
+            String targetGender,
+            String ctaLink) {
         // Validate user
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -102,6 +103,7 @@ public class PostBoostService {
         if (targetAgeMin != null) promoBuilder.targetAgeMin(targetAgeMin);
         if (targetAgeMax != null) promoBuilder.targetAgeMax(targetAgeMax);
         if (targetGender != null && !targetGender.isBlank()) promoBuilder.targetGender(targetGender);
+        if (ctaLink != null && !ctaLink.isBlank()) promoBuilder.ctaLink(ctaLink.trim());
         Promotion promotion = promoBuilder.build();
 
         promotion = promotionRepository.save(promotion);

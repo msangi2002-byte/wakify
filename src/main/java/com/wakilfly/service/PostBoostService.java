@@ -108,6 +108,22 @@ public class PostBoostService {
 
         promotion = promotionRepository.save(promotion);
 
+        if (systemSettingsService.getSponsoredFreeMode()) {
+            promotion.setIsPaid(true);
+            promotion.setStatus(com.wakilfly.model.PromotionStatus.ACTIVE);
+            promotionRepository.save(promotion);
+            log.info("Post boost created: promotionId={}, postId={}, targetReach={}. Free mode: no payment required.",
+                    promotion.getId(), postId, targetReach);
+            Map<String, Object> response = new HashMap<>();
+            response.put("promotionId", promotion.getId());
+            response.put("orderId", null);
+            response.put("targetReach", targetReach);
+            response.put("totalPrice", BigDecimal.ZERO);
+            response.put("pricePerPerson", pricePerPerson);
+            response.put("message", "Post boost is live. Sponsored content is currently free.");
+            return response;
+        }
+
         // Initiate USSD payment
         String description = "Post boost: Reach " + targetReach + " people";
         String orderId = paymentService.initiatePayment(

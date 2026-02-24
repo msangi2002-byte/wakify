@@ -1292,6 +1292,22 @@ public class AdminService {
         return stats;
     }
 
+    /** Get promotions settings (e.g. sponsored free mode). */
+    public Map<String, Object> getPromotionsSettings() {
+        Map<String, Object> settings = new HashMap<>();
+        settings.put("sponsoredFreeMode", systemSettingsService.getSponsoredFreeMode());
+        return settings;
+    }
+
+    /** Update promotions settings (e.g. sponsored free mode). */
+    @Transactional
+    public Map<String, Object> updatePromotionsSettings(Boolean sponsoredFreeMode) {
+        if (sponsoredFreeMode != null) {
+            systemSettingsService.setSponsoredFreeMode(sponsoredFreeMode);
+        }
+        return getPromotionsSettings();
+    }
+
     @Transactional
     public PromotionResponse adminApprovePromotion(UUID promotionId, UUID adminId) {
         Promotion promotion = promotionRepository.findById(promotionId)

@@ -688,6 +688,30 @@ public class AdminController {
     }
 
     /**
+     * Get promotions settings (e.g. sponsored free mode).
+     * GET /api/v1/admin/promotions/settings
+     */
+    @GetMapping("/promotions/settings")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPromotionsSettings(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        return ResponseEntity.ok(ApiResponse.success(adminService.getPromotionsSettings()));
+    }
+
+    /**
+     * Update promotions settings (e.g. sponsored free mode).
+     * PUT /api/v1/admin/promotions/settings
+     */
+    @PutMapping("/promotions/settings")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updatePromotionsSettings(
+            @RequestBody Map<String, Boolean> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        requireArea(userDetails, PROMOTIONS);
+        Boolean sponsoredFreeMode = body != null ? body.get("sponsoredFreeMode") : null;
+        return ResponseEntity.ok(ApiResponse.success(adminService.updatePromotionsSettings(sponsoredFreeMode)));
+    }
+
+    /**
      * Admin pause promotion
      * POST /api/v1/admin/promotions/{id}/pause
      */

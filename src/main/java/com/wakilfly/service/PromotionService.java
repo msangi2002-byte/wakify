@@ -40,6 +40,7 @@ public class PromotionService {
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
+    private final SystemSettingsService systemSettingsService;
 
     /**
      * Create a new promotion
@@ -83,22 +84,28 @@ public class PromotionService {
 
         promotion = promotionRepository.save(promotion);
 
-        // Create payment record
-        Payment payment = Payment.builder()
-                .user(user)
-                .amount(request.getBudget())
-                .type(PaymentType.PROMOTION)
-                .status(PaymentStatus.PENDING)
-                .description("Promotion: " + request.getTitle())
-                .transactionId("PROMO" + System.currentTimeMillis())
-                .paymentPhone(request.getPaymentPhone())
-                .build();
+        if (systemSettingsService.getSponsoredFreeMode()) {
+            promotion.setIsPaid(true);
+            promotion.setStatus(PromotionStatus.ACTIVE);
+            promotionRepository.save(promotion);
+            log.info("Promotion {} created by user {}. Free mode: no payment required.", promotion.getId(), userId);
+        } else {
+            // Create payment record
+            Payment payment = Payment.builder()
+                    .user(user)
+                    .amount(request.getBudget())
+                    .type(PaymentType.PROMOTION)
+                    .status(PaymentStatus.PENDING)
+                    .description("Promotion: " + request.getTitle())
+                    .transactionId("PROMO" + System.currentTimeMillis())
+                    .paymentPhone(request.getPaymentPhone())
+                    .build();
 
-        payment = paymentRepository.save(payment);
-        promotion.setPaymentId(payment.getId());
-        promotionRepository.save(promotion);
-
-        log.info("Promotion {} created by user {}. Awaiting payment.", promotion.getId(), userId);
+            payment = paymentRepository.save(payment);
+            promotion.setPaymentId(payment.getId());
+            promotionRepository.save(promotion);
+            log.info("Promotion {} created by user {}. Awaiting payment.", promotion.getId(), userId);
+        }
 
         return mapToResponse(promotion);
     }
@@ -144,6 +151,18 @@ public class PromotionService {
                 .status(PromotionStatus.PENDING)
                 .build();
         promotion = promotionRepository.save(promotion);
+
+        if (systemSettingsService.getSponsoredFreeMode()) {
+            promotion.setIsPaid(true);
+            promotion.setStatus(PromotionStatus.ACTIVE);
+            promotionRepository.save(promotion);
+            log.info("Product/Business boost created: promotionId={}, type={}. Free mode: no payment required.", promotion.getId(), request.getType());
+            Map<String, Object> result = new HashMap<>();
+            result.put("promotionId", promotion.getId());
+            result.put("orderId", null);
+            result.put("message", "Promotion is live. Sponsored content is currently free.");
+            return result;
+        }
 
         String description = "Promotion: " + title;
         String orderId = paymentService.initiatePayment(

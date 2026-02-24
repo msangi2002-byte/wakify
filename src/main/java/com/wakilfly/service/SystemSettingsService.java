@@ -22,6 +22,8 @@ public class SystemSettingsService {
     public static final String KEY_TO_BE_BUSINESS_AMOUNT = "to_be_business_amount";
     public static final String KEY_ADS_PRICE_PER_PERSON = "ads_price_per_person";
     public static final String KEY_PAYMENT_DEMO_MODE = "payment_demo_mode";
+    /** When true, all sponsored promotions are free (no payment required). */
+    public static final String KEY_SPONSORED_FREE_MODE = "sponsored_free_mode";
     private static final BigDecimal DEFAULT_AGENT_REGISTER = new BigDecimal("20000.00");
     private static final BigDecimal DEFAULT_TO_BE_BUSINESS = new BigDecimal("10000.00");
     private static final BigDecimal DEFAULT_ADS_PRICE_PER_PERSON = new BigDecimal("2.00");
@@ -69,6 +71,16 @@ public class SystemSettingsService {
     /** When true, PaymentService skips HarakaPay and marks payment SUCCESS immediately (demo mode). */
     public boolean getPaymentDemoMode() {
         return getBoolean(KEY_PAYMENT_DEMO_MODE, false);
+    }
+
+    /** When true, all new sponsored promotions are free (no payment; promotions go ACTIVE immediately). */
+    public boolean getSponsoredFreeMode() {
+        return getBoolean(KEY_SPONSORED_FREE_MODE, false);
+    }
+
+    /** Set sponsored free mode (admin only). */
+    public void setSponsoredFreeMode(boolean value) {
+        setBoolean(KEY_SPONSORED_FREE_MODE, value);
     }
 
     private boolean getBoolean(String key, boolean defaultValue) {

@@ -425,6 +425,9 @@ public class PostService {
                                         if (promotion.getCtaLink() != null && !promotion.getCtaLink().isBlank()) {
                                             response.setSponsorCtaLink(promotion.getCtaLink());
                                         }
+                                        if (promotion.getObjective() != null) {
+                                            response.setSponsorObjective(promotion.getObjective().name());
+                                        }
                                     }
                                     return response;
                                 }).collect(Collectors.toList()))
@@ -538,6 +541,9 @@ public class PostService {
                                                     if (promotion != null) {
                                                         response.setIsSponsored(true);
                                                         response.setPromotionId(promotion.getId());
+                                                        if (promotion.getObjective() != null) {
+                                                            response.setSponsorObjective(promotion.getObjective().name());
+                                                        }
                                                     }
                                                     return response;
                                                 })
@@ -596,19 +602,55 @@ public class PostService {
                                 .build();
         }
 
-        /** Reels feed: from following + public; ranked by watch time, completion, shares, comments, likes + recency (algorithm-based). */
+        /** Reels feed: from following + public; ranked by watch time, completion, shares, comments, likes + recency. Includes sponsored reels (boosted REEL posts). */
         public PagedResponse<PostResponse> getReels(int page, int size, UUID currentUserId) {
                 List<Post> candidates = currentUserId != null
                         ? postRepository.findReelsCandidatesForUser(currentUserId, PageRequest.of(0, 300))
                         : postRepository.findByPostType(PostType.REEL, PageRequest.of(0, 300)).getContent();
+                java.util.Set<UUID> candidateIds = candidates.stream().map(Post::getId).collect(Collectors.toSet());
+                LocalDateTime now = LocalDateTime.now();
+                User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+                List<Promotion> activePromotions = promotionRepository.findActivePromotions(now).stream()
+                        .filter(p -> p.getType() == PromotionType.POST && p.getTargetId() != null
+                                && (currentUserId == null || !p.getUser().getId().equals(currentUserId))
+                                && (p.getReach() == null || p.getImpressions() == null || p.getImpressions() < p.getReach()))
+                        .collect(Collectors.toList());
+                for (Promotion p : activePromotions) {
+                        if (!shouldShowPromotionToUser(p, currentUserId, currentUser)) continue;
+                        postRepository.findById(p.getTargetId()).filter(post -> post.getPostType() == PostType.REEL
+                                        && !post.getIsDeleted() && post.getVisibility() == Visibility.PUBLIC)
+                                .filter(post -> !candidateIds.contains(post.getId()))
+                                .ifPresent(post -> { candidates.add(post); candidateIds.add(post.getId()); });
+                }
                 List<Post> scored = scoreAndSortReels(candidates, currentUserId);
                 int total = scored.size();
                 int from = page * size;
                 int to = Math.min(from + size, total);
                 List<Post> pageContent = from < total ? scored.subList(from, to) : List.of();
+                java.util.Map<UUID, Promotion> postPromotionMap = activePromotions.stream()
+                        .filter(p -> p.getTargetId() != null)
+                        .collect(Collectors.toMap(Promotion::getTargetId, prom -> prom, (a, b) -> a));
+                for (Post post : pageContent) {
+                        Promotion promotion = postPromotionMap.get(post.getId());
+                        if (promotion != null) {
+                                try { promotionService.trackImpression(promotion.getId()); } catch (Exception e) { log.warn("Reels impression track failed: {}", e.getMessage()); }
+                        }
+                }
                 int totalPages = size > 0 ? (int) Math.ceil((double) total / size) : 0;
                 return PagedResponse.<PostResponse>builder()
-                                .content(pageContent.stream().map(post -> mapToPostResponse(post, currentUserId)).collect(Collectors.toList()))
+                                .content(pageContent.stream().map(post -> {
+                                        PostResponse response = mapToPostResponse(post, currentUserId);
+                                        Promotion promotion = postPromotionMap.get(post.getId());
+                                        if (promotion != null) {
+                                                response.setIsSponsored(true);
+                                                response.setPromotionId(promotion.getId());
+                                                if (promotion.getCtaLink() != null && !promotion.getCtaLink().isBlank())
+                                                        response.setSponsorCtaLink(promotion.getCtaLink());
+                                                if (promotion.getObjective() != null)
+                                                        response.setSponsorObjective(promotion.getObjective().name());
+                                        }
+                                        return response;
+                                }).collect(Collectors.toList()))
                                 .page(page).size(size).totalElements((long) total).totalPages(totalPages)
                                 .last(to >= total).first(page == 0)
                                 .build();
@@ -771,15 +813,47 @@ public class PostService {
                 }
         }
 
-        /** Stories ordered by closeness (how often I viewed this author's stories) then recency (latest first). */
+        /** Stories ordered by closeness (how often I viewed this author's stories) then recency (latest first). Includes sponsored stories (boosted STORY posts). */
         public List<PostResponse> getActiveStories(UUID userId) {
                 LocalDateTime since = LocalDateTime.now().minusHours(24);
-                List<Post> stories = postRepository.findActiveStories(userId, since);
+                List<Post> stories = new java.util.ArrayList<>(postRepository.findActiveStories(userId, since));
+                java.util.Set<UUID> storyIds = stories.stream().map(Post::getId).collect(Collectors.toSet());
+                User currentUser = userId != null ? userRepository.findById(userId).orElse(null) : null;
+                LocalDateTime now = LocalDateTime.now();
+                List<Promotion> activePromotions = promotionRepository.findActivePromotions(now).stream()
+                        .filter(p -> p.getType() == PromotionType.POST && p.getTargetId() != null
+                                && !p.getUser().getId().equals(userId)
+                                && (p.getReach() == null || p.getImpressions() == null || p.getImpressions() < p.getReach()))
+                        .collect(Collectors.toList());
+                for (Promotion p : activePromotions) {
+                        if (!shouldShowPromotionToUser(p, userId, currentUser)) continue;
+                        postRepository.findById(p.getTargetId())
+                                .filter(post -> post.getPostType() == PostType.STORY && !post.getIsDeleted()
+                                        && !post.getCreatedAt().isBefore(since))
+                                .filter(post -> !storyIds.contains(post.getId()))
+                                .ifPresent(post -> { stories.add(post); storyIds.add(post.getId()); });
+                }
                 stories.sort(Comparator
                                 .comparingLong((Post p) -> storyViewRepository.countByViewer_IdAndPost_Author_Id(userId, p.getAuthor().getId())).reversed()
                                 .thenComparing(Post::getCreatedAt, Comparator.reverseOrder()));
+                java.util.Map<UUID, Promotion> postPromotionMap = activePromotions.stream()
+                        .filter(p -> p.getTargetId() != null)
+                        .collect(Collectors.toMap(Promotion::getTargetId, prom -> prom, (a, b) -> a));
                 return stories.stream()
-                                .map(post -> mapToPostResponse(post, userId))
+                                .map(post -> {
+                                        PostResponse response = mapToPostResponse(post, userId);
+                                        Promotion promotion = postPromotionMap.get(post.getId());
+                                        if (promotion != null) {
+                                                response.setIsSponsored(true);
+                                                response.setPromotionId(promotion.getId());
+                                                if (promotion.getCtaLink() != null && !promotion.getCtaLink().isBlank())
+                                                        response.setSponsorCtaLink(promotion.getCtaLink());
+                                                if (promotion.getObjective() != null)
+                                                        response.setSponsorObjective(promotion.getObjective().name());
+                                                try { promotionService.trackImpression(promotion.getId()); } catch (Exception e) { log.warn("Story impression track failed: {}", e.getMessage()); }
+                                        }
+                                        return response;
+                                })
                                 .collect(Collectors.toList());
         }
 

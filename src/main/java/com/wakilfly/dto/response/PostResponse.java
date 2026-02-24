@@ -49,6 +49,8 @@ public class PostResponse {
     private UUID promotionId;
     /** CTA link for MESSAGES/TRAFFIC: when user clicks sponsored post, open this URL */
     private String sponsorCtaLink;
+    /** Objective for this sponsored post: ENGAGEMENT, TRAFFIC, MESSAGES, etc. ENGAGEMENT = open in post view to comment/like/share */
+    private String sponsorObjective;
 
     @Data
     @Builder

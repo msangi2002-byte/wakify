@@ -13,4 +13,6 @@ public class BusinessFeedbackResponse {
     private PostResponse.UserSummary user;
     private String content;
     private LocalDateTime createdAt;
+    private Boolean read;
+    private LocalDateTime readAt;
 }

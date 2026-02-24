@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -66,12 +67,43 @@ public class BusinessFeedbackService {
                 .build();
     }
 
+    @Transactional
+    public BusinessFeedbackResponse markAsRead(UUID feedbackId, UUID ownerId) {
+        Business business = businessRepository.findByOwnerId(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", "owner", ownerId));
+        BusinessFeedback feedback = feedbackRepository.findById(feedbackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Feedback", "id", feedbackId));
+        if (!feedback.getBusiness().getId().equals(business.getId())) {
+            throw new BadRequestException("Feedback does not belong to your business");
+        }
+        feedback.setRead(true);
+        feedback.setReadAt(java.time.LocalDateTime.now());
+        feedback = feedbackRepository.save(feedback);
+        return mapToResponse(feedback);
+    }
+
+    @Transactional
+    public int markAllAsRead(UUID ownerId) {
+        Business business = businessRepository.findByOwnerId(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", "owner", ownerId));
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<BusinessFeedback> unread = feedbackRepository.findByBusinessIdAndReadFalse(business.getId());
+        for (BusinessFeedback f : unread) {
+            f.setRead(true);
+            f.setReadAt(now);
+            feedbackRepository.save(f);
+        }
+        return unread.size();
+    }
+
     private BusinessFeedbackResponse mapToResponse(BusinessFeedback f) {
         User u = f.getUser();
         return BusinessFeedbackResponse.builder()
                 .id(f.getId())
                 .content(f.getContent())
                 .createdAt(f.getCreatedAt())
+                .read(f.getRead())
+                .readAt(f.getReadAt())
                 .user(PostResponse.UserSummary.builder()
                         .id(u.getId())
                         .name(u.getName())

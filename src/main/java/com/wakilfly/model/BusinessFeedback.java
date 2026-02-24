@@ -34,4 +34,11 @@ public class BusinessFeedback {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "is_read", nullable = false)
+    @Builder.Default
+    private Boolean read = false;
+
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 }

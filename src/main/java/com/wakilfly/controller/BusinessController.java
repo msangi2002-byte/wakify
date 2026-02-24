@@ -226,4 +226,31 @@ public class BusinessController {
         PagedResponse<BusinessFeedbackResponse> feedback = businessFeedbackService.getMyBusinessFeedback(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(feedback));
     }
+
+    /**
+     * Mark a single feedback as read.
+     * PUT /api/v1/business/feedback/{id}/read
+     */
+    @PutMapping("/business/feedback/{id}/read")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<BusinessFeedbackResponse>> markFeedbackAsRead(
+            @PathVariable("id") UUID feedbackId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        BusinessFeedbackResponse updated = businessFeedbackService.markAsRead(feedbackId, userId);
+        return ResponseEntity.ok(ApiResponse.success(updated));
+    }
+
+    /**
+     * Mark all feedback as read.
+     * POST /api/v1/business/feedback/read-all
+     */
+    @PostMapping("/business/feedback/read-all")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Integer>> markAllFeedbackAsRead(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = userDetailsService.loadUserEntityByUsername(userDetails.getUsername()).getId();
+        int count = businessFeedbackService.markAllAsRead(userId);
+        return ResponseEntity.ok(ApiResponse.success(count));
+    }
 }

@@ -5,6 +5,7 @@ import com.wakilfly.dto.request.CreatePromotionRequest;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PromotionPackageResponse;
 import com.wakilfly.dto.response.PromotionResponse;
+import com.wakilfly.dto.response.SidebarSponsoredResponse;
 import com.wakilfly.exception.BadRequestException;
 import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.model.*;
@@ -37,6 +38,7 @@ public class PromotionService {
     private final UserRepository userRepository;
     private final BusinessRepository businessRepository;
     private final PostRepository postRepository;
+    private final PostMediaRepository postMediaRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
@@ -404,6 +406,41 @@ public class PromotionService {
             promotionRepository.save(promotion);
             log.info("Promotion {} completed", promotion.getId());
         }
+    }
+
+    /**
+     * Get active boost (POST) promotions for the sidebar "Sponsored" block.
+     * Returns title, description, image from post media, and link (ctaLink or post).
+     */
+    public List<SidebarSponsoredResponse> getSidebarSponsored(int limit) {
+        LocalDateTime now = LocalDateTime.now();
+        List<Promotion> active = promotionRepository.findActivePromotions(now).stream()
+                .filter(p -> p.getType() == PromotionType.POST && p.getTargetId() != null)
+                .limit(limit)
+                .collect(Collectors.toList());
+        return active.stream()
+                .map(p -> {
+                    String imageUrl = null;
+                    String targetUrl = (p.getCtaLink() != null && !p.getCtaLink().isBlank())
+                            ? p.getCtaLink().trim()
+                            : "/app/post/" + p.getTargetId();
+                    List<com.wakilfly.model.PostMedia> media = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(p.getTargetId());
+                    if (!media.isEmpty()) {
+                        com.wakilfly.model.PostMedia first = media.get(0);
+                        imageUrl = first.getThumbnailUrl() != null && !first.getThumbnailUrl().isBlank()
+                                ? first.getThumbnailUrl()
+                                : first.getUrl();
+                    }
+                    return SidebarSponsoredResponse.builder()
+                            .id(p.getId())
+                            .title(p.getTitle() != null ? p.getTitle() : "Sponsored")
+                            .description(p.getDescription() != null ? p.getDescription() : "")
+                            .imageUrl(imageUrl)
+                            .targetUrl(targetUrl)
+                            .createdAt(p.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     // Helper methods

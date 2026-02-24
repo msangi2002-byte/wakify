@@ -6,6 +6,7 @@ import com.wakilfly.dto.response.ApiResponse;
 import com.wakilfly.dto.response.PagedResponse;
 import com.wakilfly.dto.response.PromotionPackageResponse;
 import com.wakilfly.dto.response.PromotionResponse;
+import com.wakilfly.dto.response.SidebarSponsoredResponse;
 import com.wakilfly.model.PromotionType;
 import com.wakilfly.security.CustomUserDetailsService;
 import com.wakilfly.service.PromotionService;
@@ -28,6 +29,17 @@ public class PromotionController {
 
     private final PromotionService promotionService;
     private final CustomUserDetailsService userDetailsService;
+
+    /**
+     * Get active boosted posts for sidebar "Sponsored" block (public).
+     * GET /api/v1/promotions/sidebar?limit=5
+     */
+    @GetMapping("/sidebar")
+    public ResponseEntity<ApiResponse<List<SidebarSponsoredResponse>>> getSidebarSponsored(
+            @RequestParam(defaultValue = "5") int limit) {
+        List<SidebarSponsoredResponse> list = promotionService.getSidebarSponsored(Math.min(limit, 20));
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
 
     /**
      * Get promotion packages (public)

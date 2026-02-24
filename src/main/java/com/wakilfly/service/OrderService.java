@@ -548,6 +548,8 @@ public class OrderService {
                         .website(business.getWebsite())
                         .region(business.getRegion())
                         .district(business.getDistrict())
+                        .latitude(business.getLatitude())
+                        .longitude(business.getLongitude())
                         .build())
                 .items(order.getItems().stream()
                         .map(item -> OrderResponse.OrderItemResponse.builder()

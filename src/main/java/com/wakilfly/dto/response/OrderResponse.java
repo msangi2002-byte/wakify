@@ -91,6 +91,8 @@ public class OrderResponse {
         private String website;
         private String region;
         private String district;
+        private Double latitude;
+        private Double longitude;
     }
 
     @Data

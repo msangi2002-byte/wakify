@@ -973,7 +973,7 @@ CREATE TABLE `orders` (
   `payment_method` varchar(255) DEFAULT NULL,
   `seller_notes` text,
   `shipped_at` datetime(6) DEFAULT NULL,
-  `status` enum('PENDING','CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED','CANCELLED','REFUNDED') DEFAULT NULL,
+  `status` enum('DRAFT','PENDING_CONFIRMATION','PENDING','CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED','CANCELLED','REFUNDED') DEFAULT NULL,
   `subtotal` decimal(12,2) NOT NULL,
   `total` decimal(12,2) NOT NULL,
   `tracking_number` varchar(255) DEFAULT NULL,

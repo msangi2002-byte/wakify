@@ -14,6 +14,7 @@ import com.wakilfly.exception.ResourceNotFoundException;
 import com.wakilfly.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -73,6 +74,10 @@ public class PostService {
         private final ReelViewRepository reelViewRepository;
         private final VideoThumbnailService videoThumbnailService;
         private final PromotionRepository promotionRepository;
+
+        /** Optional placeholder image URL for video media that have no thumbnail (cover like reels/story). */
+        @Value("${app.video-placeholder-url:}")
+        private String videoPlaceholderUrl;
         private final PromotionService promotionService;
 
         private static final Pattern HASHTAG_PATTERN = Pattern.compile("#([\\w\\u0080-\\uFFFF]+)");
@@ -1184,7 +1189,7 @@ public class PostService {
                                                                 .id(m.getId())
                                                                 .url(m.getUrl())
                                                                 .type(m.getType().name())
-                                                                .thumbnailUrl(m.getThumbnailUrl())
+                                                                .thumbnailUrl(effectiveThumbnailUrl(m))
                                                                 .build())
                                                 .collect(Collectors.toList()))
                                 .productTags(post.getProductTags().stream()
@@ -1243,7 +1248,7 @@ public class PostService {
                                                                 .id(m.getId())
                                                                 .url(m.getUrl())
                                                                 .type(m.getType().name())
-                                                                .thumbnailUrl(m.getThumbnailUrl())
+                                                                .thumbnailUrl(effectiveThumbnailUrl(m))
                                                                 .build())
                                                 .collect(Collectors.toList()))
                                 .location(post.getLocation())
@@ -1251,6 +1256,15 @@ public class PostService {
                                 .storyGradient(post.getStoryGradient())
                                 .createdAt(post.getCreatedAt())
                                 .build();
+        }
+
+        /** For video media without thumbnail, return placeholder URL so feed/sponsored can show a cover (like reels/story). */
+        private String effectiveThumbnailUrl(PostMedia m) {
+                if (m.getType() == MediaType.VIDEO
+                                && (m.getThumbnailUrl() == null || m.getThumbnailUrl().isBlank())
+                                && videoPlaceholderUrl != null && !videoPlaceholderUrl.isBlank())
+                        return videoPlaceholderUrl;
+                return m.getThumbnailUrl();
         }
 
         private CommentResponse mapToCommentResponse(Comment comment, UUID currentUserId) {

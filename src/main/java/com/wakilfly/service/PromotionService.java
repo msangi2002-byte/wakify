@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,10 @@ public class PromotionService {
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final SystemSettingsService systemSettingsService;
+
+    /** Optional placeholder image URL for video posts that have no thumbnail (e.g. in Sponsored block). */
+    @Value("${app.video-placeholder-url:}")
+    private String videoPlaceholderUrl;
 
     /**
      * Create a new promotion
@@ -427,9 +432,16 @@ public class PromotionService {
                     List<com.wakilfly.model.PostMedia> media = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(p.getTargetId());
                     if (!media.isEmpty()) {
                         com.wakilfly.model.PostMedia first = media.get(0);
-                        imageUrl = first.getThumbnailUrl() != null && !first.getThumbnailUrl().isBlank()
-                                ? first.getThumbnailUrl()
-                                : first.getUrl();
+                        if (first.getType() == MediaType.VIDEO) {
+                            // Video: use thumbnail or placeholder so Sponsored block shows a cover (like reels/story). Never use video URL as image.
+                            imageUrl = (first.getThumbnailUrl() != null && !first.getThumbnailUrl().isBlank())
+                                    ? first.getThumbnailUrl()
+                                    : (videoPlaceholderUrl != null && !videoPlaceholderUrl.isBlank() ? videoPlaceholderUrl : null);
+                        } else {
+                            imageUrl = (first.getThumbnailUrl() != null && !first.getThumbnailUrl().isBlank())
+                                    ? first.getThumbnailUrl()
+                                    : first.getUrl();
+                        }
                     }
                     return SidebarSponsoredResponse.builder()
                             .id(p.getId())

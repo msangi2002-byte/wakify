@@ -70,7 +70,7 @@ So after sponsoring, the logic is: **create promotion → (if paid) complete pay
 ## 5. UI
 
 - **Feed (Home):** Sponsored posts show a “Sponsored” label and optional CTA button; time shown is the **real post time** (from `createdAt`).
-- **Sidebar “Sponsored” block:** Shows active **ads** (from AdService/getActiveAds), not the same as boosted posts; dates there are the **ad’s real createdAt** when available.
+- **Sidebar “Sponsored” block:** Shows active **ads** (from PromotionService.getSidebarSponsored). Video posts use thumbnail as cover (like reels/story); set app.video-placeholder-url for videos without thumbnail.
 - **Boost page:** User can see analytics (impressions, clicks, CTR, spent) and manage campaigns (pause/resume/cancel).
 
 ---

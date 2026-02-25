@@ -59,7 +59,7 @@ class PostBoostServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () ->
                 postBoostService.createPostBoost(userId, postId, 1000, "+255712345678",
-                        PromotionObjective.ENGAGEMENT, "AUTOMATIC", null, null, null, null));
+                        PromotionObjective.ENGAGEMENT, "AUTOMATIC", null, null, null, null, null));
     }
 
     @Test
@@ -69,6 +69,6 @@ class PostBoostServiceTest {
 
         assertThrows(BadRequestException.class, () ->
                 postBoostService.createPostBoost(userId, postId, 0, "+255712345678",
-                        PromotionObjective.ENGAGEMENT, "AUTOMATIC", null, null, null, null));
+                        PromotionObjective.ENGAGEMENT, "AUTOMATIC", null, null, null, null, null));
     }
 }

@@ -429,11 +429,13 @@ public class PromotionService {
                     String targetUrl = (p.getCtaLink() != null && !p.getCtaLink().isBlank())
                             ? p.getCtaLink().trim()
                             : "/app/post/" + p.getTargetId();
+                    String videoUrl = null;
                     List<com.wakilfly.model.PostMedia> media = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(p.getTargetId());
                     if (!media.isEmpty()) {
                         com.wakilfly.model.PostMedia first = media.get(0);
                         if (first.getType() == MediaType.VIDEO) {
-                            // Video: use thumbnail or placeholder so Sponsored block shows a cover (like reels/story). Never use video URL as image.
+                            videoUrl = first.getUrl();
+                            // Video: use thumbnail or placeholder for imageUrl; when missing, UI can use videoUrl with preload=metadata to show first frame (like reels/story).
                             imageUrl = (first.getThumbnailUrl() != null && !first.getThumbnailUrl().isBlank())
                                     ? first.getThumbnailUrl()
                                     : (videoPlaceholderUrl != null && !videoPlaceholderUrl.isBlank() ? videoPlaceholderUrl : null);
@@ -448,6 +450,7 @@ public class PromotionService {
                             .title(p.getTitle() != null ? p.getTitle() : "Sponsored")
                             .description(p.getDescription() != null ? p.getDescription() : "")
                             .imageUrl(imageUrl)
+                            .videoUrl(videoUrl)
                             .targetUrl(targetUrl)
                             .createdAt(p.getCreatedAt())
                             .build();

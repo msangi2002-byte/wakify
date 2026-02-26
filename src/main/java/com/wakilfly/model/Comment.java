@@ -7,7 +7,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -50,6 +52,12 @@ public class Comment {
     @Column(name = "is_deleted")
     @Builder.Default
     private Boolean isDeleted = false;
+
+    /** Tagged/mentioned users in this comment (@mentions) */
+    @ManyToMany
+    @JoinTable(name = "comment_tagged_users", joinColumns = @JoinColumn(name = "comment_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @Builder.Default
+    private Set<User> taggedUsers = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

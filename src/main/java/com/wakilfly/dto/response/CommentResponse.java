@@ -24,4 +24,6 @@ public class CommentResponse {
     private Integer repliesCount;
     private List<CommentResponse> replies;
     private LocalDateTime createdAt;
+    /** Tagged/mentioned users in this comment (@mentions). */
+    private List<PostResponse.UserSummary> taggedUsers;
 }

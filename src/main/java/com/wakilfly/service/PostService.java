@@ -1068,6 +1068,14 @@ public class PostService {
                                 .parent(parent)
                                 .build();
 
+                if (request.getTaggedUserIds() != null && !request.getTaggedUserIds().isEmpty()) {
+                        Set<User> tagged = request.getTaggedUserIds().stream()
+                                        .map(id -> userRepository.findById(id).orElse(null))
+                                        .filter(u -> u != null)
+                                        .collect(Collectors.toSet());
+                        comment.setTaggedUsers(tagged);
+                }
+
                 comment = commentRepository.save(comment);
 
                 // Create notification
@@ -1285,6 +1293,16 @@ public class PostService {
                                 .map(r -> mapToCommentResponse(r, currentUserId))
                                 .collect(Collectors.toList());
 
+                List<PostResponse.UserSummary> taggedUsersList = comment.getTaggedUsers() != null
+                                ? comment.getTaggedUsers().stream()
+                                                .map(u -> PostResponse.UserSummary.builder()
+                                                                .id(u.getId())
+                                                                .name(u.getName())
+                                                                .profilePic(u.getProfilePic())
+                                                                .build())
+                                                .collect(Collectors.toList())
+                                : List.of();
+
                 return CommentResponse.builder()
                                 .id(comment.getId())
                                 .content(comment.getContent())
@@ -1299,6 +1317,7 @@ public class PostService {
                                 .repliesCount(replies.size())
                                 .replies(replies)
                                 .createdAt(comment.getCreatedAt())
+                                .taggedUsers(taggedUsersList)
                                 .build();
         }
 

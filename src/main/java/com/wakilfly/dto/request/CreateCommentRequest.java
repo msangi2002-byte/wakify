@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -20,4 +21,7 @@ public class CreateCommentRequest {
     private String content;
 
     private UUID parentId; // For replies
+
+    /** User IDs mentioned in the comment (e.g. from @ mention picker). */
+    private List<UUID> taggedUserIds;
 }

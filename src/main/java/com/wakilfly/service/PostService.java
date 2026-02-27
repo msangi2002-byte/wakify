@@ -249,11 +249,17 @@ public class PostService {
                                         .findByPostIdOrderByDisplayOrderAsc(post.getOriginalPost().getId());
                         if (!originalMedia.isEmpty()) {
                                 PostMedia first = originalMedia.get(0);
+                                String coverThumb = first.getThumbnailUrl();
+                                if (first.getType() == MediaType.VIDEO
+                                                && (coverThumb == null || coverThumb.isBlank())
+                                                && videoPlaceholderUrl != null && !videoPlaceholderUrl.isBlank()) {
+                                        coverThumb = videoPlaceholderUrl;
+                                }
                                 PostMedia cover = PostMedia.builder()
                                                 .post(post)
                                                 .url(first.getUrl())
                                                 .type(first.getType())
-                                                .thumbnailUrl(first.getThumbnailUrl())
+                                                .thumbnailUrl(coverThumb)
                                                 .displayOrder(0)
                                                 .build();
                                 postMediaRepository.save(cover);

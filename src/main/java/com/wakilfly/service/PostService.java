@@ -241,6 +241,25 @@ public class PostService {
                         }
                 }
 
+                // Share-to-story: story has no own media; use original post's first media as cover
+                // so story ring and full-screen view show the shared post (not black).
+                if (post.getPostType() == PostType.STORY && post.getOriginalPost() != null
+                                && postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId()).isEmpty()) {
+                        List<PostMedia> originalMedia = postMediaRepository
+                                        .findByPostIdOrderByDisplayOrderAsc(post.getOriginalPost().getId());
+                        if (!originalMedia.isEmpty()) {
+                                PostMedia first = originalMedia.get(0);
+                                PostMedia cover = PostMedia.builder()
+                                                .post(post)
+                                                .url(first.getUrl())
+                                                .type(first.getType())
+                                                .thumbnailUrl(first.getThumbnailUrl())
+                                                .displayOrder(0)
+                                                .build();
+                                postMediaRepository.save(cover);
+                        }
+                }
+
                 // Validation for REEL: Must have at least one video
                 if (post.getPostType() == PostType.REEL && !post.getMedia().isEmpty()) {
                         boolean hasVideo = post.getMedia().stream()

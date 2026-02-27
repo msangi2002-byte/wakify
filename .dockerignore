@@ -1,0 +1,23 @@
+# Build and IDE
+.gradle
+build
+!gradle/wrapper/gradle-wrapper.jar
+.idea
+*.iml
+.vscode
+*.log
+
+# Git and system
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Docs and scripts (not needed for image)
+docs
+*.md
+*.sql
+
+# Temp and uploads
+uploads
+logs
